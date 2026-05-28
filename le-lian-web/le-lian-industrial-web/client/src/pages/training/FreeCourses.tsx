@@ -1,0 +1,308 @@
+import { useState, useCallback } from 'react';
+import { Globe, RefreshCw, Plus, Sparkles, Clock, Filter, Check } from 'lucide-react';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface FreeCourse {
+  id: string;
+  source: string;
+  sourceColor: string;
+  title: string;
+  category: string;
+  hours: number;
+  langs: string[];
+  isNew: boolean;
+  desc: string;
+}
+
+// ── Mock data ──────────────────────────────────────────────────────────────────
+const FREE_COURSES: FreeCourse[] = [
+  { id: 'f1', source: '勞動部勞動力發展署', sourceColor: 'blue', title: '工廠安全衛生管理實務', category: '安全衛生', hours: 6, langs: ['zh'], isNew: true, desc: '工廠安全管理制度建立與執行實務，含危害辨識與風險評估。' },
+  { id: 'f2', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '金屬製造業職能基準課程', category: '專業技能', hours: 8, langs: ['zh'], isNew: true, desc: '依iCAP金屬製造業職能基準設計，含衝壓、焊接、塗裝等核心技術。' },
+  { id: 'f3', source: '經濟部工業局', sourceColor: 'green', title: '智慧製造導入實務', category: '技術提升', hours: 4, langs: ['zh', 'en'], isNew: false, desc: '工業4.0與智慧製造導入策略，含IoT、大數據應用案例。' },
+  { id: 'f4', source: '勞動部', sourceColor: 'blue', title: '職業安全衛生法規研習', category: '法規遵循', hours: 3, langs: ['zh'], isNew: true, desc: '職業安全衛生法及相關子法最新修訂重點說明。' },
+  { id: 'f5', source: '金屬工業研究發展中心', sourceColor: 'orange', title: '衝壓成型技術進階', category: '專業技能', hours: 12, langs: ['zh'], isNew: false, desc: '衝壓成型進階技術，含模具設計、材料特性與品質控制。' },
+  { id: 'f6', source: '勞動部', sourceColor: 'blue', title: '外籍移工生活適應訓練', category: '管理能力', hours: 3, langs: ['zh', 'th', 'vi', 'id'], isNew: true, desc: '協助外籍員工適應台灣職場文化，含法規說明與生活資訊。' },
+  { id: 'f7', source: '財團法人中衛發展中心', sourceColor: 'teal', title: '5S推行與現場管理實務', category: '現場管理', hours: 6, langs: ['zh'], isNew: false, desc: '5S整理整頓清掃清潔素養推行步驟與維持方法。' },
+  { id: 'f8', source: 'TTI台灣訓練品質協會', sourceColor: 'red', title: 'TTQS訓練品質系統輔導', category: '品質管理', hours: 8, langs: ['zh'], isNew: true, desc: 'TTQS人才發展品質管理系統評核準備與文件建置輔導。' },
+  { id: 'f9', source: '勞動力發展署', sourceColor: 'blue', title: '焊接技術人員認證準備', category: '專業技能', hours: 16, langs: ['zh'], isNew: false, desc: '焊接技術人員技能認證考試準備課程，含理論與實作。' },
+  { id: 'f10', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '生產管理與效益提升', category: '管理能力', hours: 6, langs: ['zh', 'en'], isNew: true, desc: '生產排程、產能規劃與製程效益分析實務課程。' },
+  { id: 'f11', source: '環保署', sourceColor: 'green', title: '工廠廢棄物管理法規', category: '法規遵循', hours: 3, langs: ['zh'], isNew: false, desc: '工廠廢棄物分類、申報及合法處理相關法規說明。' },
+  { id: 'f12', source: '勞動部', sourceColor: 'blue', title: '性別工作平等法實務', category: '法規遵循', hours: 2, langs: ['zh'], isNew: false, desc: '性別平等教育、性騷擾防治與職場友善環境建立。' },
+];
+
+const ALL_CATEGORIES = ['全部', ...Array.from(new Set(FREE_COURSES.map((c) => c.category)))];
+const ALL_SOURCES = ['全部', ...Array.from(new Set(FREE_COURSES.map((c) => c.source)))];
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const SOURCE_COLOR_MAP: Record<string, string> = {
+  blue: 'bg-blue-500',
+  purple: 'bg-purple-500',
+  green: 'bg-green-500',
+  orange: 'bg-orange-500',
+  teal: 'bg-teal-500',
+  red: 'bg-red-500',
+};
+
+const SOURCE_BADGE_MAP: Record<string, string> = {
+  blue: 'bg-blue-100 text-blue-700 border-blue-200',
+  purple: 'bg-purple-100 text-purple-700 border-purple-200',
+  green: 'bg-green-100 text-green-700 border-green-200',
+  orange: 'bg-orange-100 text-orange-700 border-orange-200',
+  teal: 'bg-teal-100 text-teal-700 border-teal-200',
+  red: 'bg-red-100 text-red-700 border-red-200',
+};
+
+const LANG_FLAGS: Record<string, string> = {
+  zh: '🇹🇼',
+  en: '🇬🇧',
+  th: '🇹🇭',
+  id: '🇮🇩',
+  vi: '🇻🇳',
+};
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-gray-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg animate-fade-in-up">
+      <Check size={16} className="text-green-400 shrink-0" />
+      <span>{msg}</span>
+      <button onClick={onClose} className="ml-2 text-gray-400 hover:text-white text-xs">✕</button>
+    </div>
+  );
+}
+
+// ── Course Card ────────────────────────────────────────────────────────────────
+function CourseCard({
+  course,
+  onAddToLibrary,
+  onGenerateQuiz,
+}: {
+  course: FreeCourse;
+  onAddToLibrary: (id: string) => void;
+  onGenerateQuiz: (id: string) => void;
+}) {
+  const [quizState, setQuizState] = useState<'idle' | 'loading' | 'done'>('idle');
+  const [added, setAdded] = useState(false);
+
+  function handleAdd() {
+    setAdded(true);
+    onAddToLibrary(course.id);
+  }
+
+  function handleQuiz() {
+    if (quizState !== 'idle') return;
+    setQuizState('loading');
+    onGenerateQuiz(course.id);
+    setTimeout(() => setQuizState('done'), 2000);
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
+      {/* Top color strip */}
+      <div className={`${SOURCE_COLOR_MAP[course.sourceColor] || 'bg-gray-400'} h-1.5`} />
+
+      <div className="p-4 flex flex-col flex-1 gap-3">
+        {/* Source badge + NEW badge */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${SOURCE_BADGE_MAP[course.sourceColor] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+            {course.source}
+          </span>
+          {course.isNew && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs font-bold animate-pulse">
+              NEW
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{course.title}</h3>
+
+        {/* Description */}
+        <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 flex-1">{course.desc}</p>
+
+        {/* Bottom bar */}
+        <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <Clock size={12} />
+            {course.hours}h
+          </span>
+          <span className="text-xs text-gray-400 ml-1">
+            {course.langs.map((l) => LANG_FLAGS[l] || l).join(' ')}
+          </span>
+          <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+            <button
+              onClick={handleAdd}
+              disabled={added}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                added
+                  ? 'bg-green-100 text-green-700 border border-green-200 cursor-default'
+                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
+              }`}
+            >
+              {added ? <Check size={11} /> : <Plus size={11} />}
+              {added ? '已加入' : '加入課程庫'}
+            </button>
+            <button
+              onClick={handleQuiz}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border ${
+                quizState === 'done'
+                  ? 'bg-green-100 text-green-700 border-green-200 cursor-default'
+                  : quizState === 'loading'
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200'
+              }`}
+            >
+              {quizState === 'loading' && <RefreshCw size={11} className="animate-spin" />}
+              {quizState === 'done' ? '✅ 已生成5題測驗' : quizState === 'loading' ? '生成中...' : (
+                <>
+                  <Sparkles size={11} />
+                  自動生成測驗 AI
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
+export default function FreeCourses() {
+  const [filterCat, setFilterCat] = useState('全部');
+  const [filterSource, setFilterSource] = useState('全部');
+  const [filterLang, setFilterLang] = useState('全部');
+  const [fetching, setFetching] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [toast, setToast] = useState('');
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 4000);
+  }, []);
+
+  function handleFetch() {
+    if (fetching) return;
+    setFetching(true);
+    setTimeout(() => {
+      setFetching(false);
+      setLastUpdated(new Date());
+      showToast('已從5個來源抓取最新課程');
+    }, 3000);
+  }
+
+  function handleAddToLibrary(id: string) {
+    showToast(`已加入課程庫，正在自動生成測驗...（課程 ${id}）`);
+  }
+
+  function handleGenerateQuiz(_id: string) {
+    // handled inside card
+  }
+
+  const filtered = FREE_COURSES.filter((c) => {
+    if (filterCat !== '全部' && c.category !== filterCat) return false;
+    if (filterSource !== '全部' && c.source !== filterSource) return false;
+    if (filterLang !== '全部' && !c.langs.includes(filterLang)) return false;
+    return true;
+  });
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Page header */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Globe size={28} className="text-green-600" />
+        <h1 className="text-2xl font-bold text-gray-900">免費製造業課程</h1>
+        <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold border border-green-200">
+          免費資源
+        </span>
+
+        <div className="ml-auto flex items-center gap-3 flex-wrap">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">
+              最後更新：{lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={handleFetch}
+            disabled={fetching}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ${
+              fetching
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
+          >
+            <RefreshCw size={15} className={fetching ? 'animate-spin' : ''} />
+            {fetching ? '抓取中...' : '自動抓取最新課程'}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter size={16} className="text-gray-400 shrink-0" />
+          <span className="text-sm font-medium text-gray-600 mr-1">篩選：</span>
+
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">類別</label>
+            <select
+              value={filterCat}
+              onChange={(e) => setFilterCat(e.target.value)}
+              className="pl-2 pr-6 py-1 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {ALL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">來源</label>
+            <select
+              value={filterSource}
+              onChange={(e) => setFilterSource(e.target.value)}
+              className="pl-2 pr-6 py-1 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {ALL_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">語言</label>
+            <select
+              value={filterLang}
+              onChange={(e) => setFilterLang(e.target.value)}
+              className="pl-2 pr-6 py-1 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {['全部', 'zh', 'en', 'th', 'vi', 'id'].map((l) => (
+                <option key={l} value={l}>{l === '全部' ? '全部' : `${LANG_FLAGS[l]} ${l.toUpperCase()}`}</option>
+              ))}
+            </select>
+          </div>
+
+          <span className="ml-auto text-xs text-gray-400">共 {filtered.length} 門課程</span>
+        </div>
+      </div>
+
+      {/* Course grid */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Globe size={40} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">目前沒有符合條件的課程</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              onAddToLibrary={handleAddToLibrary}
+              onGenerateQuiz={handleGenerateQuiz}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && <Toast msg={toast} onClose={() => setToast('')} />}
+    </div>
+  );
+}

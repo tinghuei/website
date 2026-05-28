@@ -5,6 +5,10 @@ import {
   ClipboardCheck,
   Settings,
   ChevronRight,
+  Target,
+  Calendar,
+  Globe,
+  Trophy,
 } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { Link, useLocation } from 'wouter';
@@ -13,6 +17,10 @@ const navItems = [
   { to: '/training/dashboard', icon: LayoutDashboard, label: '儀表板', roles: ['employee', 'manager', 'admin'] },
   { to: '/training/courses', icon: BookOpen, label: '課程庫', roles: ['employee', 'manager', 'admin'] },
   { to: '/training/my-courses', icon: GraduationCap, label: '我的課程', roles: ['employee'] },
+  { to: '/training/competency', icon: Target, label: '職能分析', roles: ['employee', 'manager', 'admin'] },
+  { to: '/training/annual-plan', icon: Calendar, label: '年度計劃', roles: ['manager', 'admin', 'hr'] },
+  { to: '/training/free-courses', icon: Globe, label: '免費課程', roles: ['employee', 'manager', 'admin'] },
+  { to: '/training/achievements', icon: Trophy, label: '成就獎勵', roles: ['employee', 'manager', 'admin'] },
   { to: '/training/review', icon: ClipboardCheck, label: '審核面板', roles: ['manager', 'admin'] },
   { to: '/training/admin', icon: Settings, label: '系統管理', roles: ['admin'] },
 ];

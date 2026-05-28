@@ -29,6 +29,9 @@ import TrainingTakeQuiz from "./pages/training/TrainingTakeQuiz";
 import TrainingReviewPanel from "./pages/training/TrainingReviewPanel";
 import TrainingAdminPanel from "./pages/training/TrainingAdminPanel";
 import TrainingLayout from "./components/training/TrainingLayout";
+import CompetencyAnalysis from "./pages/training/CompetencyAnalysis";
+import AnnualTrainingPlan from "./pages/training/AnnualTrainingPlan";
+import FreeCourses from "./pages/training/FreeCourses";
 
 function Router() {
   return (
@@ -104,6 +107,27 @@ function Router() {
         {() => (
           <TrainingLayout roles={['admin']}>
             <TrainingAdminPanel />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/competency"}>
+        {() => (
+          <TrainingLayout>
+            <CompetencyAnalysis />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/annual-plan"}>
+        {() => (
+          <TrainingLayout roles={['manager', 'admin', 'hr']}>
+            <AnnualTrainingPlan />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/free-courses"}>
+        {() => (
+          <TrainingLayout>
+            <FreeCourses />
           </TrainingLayout>
         )}
       </Route>

@@ -1,0 +1,498 @@
+import { useState } from 'react';
+import { Trophy, Star, Gift, Award, TrendingUp } from 'lucide-react';
+import { useTrainingAuth } from '../../context/TrainingAuthContext';
+
+// ── Data ────────────────────────────────────────────────────────────────────────
+
+const POINT_HISTORY = [
+  { date: '2026-05-20', reason: '完成職業安全衛生課程', points: 50, type: '課程完成' },
+  { date: '2026-05-18', reason: '測驗滿分獎勵', points: 30, type: '測驗獎勵' },
+  { date: '2026-05-15', reason: '提交心得報告', points: 20, type: '報告提交' },
+  { date: '2026-05-10', reason: '連續登入7天', points: 15, type: '出勤獎勵' },
+  { date: '2026-04-28', reason: '完成年度必修課程', points: 100, type: '年度達標' },
+];
+
+const TOTAL_POINTS = POINT_HISTORY.reduce((s, h) => s + h.points, 0);
+const THIS_MONTH_POINTS = POINT_HISTORY.filter((h) => h.date >= '2026-05-01').reduce((s, h) => s + h.points, 0);
+
+interface Badge {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  earned: boolean;
+  date?: string;
+  progress?: number;
+  total?: number;
+}
+
+const BADGES: Badge[] = [
+  { id: 'b1', name: '安全先鋒', icon: '🛡️', desc: '完成所有安全衛生課程', earned: true, date: '2026-05-20' },
+  { id: 'b2', name: '學習達人', icon: '📚', desc: '單月完成5門課程', earned: true, date: '2026-05-15' },
+  { id: 'b3', name: '滿分王者', icon: '🎯', desc: '測驗連續3次滿分', earned: false, progress: 2, total: 3 },
+  { id: 'b4', name: '準時達標', icon: '⏰', desc: '所有必修課程提前完成', earned: false, progress: 60, total: 100 },
+  { id: 'b5', name: '多語達人', icon: '🌏', desc: '使用3種不同語言完成課程', earned: false, progress: 1, total: 3 },
+  { id: 'b6', name: '職能大師', icon: '⭐', desc: '職能評估達到標準以上', earned: true, date: '2026-04-10' },
+  { id: 'b7', name: '年度MVP', icon: '🏆', desc: '年度訓練時數排名第一', earned: false, progress: 45, total: 100 },
+  { id: 'b8', name: '知識傳承', icon: '💡', desc: '完成5次課程討論留言', earned: true, date: '2026-05-01' },
+];
+
+interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  dept: string;
+  points: number;
+  level: string;
+  isMe?: boolean;
+}
+
+const LEADERBOARD: LeaderboardEntry[] = [
+  { rank: 1, name: '李大明', dept: '品保課', points: 1250, level: '💎' },
+  { rank: 2, name: '王小華', dept: '工程課', points: 980, level: '🥇' },
+  { rank: 3, name: '陳美玲', dept: '組裝一線', points: 820, level: '🥇' },
+  { rank: 4, name: '王小明', dept: '組裝一線', points: 215, level: '🥈', isMe: true },
+  { rank: 5, name: '林志偉', dept: '品保課', points: 180, level: '🥈' },
+  { rank: 6, name: '黃雅婷', dept: '工程課', points: 150, level: '🥉' },
+  { rank: 7, name: '劉俊達', dept: '生管課', points: 120, level: '🥉' },
+];
+
+interface RedeemItem {
+  id: string;
+  name: string;
+  icon: string;
+  points: number;
+  stock: number;
+  desc: string;
+}
+
+const REDEEM_ITEMS: RedeemItem[] = [
+  { id: 'r1', name: '半天特休假', icon: '🌴', points: 500, stock: 10, desc: '兌換半天特休假一次' },
+  { id: 'r2', name: '書籍禮品卡 NT$500', icon: '📖', points: 300, stock: 20, desc: '可至合作書店使用' },
+  { id: 'r3', name: '下午茶券', icon: '☕', points: 150, stock: 50, desc: '公司福委會下午茶一份' },
+  { id: 'r4', name: '外訓課程補助 NT$1000', icon: '🎓', points: 800, stock: 5, desc: '補助參加外部訓練費用' },
+  { id: 'r5', name: '停車優先月票', icon: '🚗', points: 200, stock: 15, desc: '公司停車場優先月票一個月' },
+  { id: 'r6', name: '彈性上下班一週', icon: '⏱️', points: 600, stock: 8, desc: '一週彈性上下班(主管核准)' },
+];
+
+// ── Helpers ─────────────────────────────────────────────────────────────────────
+
+function getLevel(points: number): { label: string; emoji: string; next: number; current: number } {
+  if (points >= 1000) return { label: '鑽石學員', emoji: '💎', next: 1000, current: 1000 };
+  if (points >= 500)  return { label: '金牌學員', emoji: '🥇', next: 1000, current: 500 };
+  if (points >= 200)  return { label: '銀牌學員', emoji: '🥈', next: 500, current: 200 };
+  return { label: '銅牌學員', emoji: '🥉', next: 200, current: 0 };
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  '課程完成': 'bg-blue-100 text-blue-700',
+  '測驗獎勵': 'bg-purple-100 text-purple-700',
+  '報告提交': 'bg-green-100 text-green-700',
+  '出勤獎勵': 'bg-yellow-100 text-yellow-700',
+  '年度達標': 'bg-red-100 text-red-700',
+};
+
+// ── Sub-components ───────────────────────────────────────────────────────────────
+
+function PointsTab() {
+  const level = getLevel(TOTAL_POINTS);
+  const progressInLevel = TOTAL_POINTS - level.current;
+  const rangeInLevel = level.next - level.current;
+  const progressPct = level.label === '鑽石學員' ? 100 : Math.min(100, (progressInLevel / rangeInLevel) * 100);
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: '總積分', value: TOTAL_POINTS, color: 'blue', icon: Star },
+          { label: '本月新增', value: THIS_MONTH_POINTS, color: 'green', icon: TrendingUp },
+          { label: '可兌換積分', value: TOTAL_POINTS, color: 'purple', icon: Gift },
+        ].map(({ label, value, color, icon: Icon }) => (
+          <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
+            <div className={`w-10 h-10 rounded-lg bg-${color}-50 flex items-center justify-center mx-auto mb-3`}>
+              <Icon size={20} className={`text-${color}-600`} />
+            </div>
+            <p className={`text-3xl font-bold text-${color}-600`}>{value}</p>
+            <p className="text-sm text-gray-500 mt-1">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Point history */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900">積分歷史紀錄</h3>
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              {['日期', '事由', '積分', '類型'].map((h) => (
+                <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {POINT_HISTORY.map((row, i) => (
+              <tr key={i} className="hover:bg-gray-50 transition-colors">
+                <td className="px-5 py-3 text-gray-600">{row.date}</td>
+                <td className="px-5 py-3 text-gray-800 font-medium">{row.reason}</td>
+                <td className="px-5 py-3 text-blue-600 font-bold">+{row.points}</td>
+                <td className="px-5 py-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[row.type] || 'bg-gray-100 text-gray-700'}`}>
+                    {row.type}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Badges */}
+      <div>
+        <h3 className="font-semibold text-gray-900 mb-4">我的徽章</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {BADGES.map((badge) => (
+            <div
+              key={badge.id}
+              className={`bg-white rounded-xl border shadow-sm p-4 flex flex-col items-center text-center transition-all ${
+                badge.earned ? 'border-yellow-200 hover:shadow-md' : 'border-gray-100 opacity-60'
+              }`}
+            >
+              <div className={`text-4xl mb-2 ${!badge.earned ? 'grayscale' : ''}`}>{badge.icon}</div>
+              <p className={`text-sm font-semibold mb-1 ${badge.earned ? 'text-gray-900' : 'text-gray-500'}`}>
+                {badge.name}
+              </p>
+              <p className="text-xs text-gray-400 mb-2">{badge.desc}</p>
+              {badge.earned ? (
+                <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full font-medium">
+                  {badge.date} 獲得
+                </span>
+              ) : (
+                <div className="w-full">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>進度</span>
+                    <span>{badge.progress}/{badge.total}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div
+                      className="bg-blue-400 h-1.5 rounded-full"
+                      style={{ width: `${Math.min(100, ((badge.progress ?? 0) / (badge.total ?? 1)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeaderboardTab() {
+  const [scope, setScope] = useState<'dept' | 'company'>('company');
+  const [period, setPeriod] = useState<'monthly' | 'alltime'>('alltime');
+
+  const data = scope === 'dept'
+    ? LEADERBOARD.filter((e) => e.dept === '組裝一線')
+    : LEADERBOARD;
+
+  const rankStyle = (rank: number) => {
+    if (rank === 1) return 'text-yellow-500 font-bold text-lg';
+    if (rank === 2) return 'text-gray-400 font-bold text-lg';
+    if (rank === 3) return 'text-amber-600 font-bold text-lg';
+    return 'text-gray-600 font-semibold';
+  };
+
+  const rankMedal = (rank: number) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return `${rank}`;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden">
+          {(['dept', 'company'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setScope(s)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                scope === s ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {s === 'dept' ? '本部門' : '全公司'}
+            </button>
+          ))}
+        </div>
+        <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden">
+          {([['monthly', '本月'], ['alltime', '累計']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setPeriod(val)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                period === val ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Top 3 podium */}
+      {data.length >= 3 && (
+        <div className="flex items-end justify-center gap-4 py-4">
+          {[1, 0, 2].map((i) => {
+            const entry = data[i];
+            if (!entry) return null;
+            const heights = ['h-24', 'h-32', 'h-20'];
+            const colors = ['bg-gray-200', 'bg-yellow-100', 'bg-amber-100'];
+            return (
+              <div key={entry.rank} className="flex flex-col items-center">
+                <div className="text-2xl mb-1">{rankMedal(entry.rank)}</div>
+                <p className="text-sm font-semibold text-gray-800">{entry.name}</p>
+                <p className="text-xs text-gray-500 mb-2">{entry.points}分</p>
+                <div className={`w-20 ${heights[i]} ${colors[i]} rounded-t-lg flex items-end justify-center pb-2`}>
+                  <span className={`text-xl ${rankStyle(entry.rank)}`}>{rankMedal(entry.rank)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Full table */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              {['排名', '姓名', '部門', '積分', '等級'].map((h) => (
+                <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {data.map((entry) => (
+              <tr
+                key={entry.rank}
+                className={`transition-colors ${entry.isMe ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-gray-50'}`}
+              >
+                <td className="px-5 py-3">
+                  <span className={rankStyle(entry.rank)}>{rankMedal(entry.rank)}</span>
+                </td>
+                <td className="px-5 py-3">
+                  <span className={`font-medium ${entry.isMe ? 'text-blue-700' : 'text-gray-800'}`}>
+                    {entry.name}{entry.isMe && <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">我</span>}
+                  </span>
+                </td>
+                <td className="px-5 py-3 text-gray-500">{entry.dept}</td>
+                <td className="px-5 py-3 font-bold text-blue-600">{entry.points}</td>
+                <td className="px-5 py-3 text-xl">{entry.level}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RedeemTab() {
+  const [redeemed, setRedeemed] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [successItems, setSuccessItems] = useState<Set<string>>(new Set());
+
+  const handleConfirm = () => {
+    if (!confirming) return;
+    setSuccessItems((prev) => new Set(prev).add(confirming));
+    setConfirming(null);
+    setRedeemed(confirming);
+    setTimeout(() => setRedeemed(null), 3000);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Available points */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl p-5 text-white">
+        <p className="text-sm opacity-80 mb-1">您目前可兌換積分</p>
+        <p className="text-4xl font-bold">{TOTAL_POINTS} 點</p>
+      </div>
+
+      {redeemed && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-green-700 font-medium text-center">
+          兌換成功！申請已送出，請等待HR確認。
+        </div>
+      )}
+
+      {/* Item grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {REDEEM_ITEMS.map((item) => {
+          const canAfford = TOTAL_POINTS >= item.points;
+          const done = successItems.has(item.id);
+          return (
+            <div key={item.id} className={`bg-white rounded-xl border shadow-sm p-5 flex flex-col ${!canAfford ? 'opacity-60' : 'hover:shadow-md transition-shadow'}`}>
+              <div className="text-4xl mb-3">{item.icon}</div>
+              <h4 className="font-semibold text-gray-900 mb-1">{item.name}</h4>
+              <p className="text-xs text-gray-500 mb-3 flex-1">{item.desc}</p>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-blue-600 font-bold">{item.points} 點</span>
+                <span className="text-xs text-gray-400">庫存 {item.stock}</span>
+              </div>
+              {done ? (
+                <div className="text-center text-sm text-green-600 font-medium bg-green-50 rounded-lg py-2">
+                  已申請兌換
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirming(item.id)}
+                  disabled={!canAfford}
+                  className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    canAfford
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {canAfford ? '兌換' : '積分不足'}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Confirm dialog */}
+      {confirming && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <div className="text-center mb-4">
+              <div className="text-4xl mb-3">{REDEEM_ITEMS.find((i) => i.id === confirming)?.icon}</div>
+              <h3 className="font-bold text-gray-900 text-lg mb-1">確認兌換</h3>
+              <p className="text-gray-600 text-sm">
+                確定要兌換「{REDEEM_ITEMS.find((i) => i.id === confirming)?.name}」嗎？
+              </p>
+              <p className="text-blue-600 font-bold mt-1">
+                消耗 {REDEEM_ITEMS.find((i) => i.id === confirming)?.points} 點積分
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirming(null)}
+                className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirm}
+                className="flex-1 py-2.5 bg-blue-600 rounded-xl text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                確認兌換
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'points', label: '我的積分 & 徽章', icon: Star },
+  { id: 'leaderboard', label: '排行榜', icon: Award },
+  { id: 'redeem', label: '積分兌換', icon: Gift },
+] as const;
+
+type TabId = typeof TABS[number]['id'];
+
+export default function Achievements() {
+  const { currentUser } = useTrainingAuth();
+  const [activeTab, setActiveTab] = useState<TabId>('points');
+
+  const level = getLevel(TOTAL_POINTS);
+  const progressInLevel = TOTAL_POINTS - level.current;
+  const rangeInLevel = level.next - level.current;
+  const progressPct = level.label === '鑽石學員' ? 100 : Math.min(100, (progressInLevel / rangeInLevel) * 100);
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+            <Trophy size={22} className="text-yellow-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">成就獎勵中心</h1>
+            <p className="text-sm text-gray-500">{currentUser?.name} · {currentUser?.department}</p>
+          </div>
+        </div>
+
+        {/* Level card */}
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-5 text-white">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-3xl">{level.emoji}</span>
+                <span className="text-xl font-bold">{level.label}</span>
+              </div>
+              <p className="text-blue-200 text-sm">累積積分：{TOTAL_POINTS} 點</p>
+            </div>
+            <div className="text-right">
+              {level.label !== '鑽石學員' && (
+                <>
+                  <p className="text-blue-200 text-xs">距下一等級</p>
+                  <p className="text-2xl font-bold">{level.next - TOTAL_POINTS}</p>
+                  <p className="text-blue-200 text-xs">積分</p>
+                </>
+              )}
+              {level.label === '鑽石學員' && (
+                <p className="text-blue-200 text-sm">最高等級</p>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-xs text-blue-200 mb-1.5">
+              <span>{level.current} 點</span>
+              {level.label !== '鑽石學員' && <span>{level.next} 點</span>}
+            </div>
+            <div className="w-full bg-blue-500/50 rounded-full h-2">
+              <div
+                className="bg-white h-2 rounded-full transition-all duration-700"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === id
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Icon size={16} />
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {activeTab === 'points' && <PointsTab />}
+      {activeTab === 'leaderboard' && <LeaderboardTab />}
+      {activeTab === 'redeem' && <RedeemTab />}
+    </div>
+  );
+}

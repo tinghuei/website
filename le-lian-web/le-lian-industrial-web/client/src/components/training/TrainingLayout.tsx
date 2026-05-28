@@ -3,6 +3,7 @@ import { useLocation, Redirect } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import TrainingNavbar from './TrainingNavbar';
 import TrainingSidebar from './TrainingSidebar';
+import AIChatbot from './AIChatbot';
 
 interface TrainingLayoutProps {
   children: ReactNode;
@@ -30,6 +31,7 @@ export default function TrainingLayout({ children, roles }: TrainingLayoutProps)
           {children}
         </main>
       </div>
+      <AIChatbot />
     </div>
   );
 }

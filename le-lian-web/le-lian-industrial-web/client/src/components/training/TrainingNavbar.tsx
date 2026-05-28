@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Bell, LogOut, ChevronDown, Check } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { Link, useLocation } from 'wouter';
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function TrainingNavbar() {
   const { currentUser, logout, getUserNotifications, markNotificationRead, markAllNotificationsRead } = useTrainingAuth();
@@ -53,6 +54,7 @@ export default function TrainingNavbar() {
       </div>
 
       <div className="flex items-center gap-3">
+        <LanguageSwitcher />
         {/* Notification Bell */}
         <div className="relative">
           <button

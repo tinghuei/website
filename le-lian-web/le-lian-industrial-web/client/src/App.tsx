@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { TrainingAuthProvider } from "./context/TrainingAuthContext";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Services from "./pages/Services";
@@ -17,10 +18,22 @@ import CompetencyAssessment from "./pages/CompetencyAssessment";
 import DetailedCompetencyAssessment from "./pages/DetailedCompetencyAssessment";
 import AdminDashboard from "./pages/AdminDashboard";
 
+// Training system pages
+import TrainingLogin from "./pages/training/TrainingLogin";
+import TrainingDashboard from "./pages/training/TrainingDashboard";
+import TrainingCourseLibrary from "./pages/training/TrainingCourseLibrary";
+import TrainingCourseDetail from "./pages/training/TrainingCourseDetail";
+import TrainingMyCourses from "./pages/training/TrainingMyCourses";
+import TrainingSubmitReport from "./pages/training/TrainingSubmitReport";
+import TrainingTakeQuiz from "./pages/training/TrainingTakeQuiz";
+import TrainingReviewPanel from "./pages/training/TrainingReviewPanel";
+import TrainingAdminPanel from "./pages/training/TrainingAdminPanel";
+import TrainingLayout from "./components/training/TrainingLayout";
+
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
+      {/* Main site routes */}
       <Route path={"/"} component={Home} />
       <Route path={"/about"} component={About} />
       <Route path={"/services"} component={Services} />
@@ -33,17 +46,74 @@ function Router() {
       <Route path={"/detailed-competency-assessment"} component={DetailedCompetencyAssessment} />
       <Route path={"/admin-dashboard"} component={AdminDashboard} />
       <Route path={"/contact"} component={Contact} />
+
+      {/* Training portal login (no auth required) */}
+      <Route path={"/training/portal"} component={TrainingLogin} />
+
+      {/* Training system authenticated routes */}
+      <Route path={"/training/dashboard"}>
+        {() => (
+          <TrainingLayout>
+            <TrainingDashboard />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/courses"}>
+        {() => (
+          <TrainingLayout>
+            <TrainingCourseLibrary />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/courses/:id/submit"}>
+        {() => (
+          <TrainingLayout>
+            <TrainingSubmitReport />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/courses/:id/quiz"}>
+        {() => (
+          <TrainingLayout>
+            <TrainingTakeQuiz />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/courses/:id"}>
+        {() => (
+          <TrainingLayout>
+            <TrainingCourseDetail />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/my-courses"}>
+        {() => (
+          <TrainingLayout roles={['employee']}>
+            <TrainingMyCourses />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/review"}>
+        {() => (
+          <TrainingLayout roles={['manager', 'admin']}>
+            <TrainingReviewPanel />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/admin"}>
+        {() => (
+          <TrainingLayout roles={['admin']}>
+            <TrainingAdminPanel />
+          </TrainingLayout>
+        )}
+      </Route>
+
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
 }
-
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
   return (
@@ -54,7 +124,9 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <TrainingAuthProvider>
+            <Router />
+          </TrainingAuthProvider>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

@@ -335,6 +335,27 @@ export default function Training() {
         </div>
       </section>
 
+      {/* Training Portal CTA */}
+      <section className="py-16 md:py-24 bg-blue-600 text-white">
+        <div className="container text-center">
+          <div className="max-w-2xl mx-auto">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <BookOpen className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold mb-4">員工訓練系統</h2>
+            <p className="text-lg text-blue-100 mb-8">
+              進入樂聯工業線上訓練平台，完成必修課程、提交心得報告、取得結業證書
+            </p>
+            <Link href="/training/portal">
+              <Button size="lg" className="bg-white hover:bg-blue-50 text-blue-700 font-bold text-lg px-8 py-4">
+                進入訓練系統
+              </Button>
+            </Link>
+            <p className="text-blue-200 text-sm mt-4">支援員工、主管、管理員多角色登入</p>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-16 md:py-24 bg-primary text-white">
         <div className="container text-center">

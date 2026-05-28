@@ -1,0 +1,486 @@
+import { useState, useMemo } from 'react';
+import jsPDF from 'jspdf';
+import { FileText, Printer, Download, Save, Eye, EyeOff } from 'lucide-react';
+import { useTrainingAuth } from '../../context/TrainingAuthContext';
+
+const DEPARTMENTS = [
+  '品保課', '資訊課', '業務課', '人力資源課', '財務課',
+  '組裝一線', '組裝二線', '焊接線', '沖壓線', '塗裝線',
+  '工程課', '生管課',
+];
+
+interface FeeForm {
+  employeeName: string;
+  employeeId: string;
+  department: string;
+  title: string;
+  courseName: string;
+  trainingType: '外部訓練' | '內部訓練';
+  institution: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  courseFee: number;
+  certFee: number;
+  travelFee: number;
+  otherFee: number;
+}
+
+const INITIAL_FORM: FeeForm = {
+  employeeName: '',
+  employeeId: '',
+  department: '',
+  title: '',
+  courseName: '',
+  trainingType: '外部訓練',
+  institution: '',
+  startDate: '',
+  endDate: '',
+  location: '',
+  courseFee: 0,
+  certFee: 0,
+  travelFee: 0,
+  otherFee: 0,
+};
+
+function getServicePeriod(totalFee: number): string {
+  if (totalFee < 3000) return '無服務年資限制';
+  if (totalFee < 10000) return '訓練完畢後需服務至少 6 個月';
+  if (totalFee < 20000) return '訓練完畢後需服務至少 1 年';
+  if (totalFee < 40000) return '訓練完畢後需服務至少 2 年';
+  return '訓練完畢後需服務年數由雙方專案訂定';
+}
+
+function fmt(n: number) {
+  return n.toLocaleString('zh-TW');
+}
+
+interface DocumentPreviewProps {
+  form: FeeForm;
+  totalFee: number;
+  servicePeriod: string;
+}
+
+function DocumentPreview({ form, totalFee, servicePeriod }: DocumentPreviewProps) {
+  return (
+    <div
+      id="fee-agreement-print"
+      className="bg-white border border-gray-300 rounded-lg p-8 font-serif text-sm leading-relaxed shadow-inner"
+      style={{ fontFamily: '"Noto Serif TC", "Noto Serif CJK TC", serif' }}
+    >
+      {/* Header */}
+      <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+        <h2 className="text-xl font-bold text-gray-900 mb-1">樂聯工業股份有限公司</h2>
+        <h3 className="text-base font-semibold text-gray-700">員工課程訓練同意書（F-CM-10）</h3>
+      </div>
+
+      {/* Parties */}
+      <div className="mb-5 space-y-1">
+        <p>立同意書人：<strong>{form.employeeName || '________________'}</strong>（以下簡稱甲方）</p>
+        <p>部門：<strong>{form.department || '________________'}</strong>　職稱：<strong>{form.title || '________________'}</strong>　員工編號：<strong>{form.employeeId || '________________'}</strong></p>
+      </div>
+
+      <p className="mb-5 text-gray-700">茲同意參加下列教育訓練課程，並遵守以下規定：</p>
+
+      {/* Section 1 */}
+      <div className="mb-5">
+        <p className="font-bold text-gray-900 mb-2">一、訓練課程資訊</p>
+        <div className="pl-4 space-y-1 text-gray-700">
+          <p>　課程名稱：{form.courseName || '________________'}</p>
+          <p>　訓練機構：{form.institution || (form.trainingType === '內部訓練' ? '樂聯工業股份有限公司（內部）' : '________________')}</p>
+          <p>　訓練日期：{form.startDate || '________'} 至 {form.endDate || '________'}</p>
+          <p>　訓練地點：{form.location || '________________'}</p>
+          <p>　訓練類型：{form.trainingType}</p>
+        </div>
+      </div>
+
+      {/* Section 2 */}
+      <div className="mb-5">
+        <p className="font-bold text-gray-900 mb-2">二、訓練費用</p>
+        <div className="pl-4 space-y-1 text-gray-700">
+          <p>　課程費用：NT$ {fmt(form.courseFee)}</p>
+          <p>　認證費用：NT$ {fmt(form.certFee)}</p>
+          <p>　差旅費用：NT$ {fmt(form.travelFee)}</p>
+          <p>　其他費用：NT$ {fmt(form.otherFee)}</p>
+          <p className="font-semibold text-gray-900 border-t border-gray-300 pt-1 mt-2">　合計費用：NT$ {fmt(totalFee)}</p>
+        </div>
+      </div>
+
+      {/* Section 3 */}
+      <div className="mb-5">
+        <p className="font-bold text-gray-900 mb-2">三、服務年資規範</p>
+        <div className="pl-4 text-gray-700 space-y-2">
+          <p>　{servicePeriod}</p>
+          <p className="text-sm">　若甲方於規範服務年資期間內離職，應依未完成服務年資比例返還公司所給付之訓練費用。</p>
+        </div>
+      </div>
+
+      {/* Section 4 */}
+      <div className="mb-8">
+        <p className="font-bold text-gray-900 mb-2">四、甲方確認已詳閱本同意書並同意遵守上述規定。</p>
+      </div>
+
+      {/* Signatures */}
+      <div className="border-t border-gray-300 pt-5 space-y-4">
+        <div className="grid grid-cols-3 gap-6 text-sm text-gray-700">
+          <div>
+            <p className="mb-6">甲方簽名：</p>
+            <div className="border-b border-gray-500 w-40" />
+            <p className="mt-1 text-xs text-gray-400">日期：___________</p>
+          </div>
+          <div>
+            <p className="mb-6">主管簽名：</p>
+            <div className="border-b border-gray-500 w-40" />
+            <p className="mt-1 text-xs text-gray-400">日期：___________</p>
+          </div>
+          <div>
+            <p className="mb-6">人資確認：</p>
+            <div className="border-b border-gray-500 w-40" />
+            <p className="mt-1 text-xs text-gray-400">日期：___________</p>
+          </div>
+        </div>
+        <p className="text-xs text-center text-gray-400 pt-2">（本同意書一式兩份，公司及員工各執一份）</p>
+      </div>
+    </div>
+  );
+}
+
+export default function FeeAgreement() {
+  const { currentUser } = useTrainingAuth();
+  const [form, setForm] = useState<FeeForm>(INITIAL_FORM);
+  const [showPreview, setShowPreview] = useState(false);
+  const [savedMessage, setSavedMessage] = useState('');
+
+  const totalFee = useMemo(
+    () => form.courseFee + form.certFee + form.travelFee + form.otherFee,
+    [form.courseFee, form.certFee, form.travelFee, form.otherFee]
+  );
+
+  const servicePeriod = useMemo(() => getServicePeriod(totalFee), [totalFee]);
+
+  function set<K extends keyof FeeForm>(key: K, value: FeeForm[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setNum(key: keyof FeeForm, raw: string) {
+    const n = parseInt(raw.replace(/[^\d]/g, ''), 10) || 0;
+    setForm((prev) => ({ ...prev, [key]: n }));
+  }
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = () => {
+    // For Chinese content, use browser print with print-specific styling
+    window.print();
+  };
+
+  const handleSave = () => {
+    setSavedMessage('記錄已儲存！');
+    setTimeout(() => setSavedMessage(''), 3000);
+  };
+
+  if (!currentUser || !['manager', 'admin', 'hr'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500 text-lg">您沒有權限查看此頁面</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #fee-agreement-print { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
+        }
+      `}</style>
+
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+          <FileText size={22} className="text-blue-600" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">費用訓練同意書</h1>
+          <p className="text-sm text-gray-500">員工課程訓練同意書 F-CM-10・依教育訓練管理辦法</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Form */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
+          <h2 className="font-semibold text-gray-900 text-base border-b border-gray-100 pb-3">填寫資料</h2>
+
+          {/* Employee Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">員工姓名 *</label>
+              <input
+                type="text"
+                value={form.employeeName}
+                onChange={(e) => set('employeeName', e.target.value)}
+                placeholder="請輸入姓名"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">員工編號 *</label>
+              <input
+                type="text"
+                value={form.employeeId}
+                onChange={(e) => set('employeeId', e.target.value)}
+                placeholder="E001"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">部門 *</label>
+              <select
+                value={form.department}
+                onChange={(e) => set('department', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">請選擇部門</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">職稱</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => set('title', e.target.value)}
+                placeholder="工程師"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Course Info */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">課程資訊</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">課程名稱 *</label>
+                <input
+                  type="text"
+                  value={form.courseName}
+                  onChange={(e) => set('courseName', e.target.value)}
+                  placeholder="請輸入課程名稱"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">訓練類型 *</label>
+                <div className="flex gap-3">
+                  {(['外部訓練', '內部訓練'] as const).map((type) => (
+                    <label key={type} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="trainingType"
+                        value={type}
+                        checked={form.trainingType === type}
+                        onChange={() => set('trainingType', type)}
+                        className="accent-blue-600"
+                      />
+                      <span className="text-sm text-gray-700">{type}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {form.trainingType === '外部訓練' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">訓練機構</label>
+                  <input
+                    type="text"
+                    value={form.institution}
+                    onChange={(e) => set('institution', e.target.value)}
+                    placeholder="訓練機構名稱"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">開始日期</label>
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => set('startDate', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">結束日期</label>
+                  <input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(e) => set('endDate', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">課程地點</label>
+                <input
+                  type="text"
+                  value={form.location}
+                  onChange={(e) => set('location', e.target.value)}
+                  placeholder="台北市・線上・公司內部"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Fees */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">費用明細</p>
+            <div className="space-y-3">
+              {[
+                { key: 'courseFee' as const, label: '課程費用' },
+                { key: 'certFee' as const, label: '認證費用' },
+                { key: 'travelFee' as const, label: '差旅費用' },
+                { key: 'otherFee' as const, label: '其他費用' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <label className="text-sm text-gray-600 w-24 shrink-0">{label}</label>
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className="text-sm text-gray-500">NT$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={form[key] === 0 ? '' : form[key]}
+                      onChange={(e) => setNum(key, e.target.value)}
+                      placeholder="0"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {/* Total */}
+              <div className="flex items-center gap-3 bg-blue-50 rounded-lg px-4 py-3 mt-1">
+                <span className="text-sm font-semibold text-blue-800 w-24 shrink-0">合計費用</span>
+                <span className="text-lg font-bold text-blue-700">NT$ {fmt(totalFee)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Service period info */}
+          <div className={`rounded-lg p-4 border ${totalFee === 0 ? 'bg-gray-50 border-gray-200' : totalFee < 3000 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+            <p className="text-xs font-semibold text-gray-500 mb-1">服務年資規範（自動計算）</p>
+            <p className={`text-sm font-medium ${totalFee === 0 ? 'text-gray-500' : totalFee < 3000 ? 'text-green-700' : 'text-amber-700'}`}>
+              {totalFee === 0 ? '請輸入費用後自動計算' : servicePeriod}
+            </p>
+          </div>
+        </div>
+
+        {/* Preview panel */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 text-base">同意書預覽</h2>
+            <button
+              onClick={() => setShowPreview((v) => !v)}
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showPreview ? '隱藏預覽' : '顯示預覽'}
+            </button>
+          </div>
+
+          {showPreview && (
+            <DocumentPreview form={form} totalFee={totalFee} servicePeriod={servicePeriod} />
+          )}
+
+          {!showPreview && (
+            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-xl h-48 flex items-center justify-center">
+              <div className="text-center text-gray-400">
+                <FileText size={32} className="mx-auto mb-2 opacity-40" />
+                <p className="text-sm">點擊「顯示預覽」查看同意書</p>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">操作</h3>
+
+            {savedMessage && (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-green-700 text-sm text-center">
+                {savedMessage}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowPreview((v) => !v)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+              >
+                <Eye size={16} />
+                預覽同意書
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                <Printer size={16} />
+                列印同意書
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+              >
+                <Download size={16} />
+                匯出 PDF
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+              >
+                <Save size={16} />
+                儲存記錄
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-400 text-center">
+              PDF 匯出使用系統列印功能以確保中文正確顯示
+            </p>
+          </div>
+
+          {/* Regulation reference */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">費用規範對照表</h3>
+            <div className="space-y-2 text-xs">
+              {[
+                { range: '< NT$3,000', period: '無服務年資限制', color: 'text-green-600' },
+                { range: 'NT$3,000 ~ 9,999', period: '需服務至少 6 個月', color: 'text-yellow-600' },
+                { range: 'NT$10,000 ~ 19,999', period: '需服務至少 1 年', color: 'text-orange-600' },
+                { range: 'NT$20,000 ~ 39,999', period: '需服務至少 2 年', color: 'text-red-600' },
+                { range: '≥ NT$40,000', period: '服務年數由雙方專案訂定', color: 'text-purple-600' },
+              ].map(({ range, period, color }) => (
+                <div key={range} className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
+                  <span className="text-gray-500 font-medium">{range}</span>
+                  <span className={`font-medium ${color}`}>{period}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

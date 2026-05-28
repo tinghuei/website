@@ -32,6 +32,8 @@ import TrainingLayout from "./components/training/TrainingLayout";
 import CompetencyAnalysis from "./pages/training/CompetencyAnalysis";
 import AnnualTrainingPlan from "./pages/training/AnnualTrainingPlan";
 import FreeCourses from "./pages/training/FreeCourses";
+import Achievements from "./pages/training/Achievements";
+import CareerPlanning from "./pages/training/CareerPlanning";
 
 function Router() {
   return (
@@ -128,6 +130,20 @@ function Router() {
         {() => (
           <TrainingLayout>
             <FreeCourses />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/achievements"}>
+        {() => (
+          <TrainingLayout>
+            <Achievements />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/career"}>
+        {() => (
+          <TrainingLayout>
+            <CareerPlanning />
           </TrainingLayout>
         )}
       </Route>

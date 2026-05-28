@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import jsPDF from 'jspdf';
 import { FileText, Printer, Download, Save, Eye, EyeOff } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 

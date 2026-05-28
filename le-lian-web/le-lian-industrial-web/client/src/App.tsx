@@ -34,6 +34,9 @@ import AnnualTrainingPlan from "./pages/training/AnnualTrainingPlan";
 import FreeCourses from "./pages/training/FreeCourses";
 import Achievements from "./pages/training/Achievements";
 import CareerPlanning from "./pages/training/CareerPlanning";
+import ManagementReports from "./pages/training/ManagementReports";
+import FeeAgreement from "./pages/training/FeeAgreement";
+import NotificationCenter from "./pages/training/NotificationCenter";
 
 function Router() {
   return (
@@ -144,6 +147,27 @@ function Router() {
         {() => (
           <TrainingLayout>
             <CareerPlanning />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/management-reports"}>
+        {() => (
+          <TrainingLayout roles={['manager', 'admin']}>
+            <ManagementReports />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/fee-agreement"}>
+        {() => (
+          <TrainingLayout roles={['manager', 'admin', 'hr']}>
+            <FeeAgreement />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/notifications"}>
+        {() => (
+          <TrainingLayout>
+            <NotificationCenter />
           </TrainingLayout>
         )}
       </Route>

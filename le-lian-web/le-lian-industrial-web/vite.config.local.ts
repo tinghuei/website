@@ -6,14 +6,14 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
-      // Mock Manus-specific modules
-      "@/lib/trpc": path.resolve(import.meta.dirname, "client/src/lib/trpc.mock.ts"),
-      "@/_core/hooks/useAuth": path.resolve(import.meta.dirname, "client/src/_core/hooks/useAuth.mock.ts"),
-    },
+    alias: [
+      // Specific mocks MUST come before the generic "@" alias
+      { find: "@/lib/trpc", replacement: path.resolve(import.meta.dirname, "client/src/lib/trpc.mock.ts") },
+      { find: "@/_core/hooks/useAuth", replacement: path.resolve(import.meta.dirname, "client/src/_core/hooks/useAuth.mock.ts") },
+      { find: "@", replacement: path.resolve(import.meta.dirname, "client", "src") },
+      { find: "@shared", replacement: path.resolve(import.meta.dirname, "shared") },
+      { find: "@assets", replacement: path.resolve(import.meta.dirname, "attached_assets") },
+    ],
   },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),

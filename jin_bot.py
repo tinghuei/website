@@ -282,11 +282,11 @@ def download_line_image(message_id):
     return data  # bytes
 
 # ── Groq API 共用函數 ─────────────────────────────────────────
-def _call_groq(messages, model="llama-3.3-70b-versatile"):
+def _call_groq(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
     data = json.dumps({
         "model": model,
         "messages": messages,
-        "max_tokens": 1500,
+        "max_tokens": max_tokens,
     }, ensure_ascii=False).encode("utf-8")
 
     ctx = ssl.create_default_context()
@@ -367,28 +367,80 @@ def parse_time_expr(expr):
     return int("".join(c for c in raw if c.isdigit() or c == "-"))
 
 # ── JSON 安全解析 ─────────────────────────────────────────────
-def _safe_json(raw):
-    raw = raw.strip()
+def _repair_json(raw):
+    """修復 AI 常見的 JSON 格式問題"""
+    import re
+    # 移除 markdown code block
     if "```" in raw:
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
+        parts = raw.split("```")
+        for p in parts:
+            if p.startswith("json"):
+                raw = p[4:].strip()
+                break
+            elif "{" in p:
+                raw = p.strip()
+                break
     raw = raw.strip()
-    try:
-        return json.loads(raw)
-    except Exception:
-        # 嘗試取出第一個完整 JSON 物件
-        start = raw.find("{")
-        if start == -1:
-            raise
-        depth = 0
-        for i, c in enumerate(raw[start:], start):
+
+    # 找到 JSON 物件範圍（bracket matching，忽略字串內容）
+    start = raw.find("{")
+    if start == -1:
+        return raw
+    depth = 0
+    in_str = False
+    escape = False
+    end = start
+    for i, c in enumerate(raw[start:], start):
+        if escape:
+            escape = False
+            continue
+        if c == "\\" and in_str:
+            escape = True
+            continue
+        if c == '"' and not escape:
+            in_str = not in_str
+            continue
+        if not in_str:
             if c == "{": depth += 1
             elif c == "}":
                 depth -= 1
                 if depth == 0:
-                    return json.loads(raw[start:i+1])
-        raise
+                    end = i
+                    break
+    raw = raw[start:end+1]
+
+    # 修復字串值內的裸換行（\n → \\n）
+    def fix_newlines(m):
+        return m.group(0).replace("\n", "\\n").replace("\r", "")
+    raw = re.sub(r'"(?:[^"\\]|\\.)*"', fix_newlines, raw, flags=re.DOTALL)
+
+    # 修復中文引號
+    raw = raw.replace("“", '"').replace("”", '"')
+    raw = raw.replace("‘", "'").replace("’", "'")
+
+    # 移除 JSON 值後的多餘逗號（trailing comma）
+    raw = re.sub(r',\s*([}\]])', r'\1', raw)
+
+    return raw
+
+def _safe_json(raw):
+    raw = raw.strip()
+    # 先嘗試直接解析
+    try:
+        return json.loads(raw)
+    except Exception:
+        pass
+    # 修復後再試
+    try:
+        fixed = _repair_json(raw)
+        return json.loads(fixed)
+    except Exception:
+        # 最後嘗試：用 ast.literal_eval（容錯單引號）
+        try:
+            import ast
+            return ast.literal_eval(_repair_json(raw))
+        except Exception:
+            raise ValueError(f"JSON 解析失敗，原始回應前200字：{raw[:200]}")
 
 # ── 解析固定行程 ──────────────────────────────────────────────
 def call_parse_recurring(text):

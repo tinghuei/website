@@ -1540,9 +1540,10 @@ def run_scheduler():
     schedule.every(2).hours.do(check_and_checkin)
     schedule.every().day.at("08:00").do(check_recurring)
     # 每日固定關心訊息（3 個時段各設一個）
-    schedule.every().day.at("08:30").do(send_daily_checkin, "08:30", "morning",   "早安！")
-    schedule.every().day.at("13:30").do(send_daily_checkin, "13:30", "afternoon", "下午好！")
-    schedule.every().day.at("20:00").do(send_daily_checkin, "20:00", "evening",   "晚上好！")
+    # 每日關心訊息（暫時關閉以節省 LINE 推播額度，需要時取消註解）
+    # schedule.every().day.at("08:30").do(send_daily_checkin, "08:30", "morning",   "早安！")
+    # schedule.every().day.at("13:30").do(send_daily_checkin, "13:30", "afternoon", "下午好！")
+    # schedule.every().day.at("20:00").do(send_daily_checkin, "20:00", "evening",   "晚上好！")
     # 啟動時先跑一次固定行程檢查
     threading.Thread(target=check_recurring, daemon=True).start()
     while True:

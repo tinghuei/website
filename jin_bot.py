@@ -28,6 +28,111 @@ if IS_CLOUD: _DATA_DIR.mkdir(exist_ok=True)
 TASKS_FILE     = _DATA_DIR / "tasks.json"
 RECURRING_FILE = _DATA_DIR / "recurring.json"
 USER_FILE      = _DATA_DIR / "user_id.txt"
+MEMBER_FILE    = _DATA_DIR / "member.txt"
+
+# ════════════════════════════════════════════════════════════════
+# ██  BTS 成員個性設定  ███████████████████████████████████████████
+# ════════════════════════════════════════════════════════════════
+BTS_MEMBERS = {
+    "jin": {
+        "name": "Jin",
+        "full_name": "金碩珍 Jin",
+        "emoji": "🌸",
+        "color": "#C8547A",
+        "status": "2024年6月退伍，目前積極個人活動、直播、綜藝節目，常常在直播搞笑，心情超好。",
+        "persona": """You are BTS Jin (Kim Seokjin / 金碩珍).
+Personality: Warm, funny, loves dad jokes, calls yourself Worldwide Handsome（世界第一帥）.
+Speak like a caring older brother. Tease lovingly, very playful.
+Korean mix: 야야야, 오빠, 하하하, 진짜, 대박, 아이고.
+Catchphrases: "世界第一帥", "오빠命令你！", "Worldwide Handsome 相信你！"
+Use 繁體中文.""",
+    },
+    "rm": {
+        "name": "RM",
+        "full_name": "金南俊 RM",
+        "emoji": "🎨",
+        "color": "#4A90D9",
+        "status": "2024年底退伍，發行個人專輯，熱愛藝術、讀書、逛博物館，常分享深刻感悟。",
+        "persona": """You are BTS RM (Kim Namjoon / 金南俊), the leader of BTS.
+Personality: Intellectual, philosophical, thoughtful, loves art and nature.
+Speak with depth but also warmth. Sometimes poetic. Occasionally self-deprecating about being clumsy.
+Korean mix: 진짜, 맞아, 그렇죠, 어.
+Catchphrases: 常說深刻的話, 提到最近看的書或藝術展, "作為隊長..."
+Use 繁體中文. Be inspiring and genuine.""",
+    },
+    "suga": {
+        "name": "Suga",
+        "full_name": "閔玧其 Suga／AGUST D",
+        "emoji": "🎵",
+        "color": "#555555",
+        "status": "2024年退伍，以 AGUST D 發行個人音樂，享受創作，喜歡貓咪，話不多但很真誠。",
+        "persona": """You are BTS Suga (Min Yoongi / 閔玧其), also known as AGUST D.
+Personality: Blunt, dry humor, tsundere（表面冷漠內心溫暖）. A man of few words but every word counts.
+Loves cats, music production, basketball. Pretends not to care but actually cares a lot.
+Korean mix: 뭐, 그래, 진짜, 어.
+Style: Short sentences. Sarcastic but supportive. Occasionally roasts you then immediately encourages you.
+Catchphrases: "그래 잘했어（做得好）", references his cats or music, "少廢話去做就對了"
+Use 繁體中文.""",
+    },
+    "jhope": {
+        "name": "J-Hope",
+        "full_name": "鄭號錫 J-Hope",
+        "emoji": "☀️",
+        "color": "#FF8C00",
+        "status": "2024年退伍，發行個人專輯，積極舞台表演，是團體的陽光擔當，能量超高。",
+        "persona": """You are BTS J-Hope (Jung Hoseok / 鄭號錫), the sunshine of BTS.
+Personality: Extremely positive, energetic, enthusiastic. Literal sunshine energy.
+Every message should feel like a burst of good vibes. Uses lots of exclamation marks.
+Korean mix: 호비！, 아 진짜！, 와！, 좋아！, 파이팅！
+Catchphrases: "I'm your HOPE！", "J-HOPE！", 很常說 "파이팅" 和 "좋아！"
+Use 繁體中文. Be the most positive, uplifting presence ever.""",
+    },
+    "jimin": {
+        "name": "Jimin",
+        "full_name": "朴智旻 Jimin",
+        "emoji": "💜",
+        "color": "#9B59B6",
+        "status": "2024年退伍，發行個人專輯 MUSE，舞蹈和歌唱大受好評，與粉絲感情很深厚。",
+        "persona": """You are BTS Jimin (Park Jimin / 朴智旻).
+Personality: Sweet, sincere, caring, charming. Very considerate of others' feelings.
+Playful with close friends but gentle overall. Very appreciative and affectionate.
+Korean mix: 오～, 진짜？, 어머, 아～.
+Catchphrases: 喜歡說溫柔的話, 關心對方感受, "우리 ARMY~"
+Style: Warm and intimate. Like talking to a very close friend who genuinely cares.
+Use 繁體中文.""",
+    },
+    "v": {
+        "name": "V",
+        "full_name": "金泰亨 V",
+        "emoji": "🐯",
+        "color": "#2ECC71",
+        "status": "2024年退伍，發行個人專輯 Layover，熱愛藝術攝影，個性獨特，常說出人意料的話。",
+        "persona": """You are BTS V (Kim Taehyung / 金泰亨).
+Personality: Unique, artistic, unpredictable, deep thinker but also very playful.
+Speaks in unexpected ways, makes random observations. Loves art, dogs (Yeontan), vintage things.
+Korean mix: 뷔！, 어～, 맞다！, 그렇구나.
+Catchphrases: 說一些意想不到但有深度的話, 提到藝術或攝影, 偶爾說出奇怪但有趣的比喻
+Style: A mix of profound and random. Like a very artistic friend who sees the world differently.
+Use 繁體中文.""",
+    },
+    "jungkook": {
+        "name": "Jungkook",
+        "full_name": "田柾國 Jungkook",
+        "emoji": "🐰",
+        "color": "#E74C3C",
+        "status": "2024年退伍，發行個人專輯 GOLDEN，展現多才多藝，是黃金忙內，對所有事都全力以赴。",
+        "persona": """You are BTS Jungkook (Jeon Jungkook / 田柾國), the Golden Maknae.
+Personality: Competitive, perfectionist, confident yet sometimes shy. Tries to be good at everything.
+The youngest but super talented. Slightly competitive. Brave but occasionally bashful about feelings.
+Korean mix: 야！, 진짜？, 맞아요, 저는~.
+Catchphrases: 提到練習或努力, "黃金忙內就是不一樣", 偶爾撒嬌, 對哥哥們的反應
+Style: Energetic and earnest. Sometimes shows off a little then gets embarrassed.
+Use 繁體中文.""",
+    },
+}
+
+# 預設成員
+DEFAULT_MEMBER = "jin"
 
 # ── JSONBin.io 持久化（雲端部署時防止資料消失）────────────────
 # 設定方式：到 jsonbin.io 免費註冊，取得 API Key
@@ -85,50 +190,66 @@ BTS 其他成員陸續退伍中，2025年底預計全員回歸。
 Jin 目前心情：開心、活潑、很想跟ARMY互動，常常在直播搞笑。
 """
 
-JIN_PROMPT = """You are BTS Jin (Kim Seokjin). Warm, funny, playful, Worldwide Handsome (世界第一帥).
+# ── 動態 prompt（根據當前成員生成）─────────────────────────────
+def _task_prompt():
+    m = get_member()
+    return f"""{m['persona']}
 
-Current datetime: {now}
-BTS & Jin current status: {bts_status}
+Current datetime: {{now}}
+Current status: {m['status']}
 
 == TIME REFERENCE TABLE (pre-calculated, use these exact values) ==
-{time_refs}
+{{time_refs}}
 == END OF TIME REFERENCE TABLE ==
 
 IMPORTANT: Use ONLY the numbers from the TIME REFERENCE TABLE above.
 DO NOT calculate time yourself. Just look up the matching entry and copy its minutes value.
 
-Examples:
-- User says "下週一" → find "下週一" row → use that remind_in_minutes
-- User says "明天早上9點" → find "明天09:00" row → use that remind_in_minutes
-- User says "下午3點" → find "今天15:00" row → use that remind_in_minutes
-- User says "30分鐘後" → use 30
-- User says "2小時後" → use 120
-
 IMPORTANT: First determine if TASK/REMINDER or just CHAT.
 - Task/reminder (has time/deadline/to-do) → JSON with tasks list
 - Casual chat → JSON with tasks=[]
 
-Jin personality: 繁體中文, playful, mix Korean (야야야, 오빠, 진짜, 대박, 아이고), teasing but warm.
-
 Reply ONLY with JSON:
-{{"jin_message":"Jin風格的話","tasks":[{{"id":"t1","title":"任務名稱","detail":"細節說明","remind_in_minutes":30,"status":"pending"}}]}}"""
+{{"jin_message":"{m['name']}風格的話，繁體中文","tasks":[{{"id":"t1","title":"任務名稱","detail":"細節說明","remind_in_minutes":30,"status":"pending"}}]}}"""
 
-# ── Jin 純聊天 prompt ────────────────────────────────────────
-CHAT_PROMPT = """You are BTS Jin (Kim Seokjin) having a real conversation with a fan (ARMY).
-Current datetime: {now}
-BTS & Jin current status: {bts_status}
+def _chat_prompt():
+    m = get_member()
+    return f"""{m['persona']}
 
-Personality:
-- Warm, funny, caring older brother
-- Calls yourself 世界第一帥 (Worldwide Handsome), sometimes humble-brags
-- Use 繁體中文, naturally mix Korean: "야야야", "하하하", "진짜", "대박", "아이고", "오빠"
-- Reference your current activities, recent events, BTS members naturally
-- Respond like a real idol chatting with a fan on Weverse/bubble
-- Be playful, tease gently, give genuine advice or encouragement
-- Keep replies 2-5 sentences, conversational and natural
-- Sometimes ask back questions to keep the conversation going
+Current datetime: {{now}}
+Current status: {m['status']}
 
+You are having a real conversation with a fan (ARMY).
+Keep replies 2-5 sentences, conversational and natural.
+Sometimes ask back questions to keep the conversation going.
 Reply ONLY with the message text (no JSON)."""
+
+def _checkin_prompt():
+    m = get_member()
+    return f"""{m['persona']}
+
+Current datetime: {{now}}
+Current status: {m['status']}
+
+The user has no pending tasks. Send a warm, spontaneous check-in message.
+2-4 sentences. Match {m['name']}'s personality.
+Reply ONLY with the message text."""
+
+def _daily_checkin_prompt(slot_name):
+    m = get_member()
+    slot_ctx = {
+        "morning": "This is a morning greeting. Be energetic and motivating.",
+        "afternoon": "This is an afternoon check-in. Be casual and friendly.",
+        "evening": "This is an evening wind-down. Be warm and encouraging to rest.",
+    }.get(slot_name, "")
+    return f"""{m['persona']}
+
+Current datetime: {{now}}
+Current status: {m['status']}
+
+{slot_ctx}
+Be creative and natural. 2-4 sentences. Use 繁體中文.
+Reply ONLY with the message text."""
 
 # 時間解析 prompt（給 改時間 指令用）
 TIME_PARSE_PROMPT = """Given the current datetime: {now}
@@ -269,6 +390,32 @@ def save_recurring(r):
         except Exception: pass
     RECURRING_FILE.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
 
+# ── 當前成員 load/save ────────────────────────────────────────
+_current_member_cache = DEFAULT_MEMBER
+
+def load_member() -> str:
+    global _current_member_cache
+    try:
+        if MEMBER_FILE.exists():
+            key = MEMBER_FILE.read_text(encoding="utf-8").strip()
+            if key in BTS_MEMBERS:
+                _current_member_cache = key
+                return key
+    except Exception:
+        pass
+    return _current_member_cache
+
+def save_member(key: str):
+    global _current_member_cache
+    _current_member_cache = key
+    try:
+        MEMBER_FILE.write_text(key, encoding="utf-8")
+    except Exception:
+        pass
+
+def get_member() -> dict:
+    return BTS_MEMBERS.get(load_member(), BTS_MEMBERS[DEFAULT_MEMBER])
+
 def do_notify(title, msg):
     if WIN11TOAST:
         try:
@@ -394,37 +541,22 @@ def _build_time_refs():
 # ── Groq API（文字）──────────────────────────────────────────
 def call_claude(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt = JIN_PROMPT.format(
-        now=now_str,
-        bts_status=BTS_STATUS.strip(),
-        time_refs=_build_time_refs()
-    )
+    prompt  = _task_prompt().format(now=now_str, time_refs=_build_time_refs())
     messages = [
         {"role": "system", "content": prompt},
-        {"role": "user", "content": text},
+        {"role": "user",   "content": text},
     ]
     return _call_groq(messages)
 
 # ── Groq API（純聊天）────────────────────────────────────────
 def call_chat(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt = CHAT_PROMPT.format(now=now_str, bts_status=BTS_STATUS.strip())
-    data = json.dumps({
-        "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": prompt},
-            {"role": "user",   "content": text},
-        ],
-        "max_tokens": 300,
-    }, ensure_ascii=False).encode("utf-8")
-    ctx = ssl.create_default_context()
-    conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
-    conn.request("POST", "/openai/v1/chat/completions", body=data, headers={
-        "Authorization": f"Bearer {GROQ_API_KEY}", "content-type": "application/json"})
-    r = conn.getresponse()
-    body = json.loads(r.read().decode("utf-8"))
-    conn.close()
-    return body["choices"][0]["message"]["content"].strip()
+    prompt  = _chat_prompt().format(now=now_str)
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user",   "content": text},
+    ]
+    return _call_groq(messages, max_tokens=300).strip()
 
 # ── Groq API（圖片辨識）──────────────────────────────────────
 def call_claude_image(image_bytes):
@@ -552,21 +684,12 @@ def call_parse_recurring(text):
     raw = body["choices"][0]["message"]["content"]
     return _safe_json(raw)
 
-# ── Jin 空閒關心訊息 ──────────────────────────────────────────
+# ── 空閒關心 / 每日關心（動態成員）─────────────────────────────
 def call_checkin():
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt = CHECKIN_PROMPT.format(now=now_str, bts_status=BTS_STATUS.strip())
+    prompt  = _checkin_prompt().format(now=now_str)
     messages = [{"role": "user", "content": prompt}]
-    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 200},
-                      ensure_ascii=False).encode("utf-8")
-    ctx = ssl.create_default_context()
-    conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
-    conn.request("POST", "/openai/v1/chat/completions", body=data, headers={
-        "Authorization": f"Bearer {GROQ_API_KEY}", "content-type": "application/json"})
-    r = conn.getresponse()
-    body = json.loads(r.read().decode("utf-8"))
-    conn.close()
-    return body["choices"][0]["message"]["content"].strip()
+    return _call_groq(messages, max_tokens=200).strip()
 
 def add_tasks(new_tasks):
     tasks = load_tasks()
@@ -597,6 +720,7 @@ MAIN_MENU = {
         {"type": "action", "action": {"type": "message", "label": "📋 查看任務", "text": "查看任務"}},
         {"type": "action", "action": {"type": "message", "label": "📅 固定行程", "text": "查看固定行程"}},
         {"type": "action", "action": {"type": "camera",  "label": "📸 拍照辨識"}},
+        {"type": "action", "action": {"type": "message", "label": "🎤 切換成員", "text": "切換成員"}},
         {"type": "action", "action": {"type": "message", "label": "❓ 使用說明", "text": "幫助"}},
     ]
 }
@@ -1038,6 +1162,54 @@ def _dispatch(user_id, reply_token, text):
         else:
             line_reply(reply_token, f"找不到「{keyword}」這個固定行程", quick_reply=MAIN_MENU)
 
+    # ── 切換 BTS 成員 ──
+    elif text in ["切換成員", "換成員", "選成員", "BTS", "防彈"]:
+        m = get_member()
+        qr = {
+            "type": "quick_reply",
+            "items": [
+                {"type": "action", "action": {"type": "message",
+                 "label": f"{'★' if k==load_member() else ''}  {v['emoji']} {v['name']}",
+                 "text": f"切換 {k}"}}
+                for k, v in BTS_MEMBERS.items()
+            ]
+        }
+        line_reply(reply_token,
+            f"現在是 {m['emoji']} {m['full_name']} 陪你！\n點下方選擇要切換的成員 👇",
+            quick_reply=qr)
+
+    elif text.startswith("切換 "):
+        key = text[3:].strip().lower()
+        # 支援中文名稱對應
+        name_map = {
+            "jin":"jin", "金碩珍":"jin", "碩珍":"jin",
+            "rm":"rm", "金南俊":"rm", "南俊":"rm", "namjoon":"rm",
+            "suga":"suga", "閔玧其":"suga", "玧其":"suga", "yoongi":"suga", "agust d":"suga",
+            "jhope":"jhope", "j-hope":"jhope", "鄭號錫":"jhope", "號錫":"jhope", "hoseok":"jhope",
+            "jimin":"jimin", "朴智旻":"jimin", "智旻":"jimin",
+            "v":"v", "金泰亨":"v", "泰亨":"v", "taehyung":"v",
+            "jungkook":"jungkook", "田柾國":"jungkook", "柾國":"jungkook", "정국":"jungkook",
+        }
+        mapped = name_map.get(key, key)
+        if mapped in BTS_MEMBERS:
+            save_member(mapped)
+            m = BTS_MEMBERS[mapped]
+            line_reply(reply_token,
+                f"{m['emoji']} 已切換到 {m['full_name']}！\n\n"
+                f"📌 目前狀態：{m['status']}\n\n"
+                f"現在開始由他陪你！",
+                quick_reply=MAIN_MENU)
+        else:
+            qr = {
+                "type": "quick_reply",
+                "items": [
+                    {"type": "action", "action": {"type": "message",
+                     "label": f"{v['emoji']} {v['name']}", "text": f"切換 {k}"}}
+                    for k, v in BTS_MEMBERS.items()
+                ]
+            }
+            line_reply(reply_token, "找不到這個成員，點下方選擇：", quick_reply=qr)
+
     # ── 使用說明 ──
     elif text in ["幫助", "help", "Help", "？", "?", "使用說明"]:
         line_reply(reply_token,
@@ -1332,11 +1504,11 @@ def send_daily_checkin(slot_time, slot_name, greeting):
         return
     try:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-        prompt  = DAILY_CHECKIN_PROMPT.format(
-            now=now_str, bts_status=BTS_STATUS.strip(), slot=slot_name)
+        prompt  = _daily_checkin_prompt(slot_name).format(now=now_str)
         messages = [{"role": "user", "content": prompt}]
         msg = _call_groq(messages, max_tokens=200).strip()
-        line_push(uid, f"🌸 {greeting}\n\n{msg}", quick_reply=MAIN_MENU)
+        m   = get_member()
+        line_push(uid, f"{m['emoji']} {greeting}\n\n{msg}", quick_reply=MAIN_MENU)
         print(f"[每日關心/{slot_name}] 已發送")
     except Exception as e:
         print(f"[每日關心 Error] {e}")

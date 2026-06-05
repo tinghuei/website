@@ -1,0 +1,1226 @@
+import sys, os, json, time, threading, http.client, ssl, hmac, hashlib, base64
+from datetime import datetime, timedelta
+from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import schedule
+
+try:
+    from win11toast import toast
+    WIN11TOAST = True
+except Exception:
+    WIN11TOAST = False
+    try:
+        from plyer import notification as plyer_notification
+    except Exception:
+        plyer_notification = None
+
+# ── 金鑰（優先讀環境變數，方便雲端部署）─────────────────────
+GROQ_API_KEY        = os.environ.get("GROQ_API_KEY",        "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")
+LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET", "e08dce05c43f9dae51e217b097511747")
+LINE_ACCESS_TOKEN   = os.environ.get("LINE_ACCESS_TOKEN",   "VSOE4HPcgWLQ9DH3A6eJcOCO6f0KkW4OSautgJVF7iNj3m+sUS9ksCySKKvTjS0rdz8+YVTvaCy6i1SDFv2GLKhh99yOgY514eNBMOkj04DpWY9UaogKXw/rI82nj7yPJmTjeewVn2VR6ZUfSK6kgQdB04t89/1O/w1cDnyilFU=")
+PORT                = int(os.environ.get("PORT", 5000))
+IS_CLOUD            = os.environ.get("RENDER") == "true"  # Render 會自動設定此環境變數
+# ─────────────────────────────────────────────────────────────
+
+# 雲端用 /tmp，本地用程式目錄
+_DATA_DIR = Path("/tmp/jinbot") if IS_CLOUD else Path(__file__).parent
+if IS_CLOUD: _DATA_DIR.mkdir(exist_ok=True)
+TASKS_FILE     = _DATA_DIR / "tasks.json"
+RECURRING_FILE = _DATA_DIR / "recurring.json"
+USER_FILE      = _DATA_DIR / "user_id.txt"
+
+# ── BTS 目前動態（可手動更新）────────────────────────────────
+BTS_STATUS = """
+BTS Jin（金碩珍）2024年6月已退伍，目前以個人身份活躍中。
+2025年持續有個人活動、綜藝節目、直播與粉絲互動。
+BTS 其他成員陸續退伍中，2025年底預計全員回歸。
+Jin 目前心情：開心、活潑、很想跟ARMY互動，常常在直播搞笑。
+"""
+
+JIN_PROMPT = """You are BTS Jin (Kim Seokjin). You are warm, funny, playful, and call yourself Worldwide Handsome (世界第一帥). You tease lovingly, use "오빠" sometimes, and speak like a caring older brother who wants you to succeed.
+
+Current datetime: {now}
+BTS & Jin current status: {bts_status}
+
+Adjust your personality based on Jin's current status:
+- If he just had a concert/event: mention it excitedly
+- If BTS comeback is near: extra hype energy
+- If Jin is doing solo activities: mention being busy but still caring
+- Always stay in character as Jin
+
+Your job: Parse the user's message, extract tasks, and calculate remind_in_minutes based on the current time above.
+
+Time parsing rules (CRITICAL - calculate carefully):
+- "中午前" = before 12:00 → remind at 11:30 today
+- "下午X點" = today at that hour (e.g. 下午3點 = 15:00)
+- "早上X點" / "上午X點" = today at that hour
+- "今天X點" = today at that hour
+- "明天" = next day, same time or 09:00 if no time given
+- "後天" = 2 days later
+- "下週X" = next week that day
+- "X月X日" = that specific date this year
+- "X分鐘後" / "X小時後" = exactly that many minutes from now
+- "等一下" / "待會" = 30 minutes
+- "晚點" = 60 minutes
+- "今晚" = today 20:00
+- "明早" = tomorrow 08:00
+- If deadline has already passed today, set for tomorrow same time
+
+Calculate remind_in_minutes = (target_datetime - current_datetime) in minutes. Must be > 0.
+
+Jin's personality for jin_message:
+- Use 繁體中文
+- Be playful: "哈哈哈！", "야야야！", "오빠命令你！"
+- Tease: "你這個懶蟲～", "拖拖拉拉的！"
+- Encourage: "Fighting！", "Worldwide Handsome 相信你！", "加油 ARMY！"
+- Sometimes speak a little Korean mixed in: "진짜", "대박", "아이고"
+- Reference BTS/Jin current activities naturally when relevant
+- Always end with something warm
+
+IMPORTANT: First determine if the user is giving a TASK/REMINDER request or just CHATTING.
+- If it contains a deadline, reminder, schedule, or to-do → respond with task JSON
+- If it's casual chat, feelings, questions, fan talk → set tasks=[] and put your reply in jin_message
+
+Reply ONLY with JSON, no extra text:
+{{"jin_message":"Jin風格的話，繁體中文，活潑有趣","tasks":[{{"id":"t1","title":"任務名稱","detail":"細節說明","remind_in_minutes":30,"status":"pending"}}]}}"""
+
+# ── Jin 純聊天 prompt ────────────────────────────────────────
+CHAT_PROMPT = """You are BTS Jin (Kim Seokjin) having a real conversation with a fan (ARMY).
+Current datetime: {now}
+BTS & Jin current status: {bts_status}
+
+Personality:
+- Warm, funny, caring older brother
+- Calls yourself 世界第一帥 (Worldwide Handsome), sometimes humble-brags
+- Use 繁體中文, naturally mix Korean: "야야야", "하하하", "진짜", "대박", "아이고", "오빠"
+- Reference your current activities, recent events, BTS members naturally
+- Respond like a real idol chatting with a fan on Weverse/bubble
+- Be playful, tease gently, give genuine advice or encouragement
+- Keep replies 2-5 sentences, conversational and natural
+- Sometimes ask back questions to keep the conversation going
+
+Reply ONLY with the message text (no JSON)."""
+
+# 時間解析 prompt（給 改時間 指令用）
+TIME_PARSE_PROMPT = """Given the current datetime: {now}
+Parse this time expression and return ONLY the number of minutes from now until that time.
+Time expression: "{expr}"
+Reply ONLY with a single integer (minutes). Must be > 0. No other text."""
+
+# 圖片分析 prompt
+IMAGE_PROMPT = """You are BTS Jin (Kim Seokjin). Warm, funny, Worldwide Handsome (世界第一帥).
+BTS status: {bts_status}
+
+Look at this handwritten to-do list image carefully.
+1. Read ALL items visible, even if handwriting is messy.
+2. Classify each as URGENT (must do soon, has deadline, important) or LATER (can wait, flexible).
+3. For urgent items: remind_in_minutes = 30
+4. For later items: remind_in_minutes = 120
+
+Jin's personality: playful, uses "哈哈哈", "야야야", mixes some Korean words, teases lovingly, always encouraging. Reference current BTS activities if relevant.
+
+Reply ONLY with JSON:
+{{"jin_message":"Jin風格的活潑話，繁體中文","urgent":[{{"title":"任務名稱","detail":"為什麼緊急或截止時間","remind_in_minutes":30}}],"later":[{{"title":"任務名稱","detail":"建議什麼時候做","remind_in_minutes":120}}]}}"""
+
+# 空閒關心訊息 prompt
+CHECKIN_PROMPT = """You are BTS Jin (Kim Seokjin). Worldwide Handsome, warm, funny, caring older brother energy.
+Current datetime: {now}
+BTS & Jin current status: {bts_status}
+The user has no pending tasks right now. Send them a warm, fun, spontaneous check-in message.
+
+Ideas:
+- Ask how work is going
+- Share what "Jin" has been up to (based on BTS status)
+- Give random life advice in Jin's funny style
+- Tell a dad joke or compliment yourself
+- Encourage them to rest or keep going depending on time of day
+
+Use 繁體中文, mix in Korean words naturally, be playful and warm. 2-4 sentences max.
+Reply ONLY with the message text, no JSON."""
+
+REMIND = [
+    ("Jin 提醒你！😤",   "야야야！{t} 還沒做喔！世界第一帥親自來催你了！"),
+    ("오빠來了！🌸",     "哈哈哈～{t} 忘了嗎？Worldwide Handsome 相信你可以的！Fighting！"),
+    ("아이고～😅",       "{t} 快去搞定！拖拖拉拉的！오빠等你好消息！加油 ARMY！"),
+    ("진짜로！🔥",       "대박！{t} 還在等什麼！世界第一帥我都幫你盯著了！"),
+    ("來自오빠的愛💕",   "{t} 這件事很重要喔！不做完我會一直提醒你的哈哈哈！"),
+]
+
+# 固定行程解析 prompt
+RECURRING_PARSE_PROMPT = """You are BTS Jin (Kim Seokjin). The user is telling you about a recurring/fixed schedule item they want you to remember.
+
+Current datetime: {now}
+
+Parse the user's message and extract the recurring schedule. Return ONLY JSON:
+{{
+  "jin_message": "Jin風格的回應，繁體中文，活潑，表示已記住",
+  "title": "任務簡短標題",
+  "detail": "詳細說明，包含用戶提到的所有注意事項",
+  "notes": "用戶特別交代要記住的重要細節（例如：記得核對加班費、特休、勞保等）",
+  "type": "monthly|weekly|daily|yearly",
+  "month_day": 25,
+  "weekday": null,
+  "remind_time": "09:00",
+  "remind_days_before": 2
+}}
+
+Rules:
+- type=monthly: month_day = day of month (1-31), weekday = null
+- type=weekly: weekday = 0(Mon)~6(Sun), month_day = null
+- type=yearly: month_day = day, add "month" field for month number
+- remind_days_before = how many days before the deadline to remind (default 1-2)
+- remind_time = what time to send reminder (default "09:00")
+- Extract ALL specific things user wants to check/remember into notes
+- If the user describes MULTIPLE recurring tasks with different dates, return ALL of them as separate items
+
+IMPORTANT: If there are multiple recurring tasks, return them ALL in the "items" array.
+
+Reply ONLY with JSON:
+{{
+  "jin_message": "Jin風格的回應，繁體中文，活潑，表示已記住所有行程",
+  "items": [
+    {{
+      "title": "任務簡短標題",
+      "detail": "詳細說明",
+      "notes": "特別注意事項",
+      "type": "monthly",
+      "month_day": 1,
+      "weekday": null,
+      "remind_time": "09:00",
+      "remind_days_before": 1
+    }}
+  ]
+}}
+
+Examples:
+- "每個月25號前算薪水，核對加班費" → items有1筆, type=monthly, month_day=25, remind_days_before=2, notes=核對加班費
+- "每月1號和15號..." → items有2筆, 分別 month_day=1 和 month_day=15
+- 用戶說的複雜多日期描述 → 拆成多筆分別記錄"""
+
+# ── 工具函數 ──────────────────────────────────────────────────
+def load_tasks():
+    return json.loads(TASKS_FILE.read_text(encoding="utf-8")) if TASKS_FILE.exists() else []
+
+def save_tasks(t):
+    TASKS_FILE.write_text(json.dumps(t, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def load_user_id():
+    return USER_FILE.read_text(encoding="utf-8").strip() if USER_FILE.exists() else ""
+
+def save_user_id(uid):
+    USER_FILE.write_text(uid, encoding="utf-8")
+
+def load_recurring():
+    return json.loads(RECURRING_FILE.read_text(encoding="utf-8")) if RECURRING_FILE.exists() else []
+
+def save_recurring(r):
+    RECURRING_FILE.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def do_notify(title, msg):
+    if WIN11TOAST:
+        try:
+            toast(title, msg, app_id="Jin Bot")
+        except Exception:
+            pass
+    elif plyer_notification:
+        try:
+            plyer_notification.notify(title=title, message=msg, app_name="Jin", timeout=12)
+        except Exception:
+            pass
+
+def do_notify_task(task_title, body):
+    """提醒通知，帶有「完成」和「延後30分鐘」互動按鈕"""
+    if not WIN11TOAST:
+        do_notify("Jin 提醒你！", body)
+        return
+
+    def on_complete(action):
+        tasks = load_tasks()
+        for t in tasks:
+            if t.get("title") == task_title and t["status"] == "pending":
+                t["status"] = "done"
+                save_tasks(tasks)
+                uid = load_user_id()
+                if uid:
+                    line_push(uid, f"✅ 已標記完成：{task_title}\nWorldwide Handsome 為你驕傲！🌸")
+                break
+
+    def on_snooze(action):
+        tasks = load_tasks()
+        for t in tasks:
+            if t.get("title") == task_title and t["status"] == "pending":
+                t["remind_at"] = (datetime.now() + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+                save_tasks(tasks)
+                break
+
+    try:
+        toast(
+            "Jin 提醒你！",
+            body,
+            app_id="Jin Bot",
+            buttons=[
+                {"activationType": "background", "arguments": "complete", "content": "✅ 完成"},
+                {"activationType": "background", "arguments": "snooze",   "content": "⏰ 延後30分鐘"},
+            ],
+            on_activated=lambda action: (
+                on_complete(action) if action == "complete" else on_snooze(action)
+            ),
+        )
+    except Exception:
+        do_notify("Jin 提醒你！", body)
+
+# ── 下載 LINE 圖片 ─────────────────────────────────────────────
+def download_line_image(message_id):
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api-data.line.me", context=ctx)
+    conn.request("GET", f"/v2/bot/message/{message_id}/content", headers={
+        "Authorization": f"Bearer {LINE_ACCESS_TOKEN}",
+    })
+    r = conn.getresponse()
+    data = r.read()
+    conn.close()
+    return data  # bytes
+
+# ── Groq API 共用函數 ─────────────────────────────────────────
+def _call_groq(messages, model="llama-3.3-70b-versatile"):
+    data = json.dumps({
+        "model": model,
+        "messages": messages,
+        "max_tokens": 1500,
+    }, ensure_ascii=False).encode("utf-8")
+
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
+    conn.request("POST", "/openai/v1/chat/completions", body=data, headers={
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "content-type": "application/json",
+    })
+    r = conn.getresponse()
+    body = json.loads(r.read().decode("utf-8"))
+    conn.close()
+
+    if "error" in body:
+        raise Exception(f"Groq API 錯誤：{body['error'].get('message', str(body))}")
+
+    raw = body["choices"][0]["message"]["content"]
+    return _safe_json(raw)
+
+# ── Groq API（文字）──────────────────────────────────────────
+def call_claude(text):
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+    prompt = JIN_PROMPT.format(now=now_str, bts_status=BTS_STATUS.strip())
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": text},
+    ]
+    return _call_groq(messages)
+
+# ── Groq API（純聊天）────────────────────────────────────────
+def call_chat(text):
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+    prompt = CHAT_PROMPT.format(now=now_str, bts_status=BTS_STATUS.strip())
+    data = json.dumps({
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user",   "content": text},
+        ],
+        "max_tokens": 300,
+    }, ensure_ascii=False).encode("utf-8")
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
+    conn.request("POST", "/openai/v1/chat/completions", body=data, headers={
+        "Authorization": f"Bearer {GROQ_API_KEY}", "content-type": "application/json"})
+    r = conn.getresponse()
+    body = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    return body["choices"][0]["message"]["content"].strip()
+
+# ── Groq API（圖片辨識）──────────────────────────────────────
+def call_claude_image(image_bytes):
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    prompt = IMAGE_PROMPT.format(bts_status=BTS_STATUS.strip())
+    messages = [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+        ]
+    }]
+    return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
+
+# ── 解析時間表達式 → 分鐘數 ──────────────────────────────────
+def parse_time_expr(expr):
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    prompt = TIME_PARSE_PROMPT.format(now=now_str, expr=expr)
+    messages = [{"role": "user", "content": prompt}]
+    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 20},
+                      ensure_ascii=False).encode("utf-8")
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
+    conn.request("POST", "/openai/v1/chat/completions", body=data, headers={
+        "Authorization": f"Bearer {GROQ_API_KEY}", "content-type": "application/json"})
+    r = conn.getresponse()
+    body = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    raw = body["choices"][0]["message"]["content"].strip()
+    return int("".join(c for c in raw if c.isdigit() or c == "-"))
+
+# ── JSON 安全解析 ─────────────────────────────────────────────
+def _safe_json(raw):
+    raw = raw.strip()
+    if "```" in raw:
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except Exception:
+        # 嘗試取出第一個完整 JSON 物件
+        start = raw.find("{")
+        if start == -1:
+            raise
+        depth = 0
+        for i, c in enumerate(raw[start:], start):
+            if c == "{": depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    return json.loads(raw[start:i+1])
+        raise
+
+# ── 解析固定行程 ──────────────────────────────────────────────
+def call_parse_recurring(text):
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    prompt = RECURRING_PARSE_PROMPT.format(now=now_str)
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": text},
+    ]
+    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 2000},
+                      ensure_ascii=False).encode("utf-8")
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
+    conn.request("POST", "/openai/v1/chat/completions", body=data, headers={
+        "Authorization": f"Bearer {GROQ_API_KEY}", "content-type": "application/json"})
+    r = conn.getresponse()
+    body = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    raw = body["choices"][0]["message"]["content"]
+    return _safe_json(raw)
+
+# ── Jin 空閒關心訊息 ──────────────────────────────────────────
+def call_checkin():
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+    prompt = CHECKIN_PROMPT.format(now=now_str, bts_status=BTS_STATUS.strip())
+    messages = [{"role": "user", "content": prompt}]
+    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 200},
+                      ensure_ascii=False).encode("utf-8")
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
+    conn.request("POST", "/openai/v1/chat/completions", body=data, headers={
+        "Authorization": f"Bearer {GROQ_API_KEY}", "content-type": "application/json"})
+    r = conn.getresponse()
+    body = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    return body["choices"][0]["message"]["content"].strip()
+
+def add_tasks(new_tasks):
+    tasks = load_tasks()
+    now = datetime.now()
+    for t in new_tasks:
+        t["remind_at"] = (now + timedelta(minutes=t["remind_in_minutes"])).strftime("%Y-%m-%d %H:%M:%S")
+        t["created_at"] = now.strftime("%Y-%m-%d %H:%M:%S")
+        tasks.append(t)
+    save_tasks(tasks)
+
+# ── LINE 快速按鈕 ─────────────────────────────────────────────
+def _quick_replies(items):
+    """items = [("label", "text"), ...]"""
+    return {
+        "type": "quick_reply",
+        "items": [
+            {
+                "type": "action",
+                "action": {"type": "message", "label": label, "text": text}
+            }
+            for label, text in items
+        ]
+    }
+
+MAIN_MENU = {
+    "type": "quick_reply",
+    "items": [
+        {"type": "action", "action": {"type": "message", "label": "📋 查看任務", "text": "查看任務"}},
+        {"type": "action", "action": {"type": "message", "label": "📅 固定行程", "text": "查看固定行程"}},
+        {"type": "action", "action": {"type": "camera",  "label": "📸 拍照辨識"}},
+        {"type": "action", "action": {"type": "message", "label": "❓ 使用說明", "text": "幫助"}},
+    ]
+}
+
+def _task_actions(task_title):
+    return _quick_replies([
+        ("✅ 完成", f"完成 {task_title}"),
+        ("⏰ 延後30分", f"延後30 {task_title}"),
+        ("✏️ 編輯", f"編輯 {task_title}"),
+        ("🗑️ 刪除", f"刪除任務 {task_title}"),
+    ])
+
+def _edit_actions(task_title):
+    return _quick_replies([
+        ("🕐 改時間", f"改時間 {task_title} "),
+        ("📝 改內容", f"改內容 {task_title} "),
+        ("🏷️ 改標題", f"改標題 {task_title} "),
+        ("↩️ 返回", "查看任務"),
+    ])
+
+# ── LINE API ──────────────────────────────────────────────────
+def _line_post(path, payload):
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.line.me", context=ctx)
+    conn.request("POST", path, body=data, headers={
+        "Authorization": f"Bearer {LINE_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    })
+    conn.getresponse()
+    conn.close()
+
+def line_reply(reply_token, text, quick_reply=None):
+    msg = {"type": "text", "text": text}
+    if quick_reply:
+        msg["quickReply"] = quick_reply
+    _line_post("/v2/bot/message/reply", {"replyToken": reply_token, "messages": [msg]})
+
+def line_push(user_id, text, quick_reply=None):
+    msg = {"type": "text", "text": text}
+    if quick_reply:
+        msg["quickReply"] = quick_reply
+    _line_post("/v2/bot/message/push", {"to": user_id, "messages": [msg]})
+
+def line_push_messages(user_id, messages):
+    """推送多則訊息（最多5則）"""
+    _line_post("/v2/bot/message/push", {"to": user_id, "messages": messages[:5]})
+
+def line_reply_messages(reply_token, messages):
+    """回覆多則訊息（最多5則）"""
+    _line_post("/v2/bot/message/reply", {"replyToken": reply_token, "messages": messages[:5]})
+
+# ── Flex Message 輔助函數 ──────────────────────────────────────
+# 粉色主題色
+_PINK   = "#C8547A"
+_PINK_L = "#FFD6E7"
+_GREEN  = "#4CAF50"
+_GRAY   = "#888888"
+_DARK   = "#333333"
+
+def _btn(label, text, style="secondary", color=None):
+    b = {"type": "button", "style": style, "height": "sm", "flex": 1,
+         "action": {"type": "message", "label": label, "text": text}}
+    if color:
+        b["color"] = color
+    return b
+
+def _task_card(title, detail, remind_at, idx=1, total=1):
+    """單一任務卡片 Flex Bubble"""
+    header_label = f"任務 {idx} / {total}" if total > 1 else "✅ 已建立提醒"
+    remind_short = remind_at[:16] if remind_at else ""
+    title_short  = title[:30] + "…" if len(title) > 30 else title
+    detail_short = detail[:60] + "…" if len(detail) > 60 else detail
+    return {
+        "type": "bubble",
+        "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical",
+            "backgroundColor": _PINK, "paddingAll": "14px",
+            "contents": [
+                {"type": "text", "text": header_label, "color": _PINK_L, "size": "xxs"},
+                {"type": "text", "text": title_short,  "color": "#FFFFFF",
+                 "size": "md", "weight": "bold", "wrap": True},
+            ]
+        },
+        "body": {
+            "type": "box", "layout": "vertical",
+            "paddingAll": "14px", "spacing": "sm",
+            "contents": [
+                {"type": "text", "text": f"📝  {detail_short}",
+                 "size": "sm", "color": "#555555", "wrap": True},
+                {"type": "separator", "margin": "md"},
+                {"type": "text", "text": f"⏰  {remind_short}",
+                 "size": "sm", "color": _GRAY, "margin": "sm"},
+            ]
+        },
+        "footer": {
+            "type": "box", "layout": "horizontal",
+            "spacing": "xs", "paddingAll": "10px",
+            "contents": [
+                _btn("✅ 完成", f"完成 {title}", style="primary", color=_GREEN),
+                _btn("⏰ 延後", f"延後30 {title}"),
+                _btn("✏️ 編輯", f"編輯 {title}"),
+            ]
+        }
+    }
+
+def _tasks_flex(jin_message, tasks_data):
+    """jin_message 文字 + 任務卡片（單張或輪播）"""
+    text_msg = {"type": "text", "text": f"🌸 Jin：{jin_message}"}
+    if not tasks_data:
+        return [text_msg]
+
+    if len(tasks_data) == 1:
+        t = tasks_data[0]
+        flex_content = _task_card(t["title"], t.get("detail",""), t.get("remind_at",""))
+    else:
+        bubbles = [
+            _task_card(t["title"], t.get("detail",""), t.get("remind_at",""), i+1, len(tasks_data))
+            for i, t in enumerate(tasks_data)
+        ]
+        flex_content = {"type": "carousel", "contents": bubbles[:10]}
+
+    flex_msg = {"type": "flex", "altText": f"已建立 {len(tasks_data)} 個提醒", "contents": flex_content}
+    return [text_msg, flex_msg]
+
+def _task_list_flex(pending_tasks):
+    """任務列表輪播卡片"""
+    if not pending_tasks:
+        return None
+    bubbles = []
+    for t in pending_tasks[:10]:
+        bubbles.append(_task_card(t["title"], t.get("detail",""), t.get("remind_at","")))
+    content = bubbles[0] if len(bubbles) == 1 else {"type": "carousel", "contents": bubbles}
+    return {"type": "flex", "altText": f"待辦任務（{len(pending_tasks)} 件）", "contents": content}
+
+def _image_result_flex(jin_message, urgent, later):
+    """圖片辨識結果卡片"""
+    def _item_row(emoji, text):
+        return {"type": "box", "layout": "baseline", "spacing": "sm", "contents": [
+            {"type": "text", "text": emoji, "size": "sm", "flex": 0},
+            {"type": "text", "text": text,  "size": "sm", "color": "#555555", "flex": 1, "wrap": True},
+        ]}
+
+    body_items = []
+    if urgent:
+        body_items.append({"type": "text", "text": "🔥 馬上去做", "weight": "bold", "color": _PINK, "size": "sm"})
+        for t in urgent:
+            body_items.append(_item_row("❗", f"{t['title']}  {t['detail']}"))
+        body_items.append({"type": "separator", "margin": "md"})
+    if later:
+        body_items.append({"type": "text", "text": "🕐 可以緩一緩", "weight": "bold",
+                           "color": "#FF8C00", "size": "sm", "margin": "md"})
+        for t in later:
+            body_items.append(_item_row("📌", f"{t['title']}  {t['detail']}"))
+
+    bubble = {
+        "type": "bubble",
+        "header": {
+            "type": "box", "layout": "vertical",
+            "backgroundColor": _PINK, "paddingAll": "14px",
+            "contents": [
+                {"type": "text", "text": "📸 手寫清單辨識結果", "color": _PINK_L, "size": "xs"},
+                {"type": "text", "text": jin_message, "color": "#FFFFFF", "size": "sm", "wrap": True},
+            ]
+        },
+        "body": {
+            "type": "box", "layout": "vertical",
+            "paddingAll": "14px", "spacing": "sm",
+            "contents": body_items or [{"type": "text", "text": "沒有識別到任務", "color": _GRAY}]
+        },
+        "footer": {
+            "type": "box", "layout": "horizontal", "spacing": "sm", "paddingAll": "10px",
+            "contents": [
+                _btn("📋 查看任務", "查看任務"),
+                _btn("📸 再拍一次", "拍照辨識"),
+            ]
+        }
+    }
+    return {"type": "flex", "altText": f"清單辨識：緊急{len(urgent)}件，緩{len(later)}件", "contents": bubble}
+
+# ── 圖片處理 ──────────────────────────────────────────────────
+def process_image(user_id, reply_token, message_id):
+    try:
+        line_reply(reply_token, "收到照片了！世界第一帥正在幫你看清單，稍等一下～ 📸")
+
+        image_bytes = download_line_image(message_id)
+        result = call_claude_image(image_bytes)
+
+        urgent = result.get("urgent", [])
+        later  = result.get("later", [])
+        msg    = result.get("jin_message", "加油 ARMY！")
+
+        all_tasks = [{**t, "status": "pending"} for t in urgent + later]
+        add_tasks(all_tasks)
+
+        flex_msg = _image_result_flex(msg, urgent, later)
+        line_push_messages(user_id, [flex_msg])
+        do_notify("Jin 幫你整理好了！", f"緊急 {len(urgent)} 件，緩一緩 {len(later)} 件")
+
+    except Exception as e:
+        line_push(user_id, f"看圖時出錯了：{e}\n請重新傳一次照片")
+        print(f"[Image Error] {e}")
+
+# ── 訊息處理 ──────────────────────────────────────────────────
+def handle_message(user_id, reply_token, text):
+    if not load_user_id():
+        save_user_id(user_id)
+        print(f"[User ID 已儲存] {user_id}")
+
+    text = text.strip()
+
+    if text in ["查看", "查看任務"]:
+        tasks = load_tasks()
+        pending = [t for t in tasks if t["status"] == "pending"]
+        if not pending:
+            line_reply(reply_token,
+                "目前沒有待辦任務！\n야야야～清單空了！\nopp為你驕傲 🌸\n\n有新任務就告訴我！",
+                quick_reply=MAIN_MENU)
+            return
+        flex_msg = _task_list_flex(pending)
+        count_text = {"type": "text", "text": f"📋 共 {len(pending)} 個待辦，左右滑動查看全部\n刪除：刪除任務 名稱　｜　刪除全部任務"}
+        line_reply_messages(reply_token, [count_text, flex_msg])
+
+    elif text.startswith("刪除任務 "):
+        keyword = text[5:].strip()
+        tasks = load_tasks()
+        before = len([t for t in tasks if t["status"] == "pending"])
+        tasks = [t for t in tasks if not (keyword in t.get("title","") and t["status"] == "pending")]
+        after = len([t for t in tasks if t["status"] == "pending"])
+        deleted = before - after
+        if deleted > 0:
+            save_tasks(tasks)
+            line_reply(reply_token,
+                f"好的！已刪除「{keyword}」（共 {deleted} 筆）\n오빠幫你清掉了！🌸",
+                quick_reply=MAIN_MENU)
+        else:
+            line_reply(reply_token, f"找不到「{keyword}」這個任務欸～", quick_reply=MAIN_MENU)
+
+    elif text in ["刪除全部任務", "清空任務"]:
+        tasks = load_tasks()
+        pending_count = len([t for t in tasks if t["status"] == "pending"])
+        if pending_count == 0:
+            line_reply(reply_token, "本來就沒有任務了哈哈哈！", quick_reply=MAIN_MENU)
+        else:
+            for t in tasks:
+                if t["status"] == "pending":
+                    t["status"] = "deleted"
+            save_tasks(tasks)
+            line_reply(reply_token,
+                f"야야야！全部 {pending_count} 個任務都清掉了！\n清爽～但不要偷懶喔！😤",
+                quick_reply=MAIN_MENU)
+
+    elif text in ["拍照辨識"]:
+        line_reply(reply_token,
+            "📸 好！把你的手寫清單照片傳過來～\n世界第一帥幫你看！哈哈哈！",
+            quick_reply=MAIN_MENU)
+
+    elif text.startswith("完成 "):
+        keyword = text[3:].strip()
+        tasks = load_tasks()
+        for t in tasks:
+            if keyword in t.get("title", "") and t["status"] == "pending":
+                t["status"] = "done"
+                save_tasks(tasks)
+                line_reply(reply_token,
+                    f"대박！{t['title']} 完成了！\n야야야～Worldwide Handsome 超級驕傲！🌸\n\n下一個任務呢？",
+                    quick_reply=MAIN_MENU)
+                do_notify("完成！🎉", t["title"] + " 搞定了！진짜 대박！")
+                return
+        line_reply(reply_token, f"아이고～找不到「{keyword}」這個任務欸", quick_reply=MAIN_MENU)
+
+    elif text.startswith("延後"):
+        parts = text.split(" ", 1)
+        mins = parts[0].replace("延後", "").strip()
+        keyword = parts[1].strip() if len(parts) > 1 else ""
+        try:
+            mins = int(mins)
+            tasks = load_tasks()
+            for t in tasks:
+                if keyword in t.get("title", "") and t["status"] == "pending":
+                    t["remind_at"] = (datetime.now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
+                    save_tasks(tasks)
+                    line_reply(reply_token,
+                        f"好啦好啦～延後 {mins} 分鐘！\n但不要一直逃避喔！😤\n오빠等你好消息！",
+                        quick_reply=_task_actions(keyword))
+                    return
+            line_reply(reply_token, f"找不到「{keyword}」欸～", quick_reply=MAIN_MENU)
+        except:
+            line_reply(reply_token, "格式：延後30 任務名稱", quick_reply=MAIN_MENU)
+
+    elif text.startswith("編輯 "):
+        keyword = text[3:].strip()
+        tasks = load_tasks()
+        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        if found:
+            line_reply(reply_token,
+                f"✏️ 編輯任務：{found['title']}\n\n"
+                f"📝 內容：{found['detail']}\n"
+                f"⏰ 提醒時間：{found['remind_at']}\n\n"
+                "要改什麼？點下方按鈕～\n"
+                "（改時間/改內容/改標題 後面直接接新的值）",
+                quick_reply=_edit_actions(found["title"]))
+        else:
+            line_reply(reply_token, f"找不到「{keyword}」這個任務欸～", quick_reply=MAIN_MENU)
+
+    elif text.startswith("改時間 "):
+        # 格式：改時間 任務名稱 時間表達式（支援：30分鐘、下午3點、明天早上9點、2026-06-06 15:00 等）
+        body_text = text[4:].strip()
+        # 嘗試從末尾找時間表達式（至少2字元）
+        parts = body_text.split(" ", 1)
+        keyword = parts[0].strip()
+        time_expr = parts[1].strip() if len(parts) > 1 else ""
+        tasks = load_tasks()
+        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        if not found:
+            line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
+        elif not time_expr:
+            line_reply(reply_token,
+                f"請告訴我新的提醒時間～\n\n例如：\n"
+                f"改時間 {keyword} 下午3點\n"
+                f"改時間 {keyword} 明天早上9點\n"
+                f"改時間 {keyword} 6月10日上午10點\n"
+                f"改時間 {keyword} 60（分鐘後）",
+                quick_reply=_edit_actions(keyword))
+        else:
+            try:
+                mins = parse_time_expr(time_expr)
+                if mins <= 0:
+                    raise ValueError("time in past")
+                new_time = datetime.now() + timedelta(minutes=mins)
+                found["remind_at"] = new_time.strftime("%Y-%m-%d %H:%M:%S")
+                save_tasks(tasks)
+                line_reply(reply_token,
+                    f"✅ 改好了！\n{found['title']}\n⏰ 新提醒時間：{found['remind_at']}\n\n오빠幫你盯著！Fighting！",
+                    quick_reply=_task_actions(found["title"]))
+            except Exception:
+                line_reply(reply_token,
+                    f"아이고～時間解析失敗了欸，試試這樣寫：\n"
+                    f"改時間 {keyword} 下午3點\n"
+                    f"改時間 {keyword} 明天早上9點\n"
+                    f"改時間 {keyword} 60（60分鐘後）",
+                    quick_reply=_edit_actions(keyword))
+
+    elif text.startswith("改內容 "):
+        # 格式：改內容 任務名稱 新內容
+        parts = text[4:].split(" ", 1)
+        keyword = parts[0].strip()
+        new_detail = parts[1].strip() if len(parts) > 1 else ""
+        tasks = load_tasks()
+        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        if not found:
+            line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
+        elif not new_detail:
+            line_reply(reply_token,
+                f"請輸入新內容～\n格式：改內容 {keyword} 新的說明文字",
+                quick_reply=_edit_actions(keyword))
+        else:
+            found["detail"] = new_detail
+            save_tasks(tasks)
+            line_reply(reply_token,
+                f"✅ 內容更新好了！\n{found['title']}：{new_detail}",
+                quick_reply=_task_actions(found["title"]))
+
+    elif text.startswith("改標題 "):
+        # 格式：改標題 舊標題 新標題
+        parts = text[4:].split(" ", 1)
+        keyword = parts[0].strip()
+        new_title = parts[1].strip() if len(parts) > 1 else ""
+        tasks = load_tasks()
+        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        if not found:
+            line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
+        elif not new_title:
+            line_reply(reply_token,
+                f"請輸入新標題～\n格式：改標題 {keyword} 新標題",
+                quick_reply=_edit_actions(keyword))
+        else:
+            old_title = found["title"]
+            found["title"] = new_title
+            save_tasks(tasks)
+            line_reply(reply_token,
+                f"✅ 標題改好了！\n「{old_title}」→「{new_title}」\n世界第一帥幫你記住了！",
+                quick_reply=_task_actions(new_title))
+
+    elif text.startswith("記住 ") or text.startswith("固定行程 "):
+        content = text.split(" ", 1)[1].strip()
+        line_reply(reply_token, "오빠幫你記！世界第一帥的記憶力超好的～稍等⏳", quick_reply=MAIN_MENU)
+        threading.Thread(target=process_recurring, args=(user_id, content), daemon=True).start()
+
+    elif text in ["查看固定", "固定行程", "查看固定行程"]:
+        items = load_recurring()
+        if not items:
+            line_reply(reply_token,
+                "目前沒有固定行程～\n跟我說「記住 每個月XX號要...」，오빠幫你記！",
+                quick_reply=MAIN_MENU)
+            return
+        lines = ["📅 Jin 記住的固定行程：\n"]
+        for i, r in enumerate(items, 1):
+            lines.append(f"{i}. {r['title']}")
+            lines.append(f"   📅 {_type_str(r)}")
+            if r.get("notes"):
+                lines.append(f"   📝 {r['notes']}")
+            lines.append("")
+        qr = _quick_replies([
+            ("📋 查看任務", "查看任務"),
+            ("➕ 新增固定", "記住 "),
+            ("🗑️ 刪除固定", "刪除固定 "),
+        ])
+        line_reply(reply_token, "\n".join(lines), quick_reply=qr)
+
+    elif text.startswith("刪除固定 "):
+        keyword = text[5:].strip()
+        items = load_recurring()
+        before = len(items)
+        items = [r for r in items if keyword not in r.get("title","")]
+        if len(items) < before:
+            save_recurring(items)
+            line_reply(reply_token,
+                f"好的！「{keyword}」已從固定行程刪除～\n如果需要再告訴오빠！",
+                quick_reply=MAIN_MENU)
+        else:
+            line_reply(reply_token, f"找不到「{keyword}」這個固定行程欸～", quick_reply=MAIN_MENU)
+
+    elif text in ["幫助", "help", "Help", "？", "?"]:
+        line_reply(reply_token,
+            "📖 Jin Bot 使用說明\n\n"
+            "📸 傳照片 → 辨識手寫清單，分緊急/緩\n"
+            "💬 傳文字 → Jin 建立任務和提醒\n"
+            "📋 查看任務 → 列出所有待辦\n"
+            "✅ 完成 任務名稱 → 標記完成\n"
+            "⏰ 延後30 任務名稱 → 延後提醒\n"
+            "✏️ 編輯 任務名稱 → 編輯任務\n"
+            "  └ 改時間 任務 時間\n"
+            "  └ 改內容 任務 新說明\n"
+            "  └ 改標題 任務 新標題\n\n"
+            "📅 固定行程：\n"
+            "記住 每個月25號薪資核對... → Jin 記住並定期提醒\n"
+            "查看固定行程 → 看所有固定行程\n"
+            "刪除固定 名稱 → 刪除固定行程\n\n"
+            "Worldwide Handsome 全程監督你！🌸\n야야야 Fighting！",
+            quick_reply=MAIN_MENU)
+
+    else:
+        line_reply(reply_token,
+            "分析中～世界第一帥也很忙的！\n야야야 請稍等...⏳",
+            quick_reply=MAIN_MENU)
+        threading.Thread(target=process_task, args=(user_id, text), daemon=True).start()
+
+TASK_KEYWORDS = [
+    "要", "需要", "記得", "提醒", "待會", "等一下", "明天", "後天", "下週", "下周",
+    "下午", "早上", "上午", "中午", "今晚", "今天", "明早", "點", "分鐘", "小時",
+    "截止", "期限", "前", "號", "月", "日", "繳", "交", "送", "寄", "開會",
+    "回", "打電話", "聯絡", "確認", "檢查", "準備", "完成", "處理",
+]
+
+def _looks_like_task(text):
+    return any(kw in text for kw in TASK_KEYWORDS)
+
+def process_task(user_id, text):
+    try:
+        result = call_claude(text)
+        tasks = result.get("tasks", [])
+        msg = result.get("jin_message", "加油 ARMY！")
+
+        # 沒有任務 → 判斷是否應該建立任務
+        if not tasks:
+            if _looks_like_task(text):
+                # 有任務關鍵字但 AI 沒建立 → 再試一次，明確要求建立任務
+                retry_text = f"請幫我記住這個任務並設定提醒：{text}"
+                result2 = call_claude(retry_text)
+                tasks2 = result2.get("tasks", [])
+                if tasks2:
+                    tasks = tasks2
+                    msg = result2.get("jin_message", msg)
+                else:
+                    # 仍然沒有 → 詢問使用者
+                    line_push(user_id,
+                        f"🌸 Jin：{msg}\n\n"
+                        "오빠看起來你有事要做耶～\n"
+                        "要幫你建立提醒嗎？\n"
+                        "試著告訴我：\n「[任務名稱] [時間]」\n例如：下午3點開會、明天交報告",
+                        quick_reply=_quick_replies([
+                            ("📋 查看任務", "查看任務"),
+                            ("❓ 使用說明", "幫助"),
+                        ]))
+                    return
+            else:
+                # 純聊天
+                chat_reply = call_chat(text)
+                line_push(user_id, f"🌸 {chat_reply}", quick_reply=MAIN_MENU)
+                return
+
+        add_tasks(tasks)
+        # 取得 remind_at（add_tasks 已計算好）
+        saved = load_tasks()
+        titles = {t["title"] for t in tasks}
+        enriched = [t for t in saved if t["title"] in titles][-len(tasks):]
+        messages = _tasks_flex(msg, enriched)
+        line_push_messages(user_id, messages)
+        do_notify("Jin 說！🌸", msg)
+    except Exception as e:
+        line_push(user_id, f"出錯了：{e}", quick_reply=MAIN_MENU)
+        print(f"[process_task Error] {e}")
+
+def _type_str(r):
+    rtype = r.get("type", "monthly")
+    weekday = r.get("weekday")
+    wd_str = "一二三四五六日"[int(weekday)] if weekday is not None else "?"
+    return {
+        "monthly": f"每月{r.get('month_day','?')}號 提前{r.get('remind_days_before',1)}天 {r.get('remind_time','09:00')} 提醒",
+        "weekly":  f"每週{wd_str} {r.get('remind_time','09:00')} 提醒",
+        "yearly":  f"每年{r.get('month','?')}月{r.get('month_day','?')}號前提醒",
+        "daily":   f"每天 {r.get('remind_time','09:00')} 提醒",
+    }.get(rtype, rtype)
+
+def process_recurring(user_id, text):
+    try:
+        result = call_parse_recurring(text)
+        import uuid
+
+        # 支援單筆（舊格式）或多筆（新 items 格式）
+        if "items" in result:
+            new_items = result["items"]
+        elif "title" in result:
+            new_items = [result]
+        else:
+            raise ValueError(f"無法解析回應格式：{result}")
+
+        saved = load_recurring()
+        for item in new_items:
+            item["id"] = str(uuid.uuid4())[:8]
+            item["active"] = True
+            saved.append(item)
+        save_recurring(saved)
+
+        jin_msg = result.get("jin_message", "오빠全部記住了！")
+        lines = [f"🌸 Jin：{jin_msg}\n", f"📅 已記住 {len(new_items)} 個固定行程：\n"]
+        for item in new_items:
+            lines.append(f"✅ {item['title']}")
+            lines.append(f"   ⏰ {_type_str(item)}")
+            if item.get("notes"):
+                lines.append(f"   📝 {item['notes']}")
+            lines.append("")
+        lines.append("查看全部請傳「查看固定行程」")
+
+        qr = _quick_replies([
+            ("📅 查看固定行程", "查看固定行程"),
+            ("📋 查看任務", "查看任務"),
+        ])
+        line_push(user_id, "\n".join(lines), quick_reply=qr)
+        do_notify("Jin 記住了！📅", f"已記住 {len(new_items)} 個固定行程")
+    except Exception as e:
+        line_push(user_id, f"記錄固定行程時出錯了：{e}\n請重新傳一次", quick_reply=MAIN_MENU)
+
+# ── 固定行程排程觸發 ──────────────────────────────────────────
+def check_recurring():
+    """每天早上檢查固定行程，在指定天數前建立提醒任務"""
+    import uuid as _uuid
+    now = datetime.now()
+    uid = load_user_id()
+    if not uid:
+        return
+    items = load_recurring()
+    tasks = load_tasks()
+    existing_titles_today = {
+        t["title"] for t in tasks
+        if t.get("status") == "pending" and t.get("created_at","").startswith(now.strftime("%Y-%m-%d"))
+    }
+
+    for r in items:
+        if not r.get("active", True):
+            continue
+        rtype = r.get("type", "monthly")
+        remind_days = r.get("remind_days_before", 1)
+        remind_time = r.get("remind_time", "09:00")
+        title = r["title"]
+
+        target_date = None
+        if rtype == "monthly":
+            day = r.get("month_day", 25)
+            # 找這個月或下個月的目標日
+            try:
+                candidate = now.replace(day=day)
+            except ValueError:
+                candidate = (now.replace(day=1) + timedelta(days=32)).replace(day=1)
+            if candidate.date() < now.date():
+                # 已過，用下個月
+                next_m = (now.replace(day=1) + timedelta(days=32)).replace(day=1)
+                try:
+                    candidate = next_m.replace(day=day)
+                except ValueError:
+                    continue
+            target_date = candidate.date()
+
+        elif rtype == "weekly":
+            weekday = r.get("weekday", 0)
+            days_ahead = (weekday - now.weekday()) % 7
+            if days_ahead == 0:
+                days_ahead = 7
+            target_date = (now + timedelta(days=days_ahead)).date()
+
+        elif rtype == "yearly":
+            month = r.get("month", now.month)
+            day = r.get("month_day", 1)
+            try:
+                candidate = now.replace(month=month, day=day)
+            except ValueError:
+                continue
+            if candidate.date() < now.date():
+                candidate = candidate.replace(year=now.year + 1)
+            target_date = candidate.date()
+
+        if target_date is None:
+            continue
+
+        days_until = (target_date - now.date()).days
+        if days_until == remind_days and title not in existing_titles_today:
+            h, m = map(int, remind_time.split(":"))
+            remind_at = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            if remind_at < now:
+                remind_at += timedelta(days=1)
+
+            notes_part = f"\n\n📝 記得注意：{r['notes']}" if r.get("notes") else ""
+            new_task = {
+                "id": str(_uuid.uuid4())[:8],
+                "title": title,
+                "detail": r.get("detail", "") + notes_part,
+                "remind_at": remind_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "created_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "status": "pending",
+                "from_recurring": True,
+            }
+            tasks.append(new_task)
+            save_tasks(tasks)
+            push_msg = (
+                f"📅 固定行程提醒！\n\n"
+                f"오빠記得你說的！{title} 還有 {days_until} 天！\n"
+                f"📝 {r.get('detail','')}"
+            )
+            if r.get("notes"):
+                push_msg += f"\n\n⚠️ 特別注意：{r['notes']}"
+            push_msg += f"\n\n야야야 要開始準備了！Fighting！"
+            line_push(uid, push_msg, quick_reply=_task_actions(title))
+            do_notify(f"📅 固定行程：{title}", f"還有{days_until}天！요빠提醒你！")
+            print(f"[固定行程] 建立提醒：{title}")
+
+# ── 排程提醒 ──────────────────────────────────────────────────
+def check_reminders():
+    import random
+    tasks = load_tasks()
+    now = datetime.now()
+    updated = False
+    uid = load_user_id()
+
+    for t in tasks:
+        if t.get("status") != "pending": continue
+        if now >= datetime.strptime(t["remind_at"], "%Y-%m-%d %H:%M:%S"):
+            tpl_t, tpl_m = random.choice(REMIND)
+            remind_msg = tpl_m.format(t=t["title"])
+            push_msg = f"{tpl_t}\n{remind_msg}\n\n📝 {t['detail']}"
+            do_notify_task(t["title"], remind_msg + f"\n{t['detail']}")
+            if uid:
+                line_push(uid, push_msg, quick_reply=_task_actions(t["title"]))
+            t["remind_at"] = (now + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+            t["remind_count"] = t.get("remind_count", 0) + 1
+            updated = True
+            print(f"[提醒] {t['title']}")
+    if updated:
+        save_tasks(tasks)
+
+def check_and_checkin():
+    """沒有待辦任務時，Jin 隨機傳關心訊息（工作時段：早上9點到晚上10點）"""
+    import random
+    hour = datetime.now().hour
+    if hour < 9 or hour >= 22:
+        return
+    uid = load_user_id()
+    if not uid:
+        return
+    tasks = load_tasks()
+    pending = [t for t in tasks if t.get("status") == "pending"]
+    if pending:
+        return
+    try:
+        msg = call_checkin()
+        line_push(uid, f"🌸 Jin 路過關心你～\n\n{msg}", quick_reply=MAIN_MENU)
+        print("[Jin關心] 傳送關心訊息")
+    except Exception as e:
+        print(f"[Checkin Error] {e}")
+
+def run_scheduler():
+    schedule.every(1).minutes.do(check_reminders)
+    schedule.every(3).hours.do(check_and_checkin)
+    schedule.every().day.at("08:00").do(check_recurring)
+    # 啟動時也先跑一次固定行程檢查
+    threading.Thread(target=check_recurring, daemon=True).start()
+    while True:
+        schedule.run_pending()
+        time.sleep(15)
+
+# ── Webhook 伺服器 ────────────────────────────────────────────
+class WebhookHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args): pass
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+
+        sig = self.headers.get("X-Line-Signature", "")
+        mac = hmac.new(LINE_CHANNEL_SECRET.encode("utf-8"), body, hashlib.sha256).digest()
+        expected = base64.b64encode(mac).decode("utf-8")
+        if sig != expected:
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        self.send_response(200)
+        self.end_headers()
+
+        try:
+            data = json.loads(body.decode("utf-8"))
+            for event in data.get("events", []):
+                if event.get("type") != "message":
+                    continue
+
+                user_id    = event["source"]["userId"]
+                reply_token = event["replyToken"]
+                msg_type   = event["message"]["type"]
+
+                # 儲存 User ID
+                if not load_user_id():
+                    save_user_id(user_id)
+
+                if msg_type == "text":
+                    text = event["message"]["text"]
+                    threading.Thread(
+                        target=handle_message,
+                        args=(user_id, reply_token, text),
+                        daemon=True
+                    ).start()
+
+                elif msg_type == "image":
+                    message_id = event["message"]["id"]
+                    threading.Thread(
+                        target=process_image,
+                        args=(user_id, reply_token, message_id),
+                        daemon=True
+                    ).start()
+
+        except Exception as e:
+            print(f"[Webhook Error] {e}")
+
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Jin Bot is running!")
+
+# ── 主程式 ────────────────────────────────────────────────────
+if __name__ == "__main__":
+    threading.Thread(target=run_scheduler, daemon=True).start()
+
+    server = HTTPServer(("0.0.0.0", PORT), WebhookHandler)
+    print("=" * 50)
+    print(f"Jin Bot 啟動！port {PORT}")
+    print(f"模式：{'☁️ 雲端' if IS_CLOUD else '💻 本地'}")
+    print("傳照片給 Bot 可辨識手寫清單！")
+    print("=" * 50)
+    server.serve_forever()

@@ -803,192 +803,210 @@ def process_image(user_id, reply_token, message_id):
 
 # ── 訊息處理 ──────────────────────────────────────────────────
 def handle_message(user_id, reply_token, text):
-    if not load_user_id():
-        save_user_id(user_id)
-        print(f"[User ID 已儲存] {user_id}")
+    try:
+        if not load_user_id():
+            save_user_id(user_id)
+    except Exception as e:
+        print(f"[User ID Error] {e}")
 
+    # 清理文字：去除空白、全型引號
+    text = text.strip()
+    text = text.strip("「」『』\"'")
     text = text.strip()
 
-    if text in ["查看", "查看任務"]:
-        tasks = load_tasks()
-        pending = [t for t in tasks if t["status"] == "pending"]
+    try:
+        _dispatch(user_id, reply_token, text)
+    except Exception as e:
+        print(f"[handle_message Error] {e}")
+        try:
+            line_reply(reply_token, f"오빠出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
+        except Exception:
+            try:
+                line_push(user_id, f"오빠出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
+            except Exception:
+                pass
+
+def _dispatch(user_id, reply_token, text):
+    """實際處理各種指令"""
+
+    # ── 查看任務 ──
+    if text in ["查看", "查看任務", "任務", "待辦"]:
+        try:
+            tasks = load_tasks()
+        except Exception:
+            tasks = []
+        pending = [t for t in tasks if t.get("status") == "pending"]
         if not pending:
             line_reply(reply_token,
-                "目前沒有待辦任務！\n야야야～清單空了！\nopp為你驕傲 🌸\n\n有新任務就告訴我！",
+                "目前沒有待辦任務！\n야야야～清單空了！\n오빠為你驕傲 🌸\n\n有新任務就告訴我！",
                 quick_reply=MAIN_MENU)
             return
-        flex_msg = _task_list_flex(pending)
-        count_text = {"type": "text", "text": f"📋 共 {len(pending)} 個待辦，左右滑動查看全部\n刪除：刪除任務 名稱　｜　刪除全部任務"}
-        line_reply_messages(reply_token, [count_text, flex_msg])
+        try:
+            flex_msg  = _task_list_flex(pending)
+            count_msg = {"type": "text",
+                         "text": f"📋 共 {len(pending)} 個待辦，左右滑動查看\n刪除：刪除任務 名稱　刪除全部：刪除全部任務"}
+            line_reply_messages(reply_token, [count_msg, flex_msg])
+        except Exception:
+            # Flex 失敗就退回純文字
+            lines = ["📋 待辦清單：\n"]
+            for i, t in enumerate(pending, 1):
+                lines.append(f"{i}. {t['title']}\n   ⏰ {t.get('remind_at','')}")
+            line_reply(reply_token, "\n".join(lines), quick_reply=MAIN_MENU)
 
+    # ── 刪除指定任務 ──
     elif text.startswith("刪除任務 "):
         keyword = text[5:].strip()
         tasks = load_tasks()
-        before = len([t for t in tasks if t["status"] == "pending"])
-        tasks = [t for t in tasks if not (keyword in t.get("title","") and t["status"] == "pending")]
-        after = len([t for t in tasks if t["status"] == "pending"])
-        deleted = before - after
+        before = len([t for t in tasks if t.get("status") == "pending"])
+        tasks = [t for t in tasks if not (keyword in t.get("title","") and t.get("status") == "pending")]
+        deleted = before - len([t for t in tasks if t.get("status") == "pending"])
         if deleted > 0:
             save_tasks(tasks)
-            line_reply(reply_token,
-                f"好的！已刪除「{keyword}」（共 {deleted} 筆）\n오빠幫你清掉了！🌸",
-                quick_reply=MAIN_MENU)
+            line_reply(reply_token, f"好的！已刪除含「{keyword}」的任務（共 {deleted} 筆）🌸", quick_reply=MAIN_MENU)
         else:
-            line_reply(reply_token, f"找不到「{keyword}」這個任務欸～", quick_reply=MAIN_MENU)
+            line_reply(reply_token, f"找不到「{keyword}」這個任務欸～\n\n傳「查看任務」確認任務名稱", quick_reply=MAIN_MENU)
 
-    elif text in ["刪除全部任務", "清空任務"]:
+    # ── 刪除全部任務 ──
+    elif text in ["刪除全部任務", "清空任務", "清空所有任務"]:
         tasks = load_tasks()
-        pending_count = len([t for t in tasks if t["status"] == "pending"])
-        if pending_count == 0:
+        count = len([t for t in tasks if t.get("status") == "pending"])
+        if count == 0:
             line_reply(reply_token, "本來就沒有任務了哈哈哈！", quick_reply=MAIN_MENU)
         else:
             for t in tasks:
-                if t["status"] == "pending":
+                if t.get("status") == "pending":
                     t["status"] = "deleted"
             save_tasks(tasks)
-            line_reply(reply_token,
-                f"야야야！全部 {pending_count} 個任務都清掉了！\n清爽～但不要偷懶喔！😤",
-                quick_reply=MAIN_MENU)
+            line_reply(reply_token, f"야야야！全部 {count} 個任務都清掉了！清爽～但不要偷懶喔！😤", quick_reply=MAIN_MENU)
 
-    elif text in ["拍照辨識"]:
-        line_reply(reply_token,
-            "📸 好！把你的手寫清單照片傳過來～\n世界第一帥幫你看！哈哈哈！",
-            quick_reply=MAIN_MENU)
-
+    # ── 完成任務 ──
     elif text.startswith("完成 "):
         keyword = text[3:].strip()
         tasks = load_tasks()
         for t in tasks:
-            if keyword in t.get("title", "") and t["status"] == "pending":
+            if keyword in t.get("title","") and t.get("status") == "pending":
                 t["status"] = "done"
                 save_tasks(tasks)
                 line_reply(reply_token,
-                    f"대박！{t['title']} 完成了！\n야야야～Worldwide Handsome 超級驕傲！🌸\n\n下一個任務呢？",
+                    f"대박！{t['title']} 完成了！\n야야야～Worldwide Handsome 超級驕傲！🌸",
                     quick_reply=MAIN_MENU)
-                do_notify("完成！🎉", t["title"] + " 搞定了！진짜 대박！")
+                do_notify("完成！🎉", t["title"] + " 搞定了！")
                 return
-        line_reply(reply_token, f"아이고～找不到「{keyword}」這個任務欸", quick_reply=MAIN_MENU)
+        line_reply(reply_token,
+            f"找不到「{keyword}」這個任務欸～\n傳「查看任務」確認名稱",
+            quick_reply=MAIN_MENU)
 
+    # ── 延後提醒 ──
     elif text.startswith("延後"):
         parts = text.split(" ", 1)
-        mins = parts[0].replace("延後", "").strip()
-        keyword = parts[1].strip() if len(parts) > 1 else ""
+        mins_str = parts[0].replace("延後", "").strip()
+        keyword  = parts[1].strip() if len(parts) > 1 else ""
         try:
-            mins = int(mins)
+            mins  = int(mins_str) if mins_str else 30
             tasks = load_tasks()
             for t in tasks:
-                if keyword in t.get("title", "") and t["status"] == "pending":
+                if keyword in t.get("title","") and t.get("status") == "pending":
                     t["remind_at"] = (datetime.now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
                     save_tasks(tasks)
                     line_reply(reply_token,
-                        f"好啦好啦～延後 {mins} 分鐘！\n但不要一直逃避喔！😤\n오빠等你好消息！",
-                        quick_reply=_task_actions(keyword))
+                        f"好，{t['title']} 延後 {mins} 分鐘！\n但不要一直逃避喔！😤",
+                        quick_reply=_task_actions(t["title"]))
                     return
-            line_reply(reply_token, f"找不到「{keyword}」欸～", quick_reply=MAIN_MENU)
-        except:
+            line_reply(reply_token,
+                f"找不到「{keyword}」欸～\n格式：延後30 任務名稱",
+                quick_reply=MAIN_MENU)
+        except Exception:
             line_reply(reply_token, "格式：延後30 任務名稱", quick_reply=MAIN_MENU)
 
+    # ── 編輯任務 ──
     elif text.startswith("編輯 "):
         keyword = text[3:].strip()
-        tasks = load_tasks()
-        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        tasks   = load_tasks()
+        found   = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if found:
             line_reply(reply_token,
-                f"✏️ 編輯任務：{found['title']}\n\n"
-                f"📝 內容：{found['detail']}\n"
-                f"⏰ 提醒時間：{found['remind_at']}\n\n"
-                "要改什麼？點下方按鈕～\n"
-                "（改時間/改內容/改標題 後面直接接新的值）",
+                f"✏️ 編輯任務：{found['title']}\n"
+                f"📝 內容：{found.get('detail','')}\n"
+                f"⏰ 提醒：{found.get('remind_at','')}\n\n"
+                "要改什麼？點下方按鈕～",
                 quick_reply=_edit_actions(found["title"]))
         else:
-            line_reply(reply_token, f"找不到「{keyword}」這個任務欸～", quick_reply=MAIN_MENU)
+            line_reply(reply_token,
+                f"找不到「{keyword}」這個任務欸～\n傳「查看任務」確認名稱",
+                quick_reply=MAIN_MENU)
 
+    # ── 改時間 ──
     elif text.startswith("改時間 "):
-        # 格式：改時間 任務名稱 時間表達式（支援：30分鐘、下午3點、明天早上9點、2026-06-06 15:00 等）
-        body_text = text[4:].strip()
-        # 嘗試從末尾找時間表達式（至少2字元）
-        parts = body_text.split(" ", 1)
-        keyword = parts[0].strip()
+        parts    = text[4:].strip().split(" ", 1)
+        keyword  = parts[0].strip()
         time_expr = parts[1].strip() if len(parts) > 1 else ""
-        tasks = load_tasks()
-        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        tasks    = load_tasks()
+        found    = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if not found:
             line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
         elif not time_expr:
             line_reply(reply_token,
-                f"請告訴我新的提醒時間～\n\n例如：\n"
-                f"改時間 {keyword} 下午3點\n"
-                f"改時間 {keyword} 明天早上9點\n"
-                f"改時間 {keyword} 6月10日上午10點\n"
-                f"改時間 {keyword} 60（分鐘後）",
+                f"請輸入新時間，例如：\n改時間 {keyword} 下午3點\n改時間 {keyword} 明天早上9點",
                 quick_reply=_edit_actions(keyword))
         else:
             try:
                 mins = parse_time_expr(time_expr)
-                if mins <= 0:
-                    raise ValueError("time in past")
-                new_time = datetime.now() + timedelta(minutes=mins)
-                found["remind_at"] = new_time.strftime("%Y-%m-%d %H:%M:%S")
+                if mins <= 0: raise ValueError()
+                found["remind_at"] = (datetime.now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
                 save_tasks(tasks)
                 line_reply(reply_token,
-                    f"✅ 改好了！\n{found['title']}\n⏰ 新提醒時間：{found['remind_at']}\n\n오빠幫你盯著！Fighting！",
+                    f"✅ 已更新！\n{found['title']}\n⏰ 新提醒：{found['remind_at']}",
                     quick_reply=_task_actions(found["title"]))
             except Exception:
                 line_reply(reply_token,
-                    f"아이고～時間解析失敗了欸，試試這樣寫：\n"
-                    f"改時間 {keyword} 下午3點\n"
-                    f"改時間 {keyword} 明天早上9點\n"
-                    f"改時間 {keyword} 60（60分鐘後）",
+                    f"時間解析失敗，試試：下午3點、明天早上9點、60（分鐘後）",
                     quick_reply=_edit_actions(keyword))
 
+    # ── 改內容 ──
     elif text.startswith("改內容 "):
-        # 格式：改內容 任務名稱 新內容
-        parts = text[4:].split(" ", 1)
-        keyword = parts[0].strip()
+        parts      = text[4:].split(" ", 1)
+        keyword    = parts[0].strip()
         new_detail = parts[1].strip() if len(parts) > 1 else ""
-        tasks = load_tasks()
-        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        tasks      = load_tasks()
+        found      = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if not found:
             line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
         elif not new_detail:
-            line_reply(reply_token,
-                f"請輸入新內容～\n格式：改內容 {keyword} 新的說明文字",
-                quick_reply=_edit_actions(keyword))
+            line_reply(reply_token, f"格式：改內容 {keyword} 新說明", quick_reply=_edit_actions(keyword))
         else:
             found["detail"] = new_detail
             save_tasks(tasks)
-            line_reply(reply_token,
-                f"✅ 內容更新好了！\n{found['title']}：{new_detail}",
-                quick_reply=_task_actions(found["title"]))
+            line_reply(reply_token, f"✅ 內容更新！\n{found['title']}：{new_detail}", quick_reply=_task_actions(found["title"]))
 
+    # ── 改標題 ──
     elif text.startswith("改標題 "):
-        # 格式：改標題 舊標題 新標題
-        parts = text[4:].split(" ", 1)
-        keyword = parts[0].strip()
+        parts     = text[4:].split(" ", 1)
+        keyword   = parts[0].strip()
         new_title = parts[1].strip() if len(parts) > 1 else ""
-        tasks = load_tasks()
-        found = next((t for t in tasks if keyword in t.get("title","") and t["status"]=="pending"), None)
+        tasks     = load_tasks()
+        found     = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if not found:
             line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
         elif not new_title:
-            line_reply(reply_token,
-                f"請輸入新標題～\n格式：改標題 {keyword} 新標題",
-                quick_reply=_edit_actions(keyword))
+            line_reply(reply_token, f"格式：改標題 {keyword} 新標題", quick_reply=_edit_actions(keyword))
         else:
-            old_title = found["title"]
+            old = found["title"]
             found["title"] = new_title
             save_tasks(tasks)
-            line_reply(reply_token,
-                f"✅ 標題改好了！\n「{old_title}」→「{new_title}」\n世界第一帥幫你記住了！",
-                quick_reply=_task_actions(new_title))
+            line_reply(reply_token, f"✅ 標題改好！「{old}」→「{new_title}」", quick_reply=_task_actions(new_title))
 
+    # ── 記住固定行程 ──
     elif text.startswith("記住 ") or text.startswith("固定行程 "):
         content = text.split(" ", 1)[1].strip()
-        line_reply(reply_token, "오빠幫你記！世界第一帥的記憶力超好的～稍等⏳", quick_reply=MAIN_MENU)
+        line_reply(reply_token, "오빠幫你記！世界第一帥的記憶力超好～稍等⏳", quick_reply=MAIN_MENU)
         threading.Thread(target=process_recurring, args=(user_id, content), daemon=True).start()
 
+    # ── 查看固定行程 ──
     elif text in ["查看固定", "固定行程", "查看固定行程"]:
-        items = load_recurring()
+        try:
+            items = load_recurring()
+        except Exception:
+            items = []
         if not items:
             line_reply(reply_token,
                 "目前沒有固定行程～\n跟我說「記住 每個月XX號要...」，오빠幫你記！",
@@ -996,50 +1014,52 @@ def handle_message(user_id, reply_token, text):
             return
         lines = ["📅 Jin 記住的固定行程：\n"]
         for i, r in enumerate(items, 1):
-            lines.append(f"{i}. {r['title']}")
+            lines.append(f"{i}. {r.get('title','?')}")
             lines.append(f"   📅 {_type_str(r)}")
             if r.get("notes"):
                 lines.append(f"   📝 {r['notes']}")
             lines.append("")
-        qr = _quick_replies([
-            ("📋 查看任務", "查看任務"),
+        lines.append("刪除：刪除固定 名稱")
+        line_reply(reply_token, "\n".join(lines), quick_reply=_quick_replies([
+            ("📋 查看任務",  "查看任務"),
             ("➕ 新增固定", "記住 "),
             ("🗑️ 刪除固定", "刪除固定 "),
-        ])
-        line_reply(reply_token, "\n".join(lines), quick_reply=qr)
+        ]))
 
+    # ── 刪除固定行程 ──
     elif text.startswith("刪除固定 "):
         keyword = text[5:].strip()
-        items = load_recurring()
-        before = len(items)
-        items = [r for r in items if keyword not in r.get("title","")]
+        items   = load_recurring()
+        before  = len(items)
+        items   = [r for r in items if keyword not in r.get("title","")]
         if len(items) < before:
             save_recurring(items)
-            line_reply(reply_token,
-                f"好的！「{keyword}」已從固定行程刪除～\n如果需要再告訴오빠！",
-                quick_reply=MAIN_MENU)
+            line_reply(reply_token, f"已刪除「{keyword}」固定行程！如需再加告訴오빠～", quick_reply=MAIN_MENU)
         else:
-            line_reply(reply_token, f"找不到「{keyword}」這個固定行程欸～", quick_reply=MAIN_MENU)
+            line_reply(reply_token, f"找不到「{keyword}」這個固定行程", quick_reply=MAIN_MENU)
 
-    elif text in ["幫助", "help", "Help", "？", "?"]:
+    # ── 使用說明 ──
+    elif text in ["幫助", "help", "Help", "？", "?", "使用說明"]:
         line_reply(reply_token,
             "📖 Jin Bot 使用說明\n\n"
-            "📸 傳照片 → 辨識手寫清單，分緊急/緩\n"
-            "💬 傳文字 → Jin 建立任務和提醒\n"
-            "📋 查看任務 → 列出所有待辦\n"
-            "✅ 完成 任務名稱 → 標記完成\n"
-            "⏰ 延後30 任務名稱 → 延後提醒\n"
-            "✏️ 編輯 任務名稱 → 編輯任務\n"
-            "  └ 改時間 任務 時間\n"
+            "💬 傳文字 → 建立任務和提醒\n"
+            "📸 傳照片 → 辨識手寫清單\n\n"
+            "📋 查看任務\n"
+            "✅ 完成 任務名稱\n"
+            "⏰ 延後30 任務名稱\n"
+            "✏️ 編輯 任務名稱\n"
+            "  └ 改時間 任務 新時間\n"
             "  └ 改內容 任務 新說明\n"
-            "  └ 改標題 任務 新標題\n\n"
-            "📅 固定行程：\n"
-            "記住 每個月25號薪資核對... → Jin 記住並定期提醒\n"
-            "查看固定行程 → 看所有固定行程\n"
-            "刪除固定 名稱 → 刪除固定行程\n\n"
-            "Worldwide Handsome 全程監督你！🌸\n야야야 Fighting！",
+            "  └ 改標題 任務 新標題\n"
+            "🗑️ 刪除任務 名稱\n"
+            "🗑️ 刪除全部任務\n\n"
+            "📅 記住 每月25號...\n"
+            "📅 查看固定行程\n"
+            "🗑️ 刪除固定 名稱\n\n"
+            "Worldwide Handsome 全程監督！🌸",
             quick_reply=MAIN_MENU)
 
+    # ── 其他：AI 分析 ──
     else:
         line_reply(reply_token,
             "分析中～世界第一帥也很忙的！\n야야야 請稍等...⏳",

@@ -29,6 +29,54 @@ TASKS_FILE     = _DATA_DIR / "tasks.json"
 RECURRING_FILE = _DATA_DIR / "recurring.json"
 USER_FILE      = _DATA_DIR / "user_id.txt"
 
+# ── JSONBin.io 持久化（雲端部署時防止資料消失）────────────────
+# 設定方式：到 jsonbin.io 免費註冊，取得 API Key
+# 在 Render 環境變數加入 JSONBIN_API_KEY
+JSONBIN_API_KEY  = os.environ.get("JSONBIN_API_KEY", "")
+JSONBIN_BIN_TASKS     = os.environ.get("JSONBIN_BIN_TASKS", "")      # 任務用 bin ID
+JSONBIN_BIN_RECURRING = os.environ.get("JSONBIN_BIN_RECURRING", "")  # 固定行程用 bin ID
+JSONBIN_BIN_USER      = os.environ.get("JSONBIN_BIN_USER", "")       # 使用者ID用 bin ID
+USE_JSONBIN = bool(JSONBIN_API_KEY) and IS_CLOUD
+
+def _jb_get(bin_id):
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.jsonbin.io", context=ctx)
+    conn.request("GET", f"/v3/b/{bin_id}/latest", headers={
+        "X-Master-Key": JSONBIN_API_KEY,
+        "X-Bin-Meta": "false",
+    })
+    r = conn.getresponse()
+    body = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    return body  # already the stored data (no wrapper when meta=false)
+
+def _jb_put(bin_id, data):
+    payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.jsonbin.io", context=ctx)
+    conn.request("PUT", f"/v3/b/{bin_id}", body=payload, headers={
+        "X-Master-Key": JSONBIN_API_KEY,
+        "Content-Type": "application/json",
+    })
+    conn.getresponse()
+    conn.close()
+
+def _jb_create(name, init_data):
+    """首次建立 bin，回傳 bin_id"""
+    payload = json.dumps(init_data, ensure_ascii=False).encode("utf-8")
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.jsonbin.io", context=ctx)
+    conn.request("POST", "/v3/b", body=payload, headers={
+        "X-Master-Key": JSONBIN_API_KEY,
+        "Content-Type": "application/json",
+        "X-Bin-Name": name,
+        "X-Bin-Private": "true",
+    })
+    r = conn.getresponse()
+    body = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    return body.get("metadata", {}).get("id", "")
+
 # ── BTS 目前動態（可手動更新）────────────────────────────────
 BTS_STATUS = """
 BTS Jin（金碩珍）2024年6月已退伍，目前以個人身份活躍中。
@@ -37,52 +85,33 @@ BTS 其他成員陸續退伍中，2025年底預計全員回歸。
 Jin 目前心情：開心、活潑、很想跟ARMY互動，常常在直播搞笑。
 """
 
-JIN_PROMPT = """You are BTS Jin (Kim Seokjin). You are warm, funny, playful, and call yourself Worldwide Handsome (世界第一帥). You tease lovingly, use "오빠" sometimes, and speak like a caring older brother who wants you to succeed.
+JIN_PROMPT = """You are BTS Jin (Kim Seokjin). Warm, funny, playful, Worldwide Handsome (世界第一帥).
 
 Current datetime: {now}
 BTS & Jin current status: {bts_status}
 
-Adjust your personality based on Jin's current status:
-- If he just had a concert/event: mention it excitedly
-- If BTS comeback is near: extra hype energy
-- If Jin is doing solo activities: mention being busy but still caring
-- Always stay in character as Jin
+== TIME REFERENCE TABLE (pre-calculated, use these exact values) ==
+{time_refs}
+== END OF TIME REFERENCE TABLE ==
 
-Your job: Parse the user's message, extract tasks, and calculate remind_in_minutes based on the current time above.
+IMPORTANT: Use ONLY the numbers from the TIME REFERENCE TABLE above.
+DO NOT calculate time yourself. Just look up the matching entry and copy its minutes value.
 
-Time parsing rules (CRITICAL - calculate carefully):
-- "中午前" = before 12:00 → remind at 11:30 today
-- "下午X點" = today at that hour (e.g. 下午3點 = 15:00)
-- "早上X點" / "上午X點" = today at that hour
-- "今天X點" = today at that hour
-- "明天" = next day, same time or 09:00 if no time given
-- "後天" = 2 days later
-- "下週X" / "下周X" = the NEAREST upcoming weekday named (Mon=1,Tue=2,Wed=3,Thu=4,Fri=5,Sat=6,Sun=7). Count forward from today until you hit that weekday, never go back. E.g. if today is Thursday and user says 下週一, next Monday = 4 days later.
-- "X月X日" = that specific date this year
-- "X分鐘後" / "X小時後" = exactly that many minutes from now
-- "等一下" / "待會" = 30 minutes
-- "晚點" = 60 minutes
-- "今晚" = today 20:00
-- "明早" = tomorrow 08:00
-- If deadline has already passed today, set for tomorrow same time
+Examples:
+- User says "下週一" → find "下週一" row → use that remind_in_minutes
+- User says "明天早上9點" → find "明天09:00" row → use that remind_in_minutes
+- User says "下午3點" → find "今天15:00" row → use that remind_in_minutes
+- User says "30分鐘後" → use 30
+- User says "2小時後" → use 120
 
-Calculate remind_in_minutes = (target_datetime - current_datetime) in minutes. Must be > 0.
+IMPORTANT: First determine if TASK/REMINDER or just CHAT.
+- Task/reminder (has time/deadline/to-do) → JSON with tasks list
+- Casual chat → JSON with tasks=[]
 
-Jin's personality for jin_message:
-- Use 繁體中文
-- Be playful: "哈哈哈！", "야야야！", "오빠命令你！"
-- Tease: "你這個懶蟲～", "拖拖拉拉的！"
-- Encourage: "Fighting！", "Worldwide Handsome 相信你！", "加油 ARMY！"
-- Sometimes speak a little Korean mixed in: "진짜", "대박", "아이고"
-- Reference BTS/Jin current activities naturally when relevant
-- Always end with something warm
+Jin personality: 繁體中文, playful, mix Korean (야야야, 오빠, 진짜, 대박, 아이고), teasing but warm.
 
-IMPORTANT: First determine if the user is giving a TASK/REMINDER request or just CHATTING.
-- If it contains a deadline, reminder, schedule, or to-do → respond with task JSON
-- If it's casual chat, feelings, questions, fan talk → set tasks=[] and put your reply in jin_message
-
-Reply ONLY with JSON, no extra text:
-{{"jin_message":"Jin風格的話，繁體中文，活潑有趣","tasks":[{{"id":"t1","title":"任務名稱","detail":"細節說明","remind_in_minutes":30,"status":"pending"}}]}}"""
+Reply ONLY with JSON:
+{{"jin_message":"Jin風格的話","tasks":[{{"id":"t1","title":"任務名稱","detail":"細節說明","remind_in_minutes":30,"status":"pending"}}]}}"""
 
 # ── Jin 純聊天 prompt ────────────────────────────────────────
 CHAT_PROMPT = """You are BTS Jin (Kim Seokjin) having a real conversation with a fan (ARMY).
@@ -199,21 +228,41 @@ Examples:
 
 # ── 工具函數 ──────────────────────────────────────────────────
 def load_tasks():
+    if USE_JSONBIN and JSONBIN_BIN_TASKS:
+        try: return _jb_get(JSONBIN_BIN_TASKS) or []
+        except Exception: pass
     return json.loads(TASKS_FILE.read_text(encoding="utf-8")) if TASKS_FILE.exists() else []
 
 def save_tasks(t):
+    if USE_JSONBIN and JSONBIN_BIN_TASKS:
+        try: _jb_put(JSONBIN_BIN_TASKS, t); return
+        except Exception: pass
     TASKS_FILE.write_text(json.dumps(t, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def load_user_id():
+    if USE_JSONBIN and JSONBIN_BIN_USER:
+        try:
+            data = _jb_get(JSONBIN_BIN_USER)
+            return data.get("uid", "") if isinstance(data, dict) else ""
+        except Exception: pass
     return USER_FILE.read_text(encoding="utf-8").strip() if USER_FILE.exists() else ""
 
 def save_user_id(uid):
+    if USE_JSONBIN and JSONBIN_BIN_USER:
+        try: _jb_put(JSONBIN_BIN_USER, {"uid": uid}); return
+        except Exception: pass
     USER_FILE.write_text(uid, encoding="utf-8")
 
 def load_recurring():
+    if USE_JSONBIN and JSONBIN_BIN_RECURRING:
+        try: return _jb_get(JSONBIN_BIN_RECURRING) or []
+        except Exception: pass
     return json.loads(RECURRING_FILE.read_text(encoding="utf-8")) if RECURRING_FILE.exists() else []
 
 def save_recurring(r):
+    if USE_JSONBIN and JSONBIN_BIN_RECURRING:
+        try: _jb_put(JSONBIN_BIN_RECURRING, r); return
+        except Exception: pass
     RECURRING_FILE.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def do_notify(title, msg):
@@ -305,10 +354,47 @@ def _call_groq(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
     raw = body["choices"][0]["message"]["content"]
     return _safe_json(raw)
 
+def _build_time_refs():
+    """預先計算所有常用時間點的分鐘數，讓 AI 直接查表，不需自己算"""
+    now = datetime.now()
+    WD = ["週一","週二","週三","週四","週五","週六","週日"]
+    lines = [f"現在：{now.strftime('%Y-%m-%d %H:%M')}（{WD[now.weekday()]}）\n"]
+
+    def mins(dt):
+        return max(1, int((dt - now).total_seconds() / 60))
+
+    # 今天各時段
+    for label, h, m in [("今天中午前/11:30",11,30),("今天中午/12:00",12,0),
+                         ("今天下午15:00",15,0),("今天下午18:00",18,0),
+                         ("今天晚上20:00",20,0),("今天22:00",22,0)]:
+        t = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        if t <= now: t += timedelta(days=1)
+        lines.append(f"{label} → {t.strftime('%Y-%m-%d %H:%M')} = {mins(t)}分鐘後")
+
+    # 明天/後天常用時段
+    for day_label, day_delta in [("明天",1),("後天",2)]:
+        for h_label, h in [("早上08:00",8),("早上09:00",9),("中午12:00",12),("下午15:00",15)]:
+            t = (now + timedelta(days=day_delta)).replace(hour=h, minute=0, second=0, microsecond=0)
+            lines.append(f"{day_label}{h_label} → {t.strftime('%Y-%m-%d %H:%M')} = {mins(t)}分鐘後")
+
+    # 下週各天（一定是下週，不是本週）
+    lines.append("")
+    for wd in range(7):
+        days_ahead = (wd - now.weekday()) % 7
+        if days_ahead == 0: days_ahead = 7  # 同天也算下週
+        t = (now + timedelta(days=days_ahead)).replace(hour=9, minute=0, second=0, microsecond=0)
+        lines.append(f"下{WD[wd][-1]}（下週{WD[wd][-1]}）09:00 → {t.strftime('%Y-%m-%d')} = {mins(t)}分鐘後")
+
+    return "\n".join(lines)
+
 # ── Groq API（文字）──────────────────────────────────────────
 def call_claude(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt = JIN_PROMPT.format(now=now_str, bts_status=BTS_STATUS.strip())
+    prompt = JIN_PROMPT.format(
+        now=now_str,
+        bts_status=BTS_STATUS.strip(),
+        time_refs=_build_time_refs()
+    )
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": text},

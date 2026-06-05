@@ -57,7 +57,7 @@ Time parsing rules (CRITICAL - calculate carefully):
 - "今天X點" = today at that hour
 - "明天" = next day, same time or 09:00 if no time given
 - "後天" = 2 days later
-- "下週X" = next week that day
+- "下週X" / "下周X" = the NEAREST upcoming weekday named (Mon=1,Tue=2,Wed=3,Thu=4,Fri=5,Sat=6,Sun=7). Count forward from today until you hit that weekday, never go back. E.g. if today is Thursday and user says 下週一, next Monday = 4 days later.
 - "X月X日" = that specific date this year
 - "X分鐘後" / "X小時後" = exactly that many minutes from now
 - "等一下" / "待會" = 30 minutes

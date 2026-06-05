@@ -33,9 +33,9 @@ USER_FILE      = _DATA_DIR / "user_id.txt"
 # 設定方式：到 jsonbin.io 免費註冊，取得 API Key
 # 在 Render 環境變數加入 JSONBIN_API_KEY
 JSONBIN_API_KEY  = os.environ.get("JSONBIN_API_KEY", "")
-JSONBIN_BIN_TASKS     = os.environ.get("JSONBIN_BIN_TASKS", "")      # 任務用 bin ID
-JSONBIN_BIN_RECURRING = os.environ.get("JSONBIN_BIN_RECURRING", "")  # 固定行程用 bin ID
-JSONBIN_BIN_USER      = os.environ.get("JSONBIN_BIN_USER", "")       # 使用者ID用 bin ID
+JSONBIN_BIN_TASKS     = os.environ.get("JSONBIN_BIN_TASKS",     "6a229193f5f4af5e29bcd0d7")
+JSONBIN_BIN_RECURRING = os.environ.get("JSONBIN_BIN_RECURRING", "6a229182da38895dfe8b48b2")
+JSONBIN_BIN_USER      = os.environ.get("JSONBIN_BIN_USER",      "6a22916af5f4af5e29bcd01c")
 USE_JSONBIN = bool(JSONBIN_API_KEY) and IS_CLOUD
 
 def _jb_get(bin_id):
@@ -229,21 +229,23 @@ Examples:
 # ── 工具函數 ──────────────────────────────────────────────────
 def load_tasks():
     if USE_JSONBIN and JSONBIN_BIN_TASKS:
-        try: return _jb_get(JSONBIN_BIN_TASKS) or []
+        try:
+            d = _jb_get(JSONBIN_BIN_TASKS)
+            return d.get("data", []) if isinstance(d, dict) else d or []
         except Exception: pass
     return json.loads(TASKS_FILE.read_text(encoding="utf-8")) if TASKS_FILE.exists() else []
 
 def save_tasks(t):
     if USE_JSONBIN and JSONBIN_BIN_TASKS:
-        try: _jb_put(JSONBIN_BIN_TASKS, t); return
+        try: _jb_put(JSONBIN_BIN_TASKS, {"data": t}); return
         except Exception: pass
     TASKS_FILE.write_text(json.dumps(t, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def load_user_id():
     if USE_JSONBIN and JSONBIN_BIN_USER:
         try:
-            data = _jb_get(JSONBIN_BIN_USER)
-            return data.get("uid", "") if isinstance(data, dict) else ""
+            d = _jb_get(JSONBIN_BIN_USER)
+            return d.get("uid", "") if isinstance(d, dict) else ""
         except Exception: pass
     return USER_FILE.read_text(encoding="utf-8").strip() if USER_FILE.exists() else ""
 
@@ -255,13 +257,15 @@ def save_user_id(uid):
 
 def load_recurring():
     if USE_JSONBIN and JSONBIN_BIN_RECURRING:
-        try: return _jb_get(JSONBIN_BIN_RECURRING) or []
+        try:
+            d = _jb_get(JSONBIN_BIN_RECURRING)
+            return d.get("data", []) if isinstance(d, dict) else d or []
         except Exception: pass
     return json.loads(RECURRING_FILE.read_text(encoding="utf-8")) if RECURRING_FILE.exists() else []
 
 def save_recurring(r):
     if USE_JSONBIN and JSONBIN_BIN_RECURRING:
-        try: _jb_put(JSONBIN_BIN_RECURRING, r); return
+        try: _jb_put(JSONBIN_BIN_RECURRING, {"data": r}); return
         except Exception: pass
     RECURRING_FILE.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
 

@@ -1199,7 +1199,7 @@ def _dispatch(user_id, reply_token, text):
             "type": "quick_reply",
             "items": [
                 {"type": "action", "action": {"type": "message",
-                 "label": f"{'★' if k==load_member() else ''}  {v['emoji']} {v['name']}",
+                 "label": f"{'★' if k==load_member() else ''}{v['emoji']}{v['name']}",
                  "text": f"切換 {k}"}}
                 for k, v in BTS_MEMBERS.items()
             ]

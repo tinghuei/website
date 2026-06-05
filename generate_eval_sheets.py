@@ -77,8 +77,8 @@ EMPLOYEES = {
     '林依婷': {'dept': '品保課', 'role': 'admin_staff',   'cross_group': 'admin1'},
 
     # ─── 廠務部（廠務室工程師）────────────────────────────────
-    '曾夷璋': {'dept': '廠務部', 'role': 'admin_staff', 'cross_group': 'admin1'},
-    '陳家祥': {'dept': '廠務部', 'role': 'admin_staff', 'cross_group': 'admin1'},
+    '曾夷璋': {'dept': '廠務部', 'role': 'engineer', 'cross_group': None},
+    '陳家祥': {'dept': '廠務部', 'role': 'engineer', 'cross_group': None},
 
     # ─── 資材課（行政人員）────────────────────────────────────
     '王秀雯': {'dept': '資材課', 'role': 'section_chief',       'cross_group': 'admin1'},
@@ -253,6 +253,13 @@ def compute_evaluation_tasks(evaluator, active):
     if role == 'field_worker':
         return []
 
+    # ── 工程師：只做部內共評，不參與跨部門共評 ────────────────────
+    if role == 'engineer':
+        same_dept = [n for n in get_by_dept(dept, active) if n != evaluator]
+        if same_dept:
+            tasks.append({'sheet': '行政部內共評', 'evaluatees': same_dept})
+        return tasks
+
     # ── 現場 班長：班長共評（同為班長互評）──────────────────────
     if role == 'field_leader':
         other_leaders = [n for n in get_by_role('field_leader', active) if n != evaluator]
@@ -286,10 +293,12 @@ def compute_evaluation_tasks(evaluator, active):
         if same_dept:
             tasks.append({'sheet': '行政部內共評', 'evaluatees': same_dept})
 
-        # 2) 跨部門共評：同 cross_group 的其他部門人員
+        # 2) 跨部門共評：同 cross_group 的其他部門人員（只含一般行政人員與行政組長）
         if cross_group:
             cross_members = [n for n in get_by_cross_group(cross_group, active)
-                             if n != evaluator and active[n]['dept'] != dept]
+                             if n != evaluator
+                             and active[n]['dept'] != dept
+                             and active[n]['role'] in ('admin_staff', 'admin_group_leader')]
             if cross_members:
                 tasks.append({'sheet': '跨部門共評', 'evaluatees': cross_members})
         return tasks
@@ -301,10 +310,12 @@ def compute_evaluation_tasks(evaluator, active):
         if other_admin_leaders:
             tasks.append({'sheet': '行政部內共評', 'evaluatees': other_admin_leaders})
 
-        # 2) 跨部門共評（同 cross_group 其他部門）
+        # 2) 跨部門共評（同 cross_group 其他部門，只含一般行政人員與行政組長）
         if cross_group:
             cross_members = [n for n in get_by_cross_group(cross_group, active)
-                             if n != evaluator and active[n]['dept'] != dept]
+                             if n != evaluator
+                             and active[n]['dept'] != dept
+                             and active[n]['role'] in ('admin_staff', 'admin_group_leader')]
             if cross_members:
                 tasks.append({'sheet': '跨部門共評', 'evaluatees': cross_members})
         return tasks

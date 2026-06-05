@@ -207,8 +207,8 @@ EMPLOYEES = {
     '潘嵐狄': {'dept': '加工組', 'role': 'field_worker',  'cross_group': None},
 
     # ─── 製造課直屬 ───────────────────────────────────────────
-    '楊玉鳳': {'dept': '製造課', 'role': 'field_worker', 'cross_group': None},
-    '鍾欣芳': {'dept': '製造課', 'role': 'field_worker', 'cross_group': None},
+    '楊玉鳳': {'dept': '製造課', 'role': 'section_chief', 'cross_group': None},
+    '鍾欣芳': {'dept': '製造課', 'role': 'admin_staff',   'cross_group': 'admin1'},
 }
 
 # ============================================================

@@ -1288,9 +1288,65 @@ def check_reminders():
     if updated:
         save_tasks(tasks)
 
+DAILY_CHECKIN_PROMPT = """You are BTS Jin (Kim Seokjin). Worldwide Handsome, warm, funny, caring older brother.
+Current datetime: {now}
+BTS & Jin current status: {bts_status}
+
+Time of day context:
+- Morning (08:30): energetic good morning, motivate for the day ahead, maybe mention what Jin is up to
+- Afternoon (13:30): after-lunch check-in, ask how work is going, share something fun
+- Evening (20:00): end of day encouragement, tell them to rest, maybe a fun story or dad joke
+
+This is the {slot} message. Be creative, natural, not repetitive.
+Keep it 2-4 sentences. Use 繁體中文, mix Korean naturally.
+Reference current BTS/Jin activities when relevant.
+Reply ONLY with the message text."""
+
+DAILY_SLOTS = [
+    ("08:30", "morning",   "早安！"),
+    ("13:30", "afternoon", "下午好！"),
+    ("20:00", "evening",   "晚上好！"),
+]
+# 每天隨機選 1~2 個時段發送（確保不會太吵）
+import random as _random
+_today_slots: set = set()
+_last_slots_date: str = ""
+
+def _pick_today_slots():
+    global _today_slots, _last_slots_date
+    today = datetime.now().strftime("%Y-%m-%d")
+    if _last_slots_date != today:
+        _last_slots_date = today
+        # 每天隨機選 1 或 2 個時段
+        count = _random.choice([1, 2])
+        _today_slots = set(_random.sample([s[0] for s in DAILY_SLOTS], count))
+        print(f"[每日關心] 今天選定時段：{_today_slots}")
+
+def send_daily_checkin(slot_time, slot_name, greeting):
+    """在指定時段發送每日關心訊息"""
+    _pick_today_slots()
+    if slot_time not in _today_slots:
+        return  # 今天不發這個時段
+    uid = load_user_id()
+    if not uid:
+        return
+    try:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+        prompt  = DAILY_CHECKIN_PROMPT.format(
+            now=now_str, bts_status=BTS_STATUS.strip(), slot=slot_name)
+        messages = [{"role": "user", "content": prompt}]
+        msg = _call_groq(messages, max_tokens=200).strip()
+        line_push(uid, f"🌸 {greeting}\n\n{msg}", quick_reply=MAIN_MENU)
+        print(f"[每日關心/{slot_name}] 已發送")
+    except Exception as e:
+        print(f"[每日關心 Error] {e}")
+
 def check_and_checkin():
-    """沒有待辦任務時，Jin 隨機傳關心訊息（工作時段：早上9點到晚上10點）"""
+    """空閒時隨機關心（原本保留，頻率降低避免太吵）"""
     import random
+    # 只在奇數小時觸發，降低頻率
+    if datetime.now().hour % 4 != 0:
+        return
     hour = datetime.now().hour
     if hour < 9 or hour >= 22:
         return
@@ -1298,21 +1354,24 @@ def check_and_checkin():
     if not uid:
         return
     tasks = load_tasks()
-    pending = [t for t in tasks if t.get("status") == "pending"]
-    if pending:
+    if any(t.get("status") == "pending" for t in tasks):
         return
     try:
         msg = call_checkin()
         line_push(uid, f"🌸 Jin 路過關心你～\n\n{msg}", quick_reply=MAIN_MENU)
-        print("[Jin關心] 傳送關心訊息")
+        print("[Jin關心] 隨機關心訊息")
     except Exception as e:
         print(f"[Checkin Error] {e}")
 
 def run_scheduler():
     schedule.every(1).minutes.do(check_reminders)
-    schedule.every(3).hours.do(check_and_checkin)
+    schedule.every(2).hours.do(check_and_checkin)
     schedule.every().day.at("08:00").do(check_recurring)
-    # 啟動時也先跑一次固定行程檢查
+    # 每日固定關心訊息（3 個時段各設一個）
+    schedule.every().day.at("08:30").do(send_daily_checkin, "08:30", "morning",   "早安！")
+    schedule.every().day.at("13:30").do(send_daily_checkin, "13:30", "afternoon", "下午好！")
+    schedule.every().day.at("20:00").do(send_daily_checkin, "20:00", "evening",   "晚上好！")
+    # 啟動時先跑一次固定行程檢查
     threading.Thread(target=check_recurring, daemon=True).start()
     while True:
         schedule.run_pending()

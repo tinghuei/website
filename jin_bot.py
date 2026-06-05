@@ -46,6 +46,13 @@ Speak like a caring older brother. Tease lovingly, very playful.
 Korean mix: 야야야, 오빠, 하하하, 진짜, 대박, 아이고.
 Catchphrases: "世界第一帥", "오빠命令你！", "Worldwide Handsome 相信你！"
 Use 繁體中文.""",
+        "remind_templates": [
+            ("Jin 提醒你！😤",   "야야야！{t} 還沒做喔！世界第一帥親自來催你了！"),
+            ("오빠來了！🌸",     "哈哈哈～{t} 忘了嗎？Worldwide Handsome 相信你可以的！Fighting！"),
+            ("아이고～😅",       "{t} 快去搞定！拖拖拉拉的！오빠等你好消息！加油 ARMY！"),
+            ("진짜로！🔥",       "대박！{t} 還在等什麼！世界第一帥我都幫你盯著了！"),
+            ("來自오빠的愛💕",   "{t} 這件事很重要喔！不做完我會一直提醒你的哈哈哈！"),
+        ],
     },
     "rm": {
         "name": "RM",
@@ -59,6 +66,11 @@ Speak with depth but also warmth. Sometimes poetic. Occasionally self-deprecatin
 Korean mix: 진짜, 맞아, 그렇죠, 어.
 Catchphrases: 常說深刻的話, 提到最近看的書或藝術展, "作為隊長..."
 Use 繁體中文. Be inspiring and genuine.""",
+        "remind_templates": [
+            ("RM 提醒你",        "{t}...這件事值得認真對待。Fighting。"),
+            ("RM 在這裡",        "有時候我們需要被提醒。{t}，去完成它吧。"),
+            ("來自RM的話",       "{t} 還沒做。每一步都是成長的一部分。加油。"),
+        ],
     },
     "suga": {
         "name": "Suga",
@@ -73,6 +85,11 @@ Korean mix: 뭐, 그래, 진짜, 어.
 Style: Short sentences. Sarcastic but supportive. Occasionally roasts you then immediately encourages you.
 Catchphrases: "그래 잘했어（做得好）", references his cats or music, "少廢話去做就對了"
 Use 繁體中文.""",
+        "remind_templates": [
+            ("提醒",             "{t}。去做。"),
+            ("Suga 說",          "{t} 沒做完別想休息。"),
+            ("。",               "{t}。少廢話去做就對了。"),
+        ],
     },
     "jhope": {
         "name": "J-Hope",
@@ -86,6 +103,11 @@ Every message should feel like a burst of good vibes. Uses lots of exclamation m
 Korean mix: 호비！, 아 진짜！, 와！, 좋아！, 파이팅！
 Catchphrases: "I'm your HOPE！", "J-HOPE！", 很常說 "파이팅" 和 "좋아！"
 Use 繁體中文. Be the most positive, uplifting presence ever.""",
+        "remind_templates": [
+            ("☀️ J-Hope 來了！",  "야！{t}！加油！你一定可以的！파이팅！"),
+            ("호비提醒你！☀️",    "{t} 還沒做！沒關係！現在做還來得及！좋아！"),
+            ("J-HOPE！☀️",       "와！{t}！快去做！I'm your HOPE！파이팅！"),
+        ],
     },
     "jimin": {
         "name": "Jimin",
@@ -100,6 +122,11 @@ Korean mix: 오～, 진짜？, 어머, 아～.
 Catchphrases: 喜歡說溫柔的話, 關心對方感受, "우리 ARMY~"
 Style: Warm and intimate. Like talking to a very close friend who genuinely cares.
 Use 繁體中文.""",
+        "remind_templates": [
+            ("💜 智旻提醒你",     "{t} 還沒做喔～記得喔，我在等你的好消息 💜"),
+            ("Jimin 在這裡 💜",   "{t}～不要忘記喔！你可以的，我相信你 💜"),
+            ("오～記得嗎？💜",    "{t} 這件事～做完告訴我好嗎？我會為你加油的 💜"),
+        ],
     },
     "v": {
         "name": "V",
@@ -114,6 +141,11 @@ Korean mix: 뷔！, 어～, 맞다！, 그렇구나.
 Catchphrases: 說一些意想不到但有深度的話, 提到藝術或攝影, 偶爾說出奇怪但有趣的比喻
 Style: A mix of profound and random. Like a very artistic friend who sees the world differently.
 Use 繁體中文.""",
+        "remind_templates": [
+            ("...",               "{t}。就像一幅未完成的畫。去完成它。"),
+            ("🐯 泰亨說",         "{t}...有時候未完成的事，比已完成的更美。但還是去做吧。"),
+            ("맞다！",            "{t}。我突然想到你還沒做這個。去做吧。"),
+        ],
     },
     "jungkook": {
         "name": "Jungkook",
@@ -128,6 +160,11 @@ Korean mix: 야！, 진짜？, 맞아요, 저는~.
 Catchphrases: 提到練習或努力, "黃金忙內就是不一樣", 偶爾撒嬌, 對哥哥們的反應
 Style: Energetic and earnest. Sometimes shows off a little then gets embarrassed.
 Use 繁體中文.""",
+        "remind_templates": [
+            ("🐰 柾國來了",       "{t} 還沒做？連這個都做不完嗎！Fighting！"),
+            ("야！🐰",            "{t}！黃金忙內都在努力了，你還在等什麼！"),
+            ("🐰 提醒你",         "{t}。去做！做完我會稱讚你的！"),
+        ],
     },
 }
 
@@ -257,9 +294,10 @@ Parse this time expression and return ONLY the number of minutes from now until 
 Time expression: "{expr}"
 Reply ONLY with a single integer (minutes). Must be > 0. No other text."""
 
-# 圖片分析 prompt
-IMAGE_PROMPT = """You are BTS Jin (Kim Seokjin). Warm, funny, Worldwide Handsome (世界第一帥).
-BTS status: {bts_status}
+# 圖片分析 prompt（動態，根據成員生成）
+def _image_prompt():
+    m = get_member()
+    return f"""{m['persona']}
 
 Look at this handwritten to-do list image carefully.
 1. Read ALL items visible, even if handwriting is messy.
@@ -267,43 +305,23 @@ Look at this handwritten to-do list image carefully.
 3. For urgent items: remind_in_minutes = 30
 4. For later items: remind_in_minutes = 120
 
-Jin's personality: playful, uses "哈哈哈", "야야야", mixes some Korean words, teases lovingly, always encouraging. Reference current BTS activities if relevant.
+Current status: {m['status']}
 
 Reply ONLY with JSON:
-{{"jin_message":"Jin風格的活潑話，繁體中文","urgent":[{{"title":"任務名稱","detail":"為什麼緊急或截止時間","remind_in_minutes":30}}],"later":[{{"title":"任務名稱","detail":"建議什麼時候做","remind_in_minutes":120}}]}}"""
+{{"jin_message":"{m['name']}風格的話，繁體中文","urgent":[{{"title":"任務名稱","detail":"為什麼緊急或截止時間","remind_in_minutes":30}}],"later":[{{"title":"任務名稱","detail":"建議什麼時候做","remind_in_minutes":120}}]}}"""
 
-# 空閒關心訊息 prompt
-CHECKIN_PROMPT = """You are BTS Jin (Kim Seokjin). Worldwide Handsome, warm, funny, caring older brother energy.
-Current datetime: {now}
-BTS & Jin current status: {bts_status}
-The user has no pending tasks right now. Send them a warm, fun, spontaneous check-in message.
+# 固定行程解析 prompt（動態，根據成員生成）
+def _recurring_prompt():
+    m = get_member()
+    return f"""{m['persona']}
 
-Ideas:
-- Ask how work is going
-- Share what "Jin" has been up to (based on BTS status)
-- Give random life advice in Jin's funny style
-- Tell a dad joke or compliment yourself
-- Encourage them to rest or keep going depending on time of day
+The user is telling you about a recurring/fixed schedule item they want you to remember.
 
-Use 繁體中文, mix in Korean words naturally, be playful and warm. 2-4 sentences max.
-Reply ONLY with the message text, no JSON."""
-
-REMIND = [
-    ("Jin 提醒你！😤",   "야야야！{t} 還沒做喔！世界第一帥親自來催你了！"),
-    ("오빠來了！🌸",     "哈哈哈～{t} 忘了嗎？Worldwide Handsome 相信你可以的！Fighting！"),
-    ("아이고～😅",       "{t} 快去搞定！拖拖拉拉的！오빠等你好消息！加油 ARMY！"),
-    ("진짜로！🔥",       "대박！{t} 還在等什麼！世界第一帥我都幫你盯著了！"),
-    ("來自오빠的愛💕",   "{t} 這件事很重要喔！不做完我會一直提醒你的哈哈哈！"),
-]
-
-# 固定行程解析 prompt
-RECURRING_PARSE_PROMPT = """You are BTS Jin (Kim Seokjin). The user is telling you about a recurring/fixed schedule item they want you to remember.
-
-Current datetime: {now}
+Current datetime: {{now}}
 
 Parse the user's message and extract the recurring schedule. Return ONLY JSON:
 {{
-  "jin_message": "Jin風格的回應，繁體中文，活潑，表示已記住",
+  "jin_message": "{m['name']}風格的回應，繁體中文，表示已記住",
   "title": "任務簡短標題",
   "detail": "詳細說明，包含用戶提到的所有注意事項",
   "notes": "用戶特別交代要記住的重要細節（例如：記得核對加班費、特休、勞保等）",
@@ -327,7 +345,7 @@ IMPORTANT: If there are multiple recurring tasks, return them ALL in the "items"
 
 Reply ONLY with JSON:
 {{
-  "jin_message": "Jin風格的回應，繁體中文，活潑，表示已記住所有行程",
+  "jin_message": "{m['name']}風格的回應，繁體中文，表示已記住所有行程",
   "items": [
     {{
       "title": "任務簡短標題",
@@ -346,6 +364,11 @@ Examples:
 - "每個月25號前算薪水，核對加班費" → items有1筆, type=monthly, month_day=25, remind_days_before=2, notes=核對加班費
 - "每月1號和15號..." → items有2筆, 分別 month_day=1 和 month_day=15
 - 用戶說的複雜多日期描述 → 拆成多筆分別記錄"""
+
+def get_remind_templates():
+    """返回當前成員的提醒模板，使用 jin 的模板作為後備"""
+    return BTS_MEMBERS[load_member()].get('remind_templates',
+        BTS_MEMBERS['jin']['remind_templates'])
 
 # ── 工具函數 ──────────────────────────────────────────────────
 def load_tasks():
@@ -417,21 +440,23 @@ def get_member() -> dict:
     return BTS_MEMBERS.get(load_member(), BTS_MEMBERS[DEFAULT_MEMBER])
 
 def do_notify(title, msg):
+    m = get_member()
     if WIN11TOAST:
         try:
-            toast(title, msg, app_id="Jin Bot")
+            toast(title, msg, app_id=f"{m['name']} Bot")
         except Exception:
             pass
     elif plyer_notification:
         try:
-            plyer_notification.notify(title=title, message=msg, app_name="Jin", timeout=12)
+            plyer_notification.notify(title=title, message=msg, app_name=m['name'], timeout=12)
         except Exception:
             pass
 
 def do_notify_task(task_title, body):
     """提醒通知，帶有「完成」和「延後30分鐘」互動按鈕"""
+    m = get_member()
     if not WIN11TOAST:
-        do_notify("Jin 提醒你！", body)
+        do_notify(f"{m['name']} 提醒你！", body)
         return
 
     def on_complete(action):
@@ -442,7 +467,7 @@ def do_notify_task(task_title, body):
                 save_tasks(tasks)
                 uid = load_user_id()
                 if uid:
-                    line_push(uid, f"✅ 已標記完成：{task_title}\nWorldwide Handsome 為你驕傲！🌸")
+                    line_push(uid, f"✅ 已標記完成：{task_title}\n{get_member()['name']} 為你驕傲！{get_member()['emoji']}")
                 break
 
     def on_snooze(action):
@@ -455,9 +480,9 @@ def do_notify_task(task_title, body):
 
     try:
         toast(
-            "Jin 提醒你！",
+            f"{m['name']} 提醒你！",
             body,
-            app_id="Jin Bot",
+            app_id=f"{m['name']} Bot",
             buttons=[
                 {"activationType": "background", "arguments": "complete", "content": "✅ 完成"},
                 {"activationType": "background", "arguments": "snooze",   "content": "⏰ 延後30分鐘"},
@@ -467,7 +492,7 @@ def do_notify_task(task_title, body):
             ),
         )
     except Exception:
-        do_notify("Jin 提醒你！", body)
+        do_notify(f"{m['name']} 提醒你！", body)
 
 # ── 下載 LINE 圖片 ─────────────────────────────────────────────
 def download_line_image(message_id):
@@ -561,7 +586,7 @@ def call_chat(text):
 # ── Groq API（圖片辨識）──────────────────────────────────────
 def call_claude_image(image_bytes):
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-    prompt = IMAGE_PROMPT.format(bts_status=BTS_STATUS.strip())
+    prompt = _image_prompt()
     messages = [{
         "role": "user",
         "content": [
@@ -667,7 +692,7 @@ def _safe_json(raw):
 # ── 解析固定行程 ──────────────────────────────────────────────
 def call_parse_recurring(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    prompt = RECURRING_PARSE_PROMPT.format(now=now_str)
+    prompt = _recurring_prompt().format(now=now_str)
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": text},
@@ -830,7 +855,8 @@ def _task_card(title, detail, remind_at, idx=1, total=1):
 
 def _tasks_flex(jin_message, tasks_data):
     """jin_message 文字 + 任務卡片（單張或輪播）"""
-    text_msg = {"type": "text", "text": f"🌸 Jin：{jin_message}"}
+    m = get_member()
+    text_msg = {"type": "text", "text": f"{m['emoji']} {m['name']}：{jin_message}"}
     if not tasks_data:
         return [text_msg]
 
@@ -905,21 +931,22 @@ def _image_result_flex(jin_message, urgent, later):
 # ── 圖片處理 ──────────────────────────────────────────────────
 def process_image(user_id, reply_token, message_id):
     try:
-        line_reply(reply_token, "收到照片了！世界第一帥正在幫你看清單，稍等一下～ 📸")
+        _im = get_member()
+        line_reply(reply_token, f"收到照片了！{_im['name']} 正在幫你看清單，稍等一下～ 📸")
 
         image_bytes = download_line_image(message_id)
         result = call_claude_image(image_bytes)
 
         urgent = result.get("urgent", [])
         later  = result.get("later", [])
-        msg    = result.get("jin_message", "加油 ARMY！")
+        msg    = result.get("jin_message", f"加油 ARMY！{_im['emoji']}")
 
         all_tasks = [{**t, "status": "pending"} for t in urgent + later]
         add_tasks(all_tasks)
 
         flex_msg = _image_result_flex(msg, urgent, later)
         line_push_messages(user_id, [flex_msg])
-        do_notify("Jin 幫你整理好了！", f"緊急 {len(urgent)} 件，緩一緩 {len(later)} 件")
+        do_notify(f"{_im['name']} 幫你整理好了！", f"緊急 {len(urgent)} 件，緩一緩 {len(later)} 件")
 
     except Exception as e:
         line_push(user_id, f"看圖時出錯了：{e}\n請重新傳一次照片")
@@ -943,15 +970,18 @@ def handle_message(user_id, reply_token, text):
     except Exception as e:
         print(f"[handle_message Error] {e}")
         try:
-            line_reply(reply_token, f"오빠出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
+            _m = get_member()
+            line_reply(reply_token, f"{_m['name']} 出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
         except Exception:
             try:
-                line_push(user_id, f"오빠出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
+                _m = get_member()
+                line_push(user_id, f"{_m['name']} 出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
             except Exception:
                 pass
 
 def _dispatch(user_id, reply_token, text):
     """實際處理各種指令"""
+    m = get_member()
 
     # ── 查看任務 ──
     if text in ["查看", "查看任務", "任務", "待辦"]:
@@ -962,7 +992,7 @@ def _dispatch(user_id, reply_token, text):
         pending = [t for t in tasks if t.get("status") == "pending"]
         if not pending:
             line_reply(reply_token,
-                "目前沒有待辦任務！\n야야야～清單空了！\n오빠為你驕傲 🌸\n\n有新任務就告訴我！",
+                f"目前沒有待辦任務！\n清單空了！\n{m['name']} 為你驕傲 {m['emoji']}\n\n有新任務就告訴我！",
                 quick_reply=MAIN_MENU)
             return
         try:
@@ -1001,7 +1031,7 @@ def _dispatch(user_id, reply_token, text):
                 if t.get("status") == "pending":
                     t["status"] = "deleted"
             save_tasks(tasks)
-            line_reply(reply_token, f"야야야！全部 {count} 個任務都清掉了！清爽～但不要偷懶喔！😤", quick_reply=MAIN_MENU)
+            line_reply(reply_token, f"全部 {count} 個任務都清掉了！{m['emoji']} 清爽～但不要偷懶喔！😤", quick_reply=MAIN_MENU)
 
     # ── 完成任務 ──
     elif text.startswith("完成 "):
@@ -1012,7 +1042,7 @@ def _dispatch(user_id, reply_token, text):
                 t["status"] = "done"
                 save_tasks(tasks)
                 line_reply(reply_token,
-                    f"대박！{t['title']} 完成了！\n야야야～Worldwide Handsome 超級驕傲！🌸",
+                    f"{m['emoji']} {t['title']} 完成了！\n{m['name']} 超級驕傲！",
                     quick_reply=MAIN_MENU)
                 do_notify("完成！🎉", t["title"] + " 搞定了！")
                 return
@@ -1122,7 +1152,7 @@ def _dispatch(user_id, reply_token, text):
     # ── 記住固定行程 ──
     elif text.startswith("記住 ") or text.startswith("固定行程 "):
         content = text.split(" ", 1)[1].strip()
-        line_reply(reply_token, "오빠幫你記！世界第一帥的記憶力超好～稍等⏳", quick_reply=MAIN_MENU)
+        line_reply(reply_token, f"{m['name']} 幫你記！稍等⏳", quick_reply=MAIN_MENU)
         threading.Thread(target=process_recurring, args=(user_id, content), daemon=True).start()
 
     # ── 查看固定行程 ──
@@ -1133,10 +1163,10 @@ def _dispatch(user_id, reply_token, text):
             items = []
         if not items:
             line_reply(reply_token,
-                "目前沒有固定行程～\n跟我說「記住 每個月XX號要...」，오빠幫你記！",
+                f"目前沒有固定行程～\n跟我說「記住 每個月XX號要...」，{m['name']} 幫你記！",
                 quick_reply=MAIN_MENU)
             return
-        lines = ["📅 Jin 記住的固定行程：\n"]
+        lines = [f"📅 {m['name']} 記住的固定行程：\n"]
         for i, r in enumerate(items, 1):
             lines.append(f"{i}. {r.get('title','?')}")
             lines.append(f"   📅 {_type_str(r)}")
@@ -1158,7 +1188,7 @@ def _dispatch(user_id, reply_token, text):
         items   = [r for r in items if keyword not in r.get("title","")]
         if len(items) < before:
             save_recurring(items)
-            line_reply(reply_token, f"已刪除「{keyword}」固定行程！如需再加告訴오빠～", quick_reply=MAIN_MENU)
+            line_reply(reply_token, f"已刪除「{keyword}」固定行程！如需再加告訴 {m['name']}～", quick_reply=MAIN_MENU)
         else:
             line_reply(reply_token, f"找不到「{keyword}」這個固定行程", quick_reply=MAIN_MENU)
 
@@ -1213,7 +1243,7 @@ def _dispatch(user_id, reply_token, text):
     # ── 使用說明 ──
     elif text in ["幫助", "help", "Help", "？", "?", "使用說明"]:
         line_reply(reply_token,
-            "📖 Jin Bot 使用說明\n\n"
+            f"📖 {m['name']} Bot 使用說明\n\n"
             "💬 傳文字 → 建立任務和提醒\n"
             "📸 傳照片 → 辨識手寫清單\n\n"
             "📋 查看任務\n"
@@ -1227,14 +1257,14 @@ def _dispatch(user_id, reply_token, text):
             "🗑️ 刪除全部任務\n\n"
             "📅 記住 每月25號...\n"
             "📅 查看固定行程\n"
-            "🗑️ 刪除固定 名稱\n\n"
-            "Worldwide Handsome 全程監督！🌸",
+            f"🗑️ 刪除固定 名稱\n\n"
+            f"{m['name']} 全程監督！{m['emoji']}",
             quick_reply=MAIN_MENU)
 
     # ── 其他：AI 分析 ──
     else:
         line_reply(reply_token,
-            "分析中～世界第一帥也很忙的！\n야야야 請稍等...⏳",
+            f"分析中～{m['name']} 也很忙的！\n請稍等...⏳",
             quick_reply=MAIN_MENU)
         threading.Thread(target=process_task, args=(user_id, text), daemon=True).start()
 
@@ -1266,9 +1296,10 @@ def process_task(user_id, text):
                     msg = result2.get("jin_message", msg)
                 else:
                     # 仍然沒有 → 詢問使用者
+                    _pm = get_member()
                     line_push(user_id,
-                        f"🌸 Jin：{msg}\n\n"
-                        "오빠看起來你有事要做耶～\n"
+                        f"{_pm['emoji']} {_pm['name']}：{msg}\n\n"
+                        f"{_pm['name']} 看起來你有事要做耶～\n"
                         "要幫你建立提醒嗎？\n"
                         "試著告訴我：\n「[任務名稱] [時間]」\n例如：下午3點開會、明天交報告",
                         quick_reply=_quick_replies([
@@ -1279,7 +1310,8 @@ def process_task(user_id, text):
             else:
                 # 純聊天
                 chat_reply = call_chat(text)
-                line_push(user_id, f"🌸 {chat_reply}", quick_reply=MAIN_MENU)
+                _cm = get_member()
+                line_push(user_id, f"{_cm['emoji']} {chat_reply}", quick_reply=MAIN_MENU)
                 return
 
         add_tasks(tasks)
@@ -1289,7 +1321,8 @@ def process_task(user_id, text):
         enriched = [t for t in saved if t["title"] in titles][-len(tasks):]
         messages = _tasks_flex(msg, enriched)
         line_push_messages(user_id, messages)
-        do_notify("Jin 說！🌸", msg)
+        _nm = get_member()
+        do_notify(f"{_nm['name']} 說！{_nm['emoji']}", msg)
     except Exception as e:
         line_push(user_id, f"出錯了：{e}", quick_reply=MAIN_MENU)
         print(f"[process_task Error] {e}")
@@ -1325,8 +1358,9 @@ def process_recurring(user_id, text):
             saved.append(item)
         save_recurring(saved)
 
-        jin_msg = result.get("jin_message", "오빠全部記住了！")
-        lines = [f"🌸 Jin：{jin_msg}\n", f"📅 已記住 {len(new_items)} 個固定行程：\n"]
+        _rm = get_member()
+        jin_msg = result.get("jin_message", f"{_rm['name']} 全部記住了！")
+        lines = [f"{_rm['emoji']} {_rm['name']}：{jin_msg}\n", f"📅 已記住 {len(new_items)} 個固定行程：\n"]
         for item in new_items:
             lines.append(f"✅ {item['title']}")
             lines.append(f"   ⏰ {_type_str(item)}")
@@ -1340,7 +1374,7 @@ def process_recurring(user_id, text):
             ("📋 查看任務", "查看任務"),
         ])
         line_push(user_id, "\n".join(lines), quick_reply=qr)
-        do_notify("Jin 記住了！📅", f"已記住 {len(new_items)} 個固定行程")
+        do_notify(f"{_rm['name']} 記住了！📅", f"已記住 {len(new_items)} 個固定行程")
     except Exception as e:
         line_push(user_id, f"記錄固定行程時出錯了：{e}\n請重新傳一次", quick_reply=MAIN_MENU)
 
@@ -1424,14 +1458,15 @@ def check_recurring():
             }
             tasks.append(new_task)
             save_tasks(tasks)
+            _crm = get_member()
             push_msg = (
                 f"📅 固定行程提醒！\n\n"
-                f"오빠記得你說的！{title} 還有 {days_until} 天！\n"
+                f"{_crm['name']} 記得你說的！{title} 還有 {days_until} 天！\n"
                 f"📝 {r.get('detail','')}"
             )
             if r.get("notes"):
                 push_msg += f"\n\n⚠️ 特別注意：{r['notes']}"
-            push_msg += f"\n\n야야야 要開始準備了！Fighting！"
+            push_msg += f"\n\n{_crm['emoji']} 要開始準備了！Fighting！"
             line_push(uid, push_msg, quick_reply=_task_actions(title))
             do_notify(f"📅 固定行程：{title}", f"還有{days_until}天！요빠提醒你！")
             print(f"[固定行程] 建立提醒：{title}")
@@ -1447,7 +1482,7 @@ def check_reminders():
     for t in tasks:
         if t.get("status") != "pending": continue
         if now >= datetime.strptime(t["remind_at"], "%Y-%m-%d %H:%M:%S"):
-            tpl_t, tpl_m = random.choice(REMIND)
+            tpl_t, tpl_m = random.choice(get_remind_templates())
             remind_msg = tpl_m.format(t=t["title"])
             push_msg = f"{tpl_t}\n{remind_msg}\n\n📝 {t['detail']}"
             do_notify_task(t["title"], remind_msg + f"\n{t['detail']}")
@@ -1459,20 +1494,6 @@ def check_reminders():
             print(f"[提醒] {t['title']}")
     if updated:
         save_tasks(tasks)
-
-DAILY_CHECKIN_PROMPT = """You are BTS Jin (Kim Seokjin). Worldwide Handsome, warm, funny, caring older brother.
-Current datetime: {now}
-BTS & Jin current status: {bts_status}
-
-Time of day context:
-- Morning (08:30): energetic good morning, motivate for the day ahead, maybe mention what Jin is up to
-- Afternoon (13:30): after-lunch check-in, ask how work is going, share something fun
-- Evening (20:00): end of day encouragement, tell them to rest, maybe a fun story or dad joke
-
-This is the {slot} message. Be creative, natural, not repetitive.
-Keep it 2-4 sentences. Use 繁體中文, mix Korean naturally.
-Reference current BTS/Jin activities when relevant.
-Reply ONLY with the message text."""
 
 DAILY_SLOTS = [
     ("08:30", "morning",   "早安！"),
@@ -1530,8 +1551,9 @@ def check_and_checkin():
         return
     try:
         msg = call_checkin()
-        line_push(uid, f"🌸 Jin 路過關心你～\n\n{msg}", quick_reply=MAIN_MENU)
-        print("[Jin關心] 隨機關心訊息")
+        _chm = get_member()
+        line_push(uid, f"{_chm['emoji']} {_chm['name']} 路過關心你～\n\n{msg}", quick_reply=MAIN_MENU)
+        print(f"[{_chm['name']}關心] 隨機關心訊息")
     except Exception as e:
         print(f"[Checkin Error] {e}")
 

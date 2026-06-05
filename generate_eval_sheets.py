@@ -9,10 +9,11 @@
 """
 
 import os
+import re
 import copy
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, Protection
 from openpyxl.styles.differential import DifferentialStyle
 
 # ============================================================
@@ -433,6 +434,89 @@ def fill_evaluatee_names(ws, evaluator_name, dept, evaluatees):
         ws.cell(row=6, column=col, value=name)
 
 
+def _copy_cell_style(src, dest):
+    if src.has_style:
+        dest.font       = copy.copy(src.font)
+        dest.border     = copy.copy(src.border)
+        dest.fill       = copy.copy(src.fill)
+        dest.number_format = src.number_format
+        dest.alignment  = copy.copy(src.alignment)
+
+
+def apply_format_and_protection(ws, n_evaluatees):
+    """
+    套用公式欄位、解鎖輸入儲存格、啟用工作表保護。
+    依 D 欄的 =SUM 與 =IF 公式自動偵測列位。
+    """
+    # 找到 total_row 與 alert_row
+    total_row = alert_row = None
+    total_locked = True
+    for row in ws.iter_rows():
+        for cell in row:
+            if cell.column != 4:
+                continue
+            val = cell.value
+            if not isinstance(val, str):
+                continue
+            if val.strip().startswith('=SUM'):
+                total_row = cell.row
+                total_locked = bool(cell.protection.locked) if cell.protection else True
+            elif val.strip().startswith('=IF'):
+                alert_row = cell.row
+
+    if total_row is None:
+        ws.protection.enable()
+        return
+
+    sum_template = ws.cell(row=total_row, column=4).value
+    if_template  = ws.cell(row=alert_row, column=4).value if alert_row else None
+
+    m = re.match(r'=SUM\(D(\d+):D(\d+)\)', (sum_template or '').strip())
+    if not m:
+        ws.protection.enable()
+        return
+    sum_start, sum_end = int(m.group(1)), int(m.group(2))
+
+    for i in range(n_evaluatees):
+        col = 4 + i
+        col_letter = get_column_letter(col)
+
+        # 解鎖輸入列（含評分與說明原因）
+        for row_idx in range(sum_start, sum_end + 1):
+            ws.cell(row=row_idx, column=col).protection = Protection(locked=False)
+
+        # SUM 公式
+        total_cell = ws.cell(row=total_row, column=col)
+        total_cell.value = f'=SUM({col_letter}{sum_start}:{col_letter}{sum_end})'
+        total_cell.protection = Protection(locked=total_locked)
+        if col != 4:
+            _copy_cell_style(ws.cell(row=total_row, column=4), total_cell)
+
+        # IF 警示公式（以 regex 替換非絕對參照的 D{total_row}）
+        if if_template and alert_row:
+            if_formula = re.sub(
+                r'(?<!\$)D' + str(total_row),
+                col_letter + str(total_row),
+                if_template
+            )
+            alert_cell = ws.cell(row=alert_row, column=col)
+            alert_cell.value = if_formula
+            alert_cell.protection = Protection(locked=True)
+            if col != 4:
+                _copy_cell_style(ws.cell(row=alert_row, column=4), alert_cell)
+
+        # 鎖定受評者姓名列
+        ws.cell(row=6, column=col).protection = Protection(locked=True)
+
+    # 更新 C5 COUNTIF 涵蓋範圍
+    last_col = get_column_letter(3 + n_evaluatees)
+    ws['C5'].value = f'=COUNTIF(D6:{last_col}6,"<>")'
+    ws['C5'].protection = Protection(locked=True)
+
+    # 啟用工作表保護
+    ws.protection.enable()
+
+
 # ============================================================
 # 主程式：生成所有人的評分表
 # ============================================================
@@ -469,6 +553,7 @@ def main():
             src_ws = template_wb[sheet_name]
             dest_ws = copy_sheet_to_workbook(src_ws, new_wb, sheet_name)
             fill_evaluatee_names(dest_ws, evaluator, info['dept'], evaluatees)
+            apply_format_and_protection(dest_ws, len(evaluatees))
 
         # 儲存
         safe_name = evaluator.replace('/', '_')

@@ -1,178 +1,173 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { LogIn, User, Lock, ChevronRight } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 
-const demoUsers = [
-  { email: 'wang@company.com', role: 'employee', name: '王小明', dept: '組裝一線', color: 'bg-green-500' },
-  { email: 'li@company.com', role: 'manager', name: '李主管', dept: '組裝一線', color: 'bg-blue-500' },
-  { email: 'admin@company.com', role: 'admin', name: 'Admin管理員', dept: '資訊部', color: 'bg-purple-500' },
+const GoogleIcon = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+    <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
+      <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z"/>
+      <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z"/>
+      <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z"/>
+      <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z"/>
+    </g>
+  </svg>
+);
+
+const mockGoogleAccounts = [
+  { email: 'wang@company.com',  name: '王小明',    photo: 'W', color: 'bg-green-500',  role: '員工',   dept: '組裝一線' },
+  { email: 'li@company.com',    name: '李主管',    photo: 'L', color: 'bg-blue-500',   role: '主管',   dept: '組裝一線' },
+  { email: 'admin@company.com', name: 'Admin 管理員', photo: 'A', color: 'bg-purple-500', role: '管理員', dept: '資訊部' },
+  { email: 'chen@company.com',  name: '陳小芳',    photo: 'C', color: 'bg-orange-400', role: '員工',   dept: '組裝一線' },
+  { email: 'zhang@company.com', name: '張泰勒',    photo: 'Z', color: 'bg-teal-500',   role: '員工',   dept: '品管部' },
 ];
-
-const roleLabel: Record<string, string> = { employee: '員工', manager: '主管', admin: '管理員' };
 
 export default function TrainingLogin() {
   const { login } = useTrainingAuth();
   const [, navigate] = useLocation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [signingIn, setSigningIn] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const handleGoogleSelect = (email: string) => {
+    setSigningIn(email);
     setLoading(true);
     setTimeout(() => {
       const user = login(email);
-      if (user) {
-        navigate('/training/dashboard');
-      } else {
-        setError('找不到此帳號，請確認電子郵件地址。');
-      }
-      setLoading(false);
-    }, 600);
-  };
-
-  const handleQuickLogin = (demoEmail: string) => {
-    setLoading(true);
-    setError('');
-    setTimeout(() => {
-      const user = login(demoEmail);
       if (user) navigate('/training/dashboard');
       setLoading(false);
-    }, 400);
+      setSigningIn('');
+    }, 800);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 flex items-center justify-center p-4">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-white/5 rounded-full" />
-        <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-white/3 rounded-full" />
-      </div>
-
-      <div className="relative w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        {/* Branding */}
-        <div className="text-white text-center lg:text-left">
-          <div className="flex items-center justify-center lg:justify-start gap-4 mb-6">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-xl">
-              <span className="text-blue-600 font-black text-2xl">LL</span>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+      {/* Google account picker overlay */}
+      {showPicker && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowPicker(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Picker header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <GoogleIcon />
+                <span className="text-sm font-medium text-gray-700">選擇帳號</span>
+              </div>
+              <button onClick={() => setShowPicker(false)} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <X size={18} className="text-gray-500" />
+              </button>
             </div>
-            <div>
-              <h1 className="text-3xl font-black leading-tight">樂聯工業</h1>
-              <p className="text-blue-200 text-sm font-medium">員工訓練系統</p>
+
+            {/* Subtitle */}
+            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+              <p className="text-xs text-gray-500">繼續前往 <span className="font-medium text-gray-700">樂聯工業員工訓練系統</span></p>
+            </div>
+
+            {/* Account list */}
+            <div className="py-2">
+              {mockGoogleAccounts.map((acc) => (
+                <button
+                  key={acc.email}
+                  onClick={() => handleGoogleSelect(acc.email)}
+                  disabled={loading}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-60 group"
+                >
+                  {/* Avatar */}
+                  <div className={`w-10 h-10 ${acc.color} rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}>
+                    {signingIn === acc.email ? (
+                      <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    ) : acc.photo}
+                  </div>
+                  {/* Info */}
+                  <div className="text-left flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{acc.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{acc.email}</p>
+                  </div>
+                  {/* Role badge */}
+                  <span className="text-xs text-gray-400 flex-shrink-0">{acc.role}</span>
+                  <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-500 flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+              <p className="text-xs text-center text-gray-400">
+                使用 Google 帳號登入即表示您同意公司教育訓練系統使用條款
+              </p>
             </div>
           </div>
-          <h2 className="text-4xl font-black mb-3 leading-tight">
-            核心技能<br />訓練平台
-          </h2>
-          <p className="text-blue-200 text-base leading-relaxed mb-8">
-            專為製造業設計的企業培訓管理系統<br />
-            支援台灣、泰國、越南、印尼多語言員工
+        </div>
+      )}
+
+      {/* Main login card */}
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+            <span className="text-white font-black text-xl">LL</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">樂聯工業</h1>
+          <p className="text-sm text-gray-500 mt-1">員工訓練系統</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
+          <h2 className="text-xl font-semibold text-gray-900 text-center mb-2">登入帳號</h2>
+          <p className="text-sm text-gray-500 text-center mb-6">
+            使用您的公司 Google 帳號繼續
           </p>
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { num: '4+', label: '訓練課程' },
-              { num: '5', label: '員工用戶' },
-              { num: '100%', label: '合規達成率' },
-            ].map(({ num, label }) => (
-              <div key={label} className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
-                <p className="text-2xl font-black text-white">{num}</p>
-                <p className="text-blue-200 text-xs mt-1">{label}</p>
-              </div>
+
+          {/* Sign in with Google button */}
+          <button
+            onClick={() => setShowPicker(true)}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-300 rounded-full hover:bg-gray-50 hover:border-gray-400 hover:shadow-sm transition-all font-medium text-gray-700 text-sm disabled:opacity-60 mb-4"
+          >
+            <GoogleIcon />
+            使用 Google 帳號登入
+          </button>
+
+          {/* Divider */}
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-xs text-gray-400">Demo 帳號快速進入</span>
+            </div>
+          </div>
+
+          {/* Quick demo links */}
+          <div className="space-y-2">
+            {mockGoogleAccounts.slice(0, 3).map((acc) => (
+              <button
+                key={acc.email}
+                onClick={() => handleGoogleSelect(acc.email)}
+                disabled={loading}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all group disabled:opacity-60"
+              >
+                <div className={`w-8 h-8 ${acc.color} rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                  {signingIn === acc.email ? (
+                    <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : acc.photo}
+                </div>
+                <div className="text-left flex-1">
+                  <p className="text-sm font-medium text-gray-800">{acc.name}</p>
+                  <p className="text-xs text-gray-400">{acc.dept} · {acc.role}</p>
+                </div>
+                <ChevronRight size={14} className="text-gray-300 group-hover:text-blue-400" />
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-gray-900">歡迎登入</h3>
-            <p className="text-gray-500 text-sm mt-1">請輸入您的帳號資訊以繼續</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">電子郵件</label>
-              <div className="relative">
-                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="請輸入電子郵件"
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">密碼</label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="請輸入密碼（任意）"
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-600 text-sm">{error}</p>
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <LogIn size={16} />
-                  登入
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Quick login */}
-          <div>
-            <div className="relative mb-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-3 text-gray-500">快速登入（Demo）</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {demoUsers.map((u) => (
-                <button
-                  key={u.email}
-                  onClick={() => handleQuickLogin(u.email)}
-                  disabled={loading}
-                  className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all group disabled:opacity-60"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 ${u.color} rounded-full flex items-center justify-center text-white text-xs font-bold`}>
-                      {u.name[0]}
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-gray-800">{u.name}</p>
-                      <p className="text-xs text-gray-500">{u.dept} · {roleLabel[u.role]}</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Footer links */}
+        <div className="flex items-center justify-center gap-4 mt-6 text-xs text-gray-400">
+          <a href="#" className="hover:text-gray-600 transition-colors">中文（繁體）</a>
+          <span>·</span>
+          <a href="#" className="hover:text-gray-600 transition-colors">隱私權政策</a>
+          <span>·</span>
+          <a href="#" className="hover:text-gray-600 transition-colors">條款</a>
         </div>
       </div>
     </div>

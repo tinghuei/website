@@ -31,7 +31,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, toggleCourseStatus, addCourse, currentUser } = useTrainingAuth();
+  const { courses, users, auditLogs, toggleCourseStatus, addCourse, currentUser, setUserRole, addUser } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -49,6 +49,10 @@ export default function TrainingAdminPanel() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [editingCourse, setEditingCourse] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editingUserRole, setEditingUserRole] = useState<string | null>(null);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [addUserForm, setAddUserForm] = useState({ name: '', email: '', department: '', role: 'employee' as 'employee' | 'manager' | 'admin' });
+  const [addUserSuccess, setAddUserSuccess] = useState(false);
 
   const handleAiToggle = () => {
     setAiEnabled(!aiEnabled);
@@ -254,26 +258,49 @@ export default function TrainingAdminPanel() {
       {activeTab === 'users' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900">人員列表（{users.length} 人）</h2>
+            <div>
+              <h2 className="font-semibold text-gray-900">人員與權限管理（{users.length} 人）</h2>
+              <p className="text-xs text-gray-400 mt-0.5">可設定每位使用者的系統角色，管理員角色擁有完整權限</p>
+            </div>
+            <button
+              onClick={() => setShowAddUser(true)}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Shield size={14} />
+              新增使用者
+            </button>
           </div>
+
+          {/* Role legend */}
+          <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+            <span className="text-xs text-gray-500 font-medium">角色說明：</span>
+            <span className="text-xs bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full font-medium">系統管理員</span>
+            <span className="text-xs text-gray-400">完整管理權限、可設定他人角色</span>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium ml-2">部門主管</span>
+            <span className="text-xs text-gray-400">可審核下屬訓練報告</span>
+            <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium ml-2">員工</span>
+            <span className="text-xs text-gray-400">基本訓練功能</span>
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 text-left">
+                <tr className="border-b border-gray-100 text-left bg-gray-50">
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">員工</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">電子郵件</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">部門</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">角色</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">入職日期</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">操作</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">角色設定</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {users.map((user) => (
-                  <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${user.id === currentUser?.id ? 'bg-blue-50/50' : ''}`}>
+                  <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${user.id === currentUser?.id ? 'bg-blue-50/30' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${
+                          user.role === 'admin' ? 'bg-purple-500' : user.role === 'manager' ? 'bg-blue-500' : 'bg-green-500'
+                        }`}>
                           {user.avatar || user.name[0]}
                         </div>
                         <div>
@@ -286,20 +313,129 @@ export default function TrainingAdminPanel() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{user.department || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{user.joinDate || '-'}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${roleColor[user.role]}`}>
-                        {roleLabel[user.role]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{user.joinDate || '-'}</td>
-                    <td className="px-4 py-3">
-                      <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">編輯</button>
+                      {editingUserRole === user.id ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            defaultValue={user.role}
+                            onChange={(e) => {
+                              setUserRole(user.id, e.target.value as 'employee' | 'manager' | 'admin');
+                              setEditingUserRole(null);
+                            }}
+                            className="text-sm border border-blue-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            autoFocus
+                          >
+                            <option value="employee">員工</option>
+                            <option value="manager">部門主管</option>
+                            <option value="admin">系統管理員</option>
+                          </select>
+                          <button
+                            onClick={() => setEditingUserRole(null)}
+                            className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${roleColor[user.role]}`}>
+                            {roleLabel[user.role]}
+                          </span>
+                          <button
+                            onClick={() => setEditingUserRole(user.id)}
+                            className="text-xs text-gray-400 hover:text-blue-600 underline transition-colors"
+                          >
+                            變更
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Add user modal */}
+          {showAddUser && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+                <h3 className="font-bold text-gray-900 mb-1">新增使用者</h3>
+                <p className="text-xs text-gray-400 mb-4">新增使用者並設定初始角色</p>
+                {addUserSuccess && (
+                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                    <CheckCircle size={15} className="text-green-500" />
+                    <p className="text-sm text-green-700">使用者已新增成功！</p>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">姓名 *</label>
+                    <input
+                      type="text"
+                      value={addUserForm.name}
+                      onChange={(e) => setAddUserForm(p => ({ ...p, name: e.target.value }))}
+                      placeholder="請輸入姓名"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">電子郵件 *</label>
+                    <input
+                      type="email"
+                      value={addUserForm.email}
+                      onChange={(e) => setAddUserForm(p => ({ ...p, email: e.target.value }))}
+                      placeholder="example@company.com"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">部門</label>
+                    <input
+                      type="text"
+                      value={addUserForm.department}
+                      onChange={(e) => setAddUserForm(p => ({ ...p, department: e.target.value }))}
+                      placeholder="請輸入部門"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">初始角色</label>
+                    <select
+                      value={addUserForm.role}
+                      onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value as 'employee' | 'manager' | 'admin' }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="employee">員工</option>
+                      <option value="manager">部門主管</option>
+                      <option value="admin">系統管理員</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5">
+                  <button
+                    onClick={() => { setShowAddUser(false); setAddUserForm({ name: '', email: '', department: '', role: 'employee' }); setAddUserSuccess(false); }}
+                    className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!addUserForm.name || !addUserForm.email) return;
+                      addUser({ name: addUserForm.name, email: addUserForm.email, password: '1234', role: addUserForm.role, department: addUserForm.department, avatar: addUserForm.name[0], joinDate: new Date().toISOString().split('T')[0] });
+                      setAddUserSuccess(true);
+                      setAddUserForm({ name: '', email: '', department: '', role: 'employee' });
+                      setTimeout(() => { setAddUserSuccess(false); setShowAddUser(false); }, 1500);
+                    }}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+                  >
+                    新增
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -56,7 +56,7 @@ function Router() {
       <Route path={"/contact"} component={Contact} />
 
       {/* Training portal login (no auth required) */}
-      <Route path={"/training/portal"} component={TrainingLogin} />
+      <Route path={"/training/login"} component={TrainingLogin} />
 
       {/* Training system authenticated routes */}
       <Route path={"/training/dashboard"}>

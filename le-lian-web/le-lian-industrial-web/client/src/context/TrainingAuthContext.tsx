@@ -42,13 +42,15 @@ interface TrainingAuthContextValue {
   getPendingReviews: () => Enrollment[];
   getUserNotifications: (userId: string) => Notification[];
   getCourseDiscussions: (courseId: string) => Discussion[];
+  setUserRole: (userId: string, role: User['role']) => void;
+  addUser: (userData: Omit<User, 'id'>) => User;
 }
 
 const TrainingAuthContext = createContext<TrainingAuthContextValue | null>(null);
 
 export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users] = useState<User[]>(USERS);
+  const [users, setUsers] = useState<User[]>(USERS);
   const [courses, setCourses] = useState<Course[]>(COURSES);
   const [enrollments, setEnrollments] = useState<Enrollment[]>(ENROLLMENTS);
   const [discussions, setDiscussions] = useState<Discussion[]>(DISCUSSIONS);
@@ -263,6 +265,19 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     return discussions.filter((d) => d.courseId === courseId);
   };
 
+  const setUserRole = (userId: string, role: User['role']) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
+    if (currentUser?.id === userId) setCurrentUser((prev) => prev ? { ...prev, role } : prev);
+    addAuditLog(currentUser?.id || '', '變更角色', userId, `將使用者角色設為：${role}`);
+  };
+
+  const addUser = (userData: Omit<User, 'id'>): User => {
+    const newUser: User = { ...userData, id: `u${Date.now()}` };
+    setUsers((prev) => [...prev, newUser]);
+    addAuditLog(currentUser?.id || '', '新增使用者', newUser.name, `Email: ${newUser.email}`);
+    return newUser;
+  };
+
   return (
     <TrainingAuthContext.Provider
       value={{
@@ -293,6 +308,8 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         getPendingReviews,
         getUserNotifications,
         getCourseDiscussions,
+        setUserRole,
+        addUser,
       }}
     >
       {children}

@@ -15,7 +15,7 @@ export default function TrainingLayout({ children, roles }: TrainingLayoutProps)
   const [location] = useLocation();
 
   if (!currentUser) {
-    return <Redirect to="/training/portal" />;
+    return <Redirect to="/training/login" />;
   }
 
   if (roles && !roles.includes(currentUser.role)) {

@@ -15,7 +15,7 @@ export default function TrainingNavbar() {
 
   const handleLogout = () => {
     logout();
-    navigate('/training/portal');
+    navigate('/training/login');
   };
 
   const roleLabel: Record<string, string> = {
@@ -40,7 +40,7 @@ export default function TrainingNavbar() {
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50">
       <div className="flex items-center gap-3">
-        <Link href="/training/portal">
+        <Link href="/training/login">
           <div className="flex items-center gap-3 cursor-pointer">
             <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">LL</span>

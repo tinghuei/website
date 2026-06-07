@@ -346,7 +346,7 @@ export default function Training() {
             <p className="text-lg text-blue-100 mb-8">
               進入樂聯工業線上訓練平台，完成必修課程、提交心得報告、取得結業證書
             </p>
-            <Link href="/training/portal">
+            <Link href="/training/login">
               <Button size="lg" className="bg-white hover:bg-blue-50 text-blue-700 font-bold text-lg px-8 py-4">
                 進入訓練系統
               </Button>

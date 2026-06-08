@@ -1643,7 +1643,7 @@ def _make_menu_png(member_color_hex):
     """用 PIL 畫有文字標籤的 5 格 Rich Menu PNG（2500x843）"""
     import io
     try:
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
     except ImportError:
         return _make_menu_png_fallback(member_color_hex)
 
@@ -1654,43 +1654,59 @@ def _make_menu_png(member_color_hex):
     def shade(r,g,b,f):
         return (min(255,int(r*f)), min(255,int(g*f)), min(255,int(b*f)))
 
+    # emoji + 中文標籤 + 英文備用
     buttons = [
-        (shade(mr,mg,mb,1.00), "查看任務", "TASKS"),
-        (shade(mr,mg,mb,0.82), "固定行程", "SCHEDULE"),
-        (shade(mr,mg,mb,0.64), "拍照辨識", "PHOTO"),
-        (shade(mr,mg,mb,0.46), "切換成員", "SWITCH"),
-        (shade(mr,mg,mb,0.30), "說明",     "HELP"),
+        (shade(mr,mg,mb,1.00), "📋", "查看任務", "Tasks"),
+        (shade(mr,mg,mb,0.82), "📅", "固定行程", "Schedule"),
+        (shade(mr,mg,mb,0.64), "📸", "拍照辨識", "Photo"),
+        (shade(mr,mg,mb,0.46), "🎤", "切換成員", "Switch"),
+        (shade(mr,mg,mb,0.30), "❓", "說  明",   "Help"),
     ]
 
-    img = Image.new("RGB", (W, H), (255, 255, 255))
+    img = Image.new("RGB", (W, H), (40, 40, 40))
     draw = ImageDraw.Draw(img)
-
     SEC_W = W // 5
-    font_cjk = _get_cjk_font(160)
-    from PIL import ImageFont
-    try:
-        font_fallback = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
-    except Exception:
-        font_fallback = ImageFont.load_default()
 
-    for i, (color, label_zh, label_en) in enumerate(buttons):
-        x0 = i * SEC_W + (6 if i > 0 else 0)
-        x1 = (i + 1) * SEC_W
-        draw.rectangle([x0, 6, x1, H - 6], fill=color)
-        cx = i * SEC_W + SEC_W // 2
+    # 字型：大小 280px（手機顯示約 42pt，清晰可讀）
+    font_cjk = _get_cjk_font(280)
+    font_en  = None
+    for path in ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                 "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"]:
+        try:
+            font_en = ImageFont.truetype(path, 160)
+            break
+        except Exception:
+            pass
+    if not font_en:
+        font_en = ImageFont.load_default()
+
+    for i, (color, emoji, label_zh, label_en) in enumerate(buttons):
+        x0 = i * SEC_W
+        x1 = x0 + SEC_W
+        cx = x0 + SEC_W // 2
+
+        # 背景色塊
+        draw.rectangle([x0, 0, x1, H], fill=color)
+        # 白色右側分隔線
+        if i < 4:
+            draw.rectangle([x1 - 4, 0, x1, H], fill=(255, 255, 255))
+
+        # 文字垂直置中
         cy = H // 2
+        drawn = False
         if font_cjk:
             try:
-                draw.text((cx, cy), label_zh, font=font_cjk, fill=(255,255,255), anchor="mm")
-                continue
+                draw.text((cx, cy), label_zh, font=font_cjk,
+                          fill=(255, 255, 255), anchor="mm")
+                drawn = True
             except Exception:
                 pass
-        # 字型不支援中文時用英文粗體
-        try:
-            draw.text((cx, cy), label_en, font=font_fallback, fill=(255,255,255), anchor="mm")
-        except Exception:
-            tw = len(label_en) * 8
-            draw.text((cx - tw // 2, cy - 8), label_en, font=font_fallback, fill=(255,255,255))
+        if not drawn:
+            try:
+                draw.text((cx, cy), label_en, font=font_en,
+                          fill=(255, 255, 255), anchor="mm")
+            except Exception:
+                draw.text((cx - 40, cy - 15), label_en, font=font_en, fill=(255, 255, 255))
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")

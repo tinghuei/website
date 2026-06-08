@@ -764,7 +764,7 @@ def _task_actions(task_title):
         ("✅ 完成", f"完成 {task_title}"),
         ("⏰ 延後30分", f"延後30 {task_title}"),
         ("✏️ 編輯", f"編輯 {task_title}"),
-        ("🗑️ 刪除", f"刪除任務 {task_title}"),
+        ("📋 所有任務", "查看任務"),
     ])
 
 def _edit_actions(task_title):

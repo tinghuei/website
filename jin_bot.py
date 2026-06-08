@@ -661,9 +661,11 @@ def _repair_json(raw):
         return m.group(0).replace("\n", "\\n").replace("\r", "")
     raw = re.sub(r'"(?:[^"\\]|\\.)*"', fix_newlines, raw, flags=re.DOTALL)
 
-    # 修復中文引號
-    raw = raw.replace("“", '"').replace("”", '"')
-    raw = raw.replace("‘", "'").replace("’", "'")
+    # 修複中文引號
+    raw = raw.replace("\u201c", '"').replace("\u201d", '"')
+    raw = raw.replace("\u2018", "'").replace("\u2019", "'")
+    # 修複日文/全形反斜線
+    raw = raw.replace("\uff65", "\\").replace("\xa5", "\\")
 
     # 移除 JSON 值後的多餘逗號（trailing comma）
     raw = re.sub(r',\s*([}\]])', r'\1', raw)

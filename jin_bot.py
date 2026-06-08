@@ -1557,6 +1557,60 @@ def check_and_checkin():
     except Exception as e:
         print(f"[Checkin Error] {e}")
 
+def _make_solid_png(w, h, r, g, b):
+    import struct, zlib
+    raw = b''
+    for _ in range(h):
+        raw += b'\x00' + bytes([r, g, b] * w)
+    def chunk(tag, data):
+        c = tag + data
+        return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(raw))
+            + chunk(b'IEND', b''))
+
+def setup_rich_menu():
+    """在 LINE 建立固定懸浮選單（Rich Menu）"""
+    m = get_member()
+    color_hex = m.get("color", "#C8547A").lstrip("#")
+    r, g, b = int(color_hex[0:2],16), int(color_hex[2:4],16), int(color_hex[4:6],16)
+    menu_body = json.dumps({
+        "size": {"width": 800, "height": 270},
+        "selected": True,
+        "name": "Main Menu",
+        "chatBarText": f"{m['emoji']} 選單",
+        "areas": [
+            {"bounds": {"x":0,   "y":0, "width":160, "height":270}, "action": {"type":"message","text":"查看任務"}},
+            {"bounds": {"x":160, "y":0, "width":160, "height":270}, "action": {"type":"message","text":"查看固定行程"}},
+            {"bounds": {"x":320, "y":0, "width":160, "height":270}, "action": {"type":"camera"}},
+            {"bounds": {"x":480, "y":0, "width":160, "height":270}, "action": {"type":"message","text":"切換成員"}},
+            {"bounds": {"x":640, "y":0, "width":160, "height":270}, "action": {"type":"message","text":"幫助"}},
+        ]
+    }, ensure_ascii=False).encode("utf-8")
+    try:
+        ctx = ssl.create_default_context()
+        conn = http.client.HTTPSConnection("api.line.me", context=ctx)
+        conn.request("POST", "/v2/bot/richmenu", body=menu_body, headers={
+            "Authorization": f"Bearer {LINE_ACCESS_TOKEN}", "Content-Type": "application/json"})
+        result = json.loads(conn.getresponse().read().decode("utf-8"))
+        conn.close()
+        menu_id = result.get("richMenuId", "")
+        if not menu_id:
+            print(f"[RichMenu] 建立失敗：{result}"); return
+        img = _make_solid_png(800, 270, r, g, b)
+        conn2 = http.client.HTTPSConnection("api-data.line.me", context=ctx)
+        conn2.request("POST", f"/v2/bot/richmenu/{menu_id}/content", body=img, headers={
+            "Authorization": f"Bearer {LINE_ACCESS_TOKEN}", "Content-Type": "image/png"})
+        conn2.getresponse().read(); conn2.close()
+        conn3 = http.client.HTTPSConnection("api.line.me", context=ctx)
+        conn3.request("POST", f"/v2/bot/user/all/richmenu/{menu_id}", headers={
+            "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"})
+        conn3.getresponse().read(); conn3.close()
+        print(f"[RichMenu] 建立成功：{menu_id} {m['name']}")
+    except Exception as e:
+        print(f"[RichMenu] 錯誤：{e}")
+
 def run_scheduler():
     schedule.every(1).minutes.do(check_reminders)
     schedule.every(2).hours.do(check_and_checkin)
@@ -1632,10 +1686,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
 # ── 主程式 ────────────────────────────────────────────────────
 if __name__ == "__main__":
     threading.Thread(target=run_scheduler, daemon=True).start()
+    if IS_CLOUD:
+        threading.Thread(target=setup_rich_menu, daemon=True).start()
 
     server = HTTPServer(("0.0.0.0", PORT), WebhookHandler)
     print("=" * 50)
-    print(f"Jin Bot 啟動！port {PORT}")
+    print(f"Bot 啟動！port {PORT}  成員：{get_member()['full_name']}")
     print(f"模式：{'☁️ 雲端' if IS_CLOUD else '💻 本地'}")
     print("傳照片給 Bot 可辨識手寫清單！")
     print("=" * 50)

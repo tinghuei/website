@@ -105,7 +105,8 @@ Personality: Extremely positive, energetic, enthusiastic. Literal sunshine energ
 Every message should feel like a burst of good vibes. Uses lots of exclamation marks.
 Korean mix: 호비！, 아 진짜！, 와！, 좋아！, 파이팅！
 Catchphrases: "I'm your HOPE！", "J-HOPE！", 很常說 "파이팅" 和 "좋아！"
-Use 繁體中文. Be the most positive, uplifting presence ever.""",
+Use 繁體中文. Be the most positive, uplifting presence ever.
+STRICT: Reply ONLY in 繁體中文. Korean interjections allowed as listed above. NO Japanese, NO Vietnamese, NO other languages.""",
         "remind_templates": [
             ("☀️ J-Hope 來了！",  "야！{t}！加油！你一定可以的！파이팅！"),
             ("호비提醒你！☀️",    "{t} 還沒做！沒關係！現在做還來得及！좋아！"),
@@ -1237,6 +1238,8 @@ def _dispatch(user_id, reply_token, text):
                 f"📌 目前狀態：{m['status']}\n\n"
                 f"現在開始由他陪你！",
                 quick_reply=MAIN_MENU)
+            if IS_CLOUD:
+                threading.Thread(target=setup_rich_menu, daemon=True).start()
         else:
             qr = {
                 "type": "quick_reply",
@@ -1578,22 +1581,43 @@ def _make_solid_png(w, h, r, g, b):
             + chunk(b'IDAT', zlib.compress(raw))
             + chunk(b'IEND', b''))
 
+def _delete_all_rich_menus():
+    """刪除 LINE 帳號下所有 Rich Menu（避免堆積）"""
+    try:
+        ctx = ssl.create_default_context()
+        conn = http.client.HTTPSConnection("api.line.me", context=ctx)
+        conn.request("GET", "/v2/bot/richmenu/list", headers={
+            "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"})
+        menus = json.loads(conn.getresponse().read().decode("utf-8"))
+        conn.close()
+        for menu in menus.get("richmenus", []):
+            mid = menu.get("richMenuId", "")
+            if not mid: continue
+            conn2 = http.client.HTTPSConnection("api.line.me", context=ctx)
+            conn2.request("DELETE", f"/v2/bot/richmenu/{mid}", headers={
+                "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"})
+            conn2.getresponse().read(); conn2.close()
+            print(f"[RichMenu] 刪除舊選單：{mid}")
+    except Exception as e:
+        print(f"[RichMenu] 刪除舊選單錯誤：{e}")
+
 def setup_rich_menu():
     """在 LINE 建立固定懸浮選單（Rich Menu）"""
     m = get_member()
     color_hex = m.get("color", "#C8547A").lstrip("#")
     r, g, b = int(color_hex[0:2],16), int(color_hex[2:4],16), int(color_hex[4:6],16)
+    _delete_all_rich_menus()
     menu_body = json.dumps({
-        "size": {"width": 800, "height": 270},
+        "size": {"width": 2500, "height": 843},
         "selected": True,
         "name": "Main Menu",
-        "chatBarText": f"{m['emoji']} 選單",
+        "chatBarText": f"{m['emoji']} 點我開選單",
         "areas": [
-            {"bounds": {"x":0,   "y":0, "width":160, "height":270}, "action": {"type":"message","text":"查看任務"}},
-            {"bounds": {"x":160, "y":0, "width":160, "height":270}, "action": {"type":"message","text":"查看固定行程"}},
-            {"bounds": {"x":320, "y":0, "width":160, "height":270}, "action": {"type":"camera"}},
-            {"bounds": {"x":480, "y":0, "width":160, "height":270}, "action": {"type":"message","text":"切換成員"}},
-            {"bounds": {"x":640, "y":0, "width":160, "height":270}, "action": {"type":"message","text":"幫助"}},
+            {"bounds": {"x":0,    "y":0, "width":500, "height":843}, "action": {"type":"message","text":"查看任務"}},
+            {"bounds": {"x":500,  "y":0, "width":500, "height":843}, "action": {"type":"message","text":"查看固定行程"}},
+            {"bounds": {"x":1000, "y":0, "width":500, "height":843}, "action": {"type":"camera"}},
+            {"bounds": {"x":1500, "y":0, "width":500, "height":843}, "action": {"type":"message","text":"切換成員"}},
+            {"bounds": {"x":2000, "y":0, "width":500, "height":843}, "action": {"type":"message","text":"幫助"}},
         ]
     }, ensure_ascii=False).encode("utf-8")
     try:
@@ -1606,11 +1630,11 @@ def setup_rich_menu():
         menu_id = result.get("richMenuId", "")
         if not menu_id:
             print(f"[RichMenu] 建立失敗：{result}"); return
-        img = _make_solid_png(800, 270, r, g, b)
+        img = _make_solid_png(2500, 843, r, g, b)
         conn2 = http.client.HTTPSConnection("api-data.line.me", context=ctx)
         conn2.request("POST", f"/v2/bot/richmenu/{menu_id}/content", body=img, headers={
             "Authorization": f"Bearer {LINE_ACCESS_TOKEN}", "Content-Type": "image/png"})
-        conn2.getresponse().read(); conn2.close()
+        r2 = conn2.getresponse(); r2.read(); conn2.close()
         conn3 = http.client.HTTPSConnection("api.line.me", context=ctx)
         conn3.request("POST", f"/v2/bot/user/all/richmenu/{menu_id}", headers={
             "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"})
@@ -1689,7 +1713,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Jin Bot is running!")
+        m = get_member()
+        self.wfile.write(f"{m['name']} Bot is running!".encode("utf-8"))
 
 # ── 主程式 ────────────────────────────────────────────────────
 if __name__ == "__main__":

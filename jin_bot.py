@@ -1599,8 +1599,91 @@ def check_and_checkin():
     except Exception as e:
         print(f"[Checkin Error] {e}")
 
+def _get_cjk_font(size):
+    """取得中文字型，優先系統字型，找不到就下載 Noto Sans"""
+    from PIL import ImageFont
+    import os
+    candidates = [
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                pass
+    # 下載 Noto Sans CJK
+    font_path = _DATA_DIR / "NotoSansCJK.ttf"
+    if not font_path.exists():
+        try:
+            import urllib.request
+            url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/SubsetOTF/TC/NotoSansCJKtc-Regular.otf"
+            urllib.request.urlretrieve(url, str(font_path))
+        except Exception:
+            font_path = None
+    if font_path and font_path.exists():
+        try:
+            return ImageFont.truetype(str(font_path), size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
 def _make_menu_png(member_color_hex):
-    """產生 5 格不同深淺色塊的 Rich Menu PNG（2500x843），白色分隔線區分按鈕"""
+    """用 PIL 畫有文字標籤的 5 格 Rich Menu PNG（2500x843）"""
+    import io
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return _make_menu_png_fallback(member_color_hex)
+
+    W, H = 2500, 843
+    ch = member_color_hex.lstrip("#")
+    mr, mg, mb = int(ch[0:2],16), int(ch[2:4],16), int(ch[4:6],16)
+
+    def shade(r,g,b,f):
+        return (min(255,int(r*f)), min(255,int(g*f)), min(255,int(b*f)))
+
+    buttons = [
+        (shade(mr,mg,mb,1.00), "📋", "查看任務"),
+        (shade(mr,mg,mb,0.82), "📅", "固定行程"),
+        (shade(mr,mg,mb,0.64), "📸", "拍照辨識"),
+        (shade(mr,mg,mb,0.46), "🎤", "切換成員"),
+        (shade(mr,mg,mb,0.30), "❓", "說明"),
+    ]
+
+    img = Image.new("RGB", (W, H), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    SEC_W = W // 5
+    font_label = _get_cjk_font(90)
+    font_icon  = _get_cjk_font(110)
+
+    for i, (color, icon, label) in enumerate(buttons):
+        x0 = i * SEC_W + (6 if i > 0 else 0)
+        x1 = (i + 1) * SEC_W
+        draw.rectangle([x0, 6, x1, H - 6], fill=color)
+
+        cx = i * SEC_W + SEC_W // 2
+        # emoji icon
+        try:
+            draw.text((cx, H//2 - 100), icon, font=font_icon, fill=(255,255,255), anchor="mm")
+        except Exception:
+            pass
+        # Chinese label
+        try:
+            draw.text((cx, H//2 + 30), label, font=font_label, fill=(255,255,255), anchor="mm")
+        except Exception:
+            draw.text((cx - len(label)*25, H//2 + 20), label, font=font_label, fill=(255,255,255))
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+def _make_menu_png_fallback(member_color_hex):
+    """PIL 不可用時的備用方案（純色塊）"""
     import struct, zlib
     W, H = 2500, 843
     ch = member_color_hex.lstrip("#")
@@ -1614,11 +1697,7 @@ def _make_menu_png(member_color_hex):
         row = []
         for x in range(W):
             sec = min(x // SEC_W, 4)
-            # 白色分隔線（每個區塊左側 6px）
-            if x % SEC_W < 6 and sec > 0:
-                row.extend([255, 255, 255])
-            # 頂部和底部白色框線
-            elif y < 6 or y > H - 7:
+            if (x % SEC_W < 6 and sec > 0) or y < 6 or y > H - 7:
                 row.extend([255, 255, 255])
             else:
                 row.extend(list(sections[sec]))

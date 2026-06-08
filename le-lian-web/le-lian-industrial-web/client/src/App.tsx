@@ -37,6 +37,7 @@ import CareerPlanning from "./pages/training/CareerPlanning";
 import ManagementReports from "./pages/training/ManagementReports";
 import FeeAgreement from "./pages/training/FeeAgreement";
 import NotificationCenter from "./pages/training/NotificationCenter";
+import AIAssistant from "./pages/training/AIAssistant";
 
 function Router() {
   return (
@@ -168,6 +169,13 @@ function Router() {
         {() => (
           <TrainingLayout>
             <NotificationCenter />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/ai-assistant"}>
+        {() => (
+          <TrainingLayout>
+            <AIAssistant />
           </TrainingLayout>
         )}
       </Route>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { Search, Clock, CheckCircle, BookOpen, ChevronRight } from 'lucide-react';
+import { Search, Clock, CheckCircle, BookOpen, ChevronRight, Sparkles } from 'lucide-react';
 
 const categoryColors: Record<string, string> = {
   '安全衛生': 'bg-red-100 text-red-700',
@@ -12,13 +12,24 @@ const categoryColors: Record<string, string> = {
   '軟技能': 'bg-green-100 text-green-700',
 };
 
-const thumbnailColors: Record<string, string> = {
-  'bg-blue-500': 'bg-blue-500',
-  'bg-green-500': 'bg-green-500',
-  'bg-purple-500': 'bg-purple-500',
-  'bg-orange-500': 'bg-orange-500',
-  'bg-red-500': 'bg-red-500',
+const thumbnailGradients: Record<string, string> = {
+  'bg-blue-500': 'from-blue-400 to-blue-600',
+  'bg-green-500': 'from-green-400 to-green-600',
+  'bg-purple-500': 'from-purple-400 to-purple-600',
+  'bg-orange-500': 'from-orange-400 to-orange-600',
+  'bg-red-500': 'from-red-400 to-red-600',
 };
+
+const categoryPatterns: Record<string, string> = {
+  '安全衛生': '🦺',
+  '生產管理': '⚙️',
+  '品質管理': '✅',
+  '職場技能': '💼',
+  '技術維護': '🔧',
+  '軟技能': '🌟',
+};
+
+const RECENTLY_ADDED_DAYS = 30;
 
 export default function TrainingCourseLibrary() {
   const { courses, currentUser, getUserEnrollments, enrollInCourse } = useTrainingAuth();
@@ -102,8 +113,9 @@ export default function TrainingCourseLibrary() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((course) => {
             const enr = getEnrollment(course.id);
-            const thumbColor = thumbnailColors[course.thumbnail] || 'bg-blue-500';
-            const catColor = categoryColors[course.category] || 'bg-gray-100 text-gray-700';
+            const gradient = thumbnailGradients[course.thumbnail] || 'from-blue-400 to-blue-600';
+            const emoji = categoryPatterns[course.category] || '📚';
+            const isNew = course.createdAt && new Date(course.createdAt) > new Date(Date.now() - RECENTLY_ADDED_DAYS * 86400000);
 
             return (
               <div
@@ -111,21 +123,35 @@ export default function TrainingCourseLibrary() {
                 onClick={() => navigate(`/training/courses/${course.id}`)}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group overflow-hidden"
               >
-                {/* Thumbnail */}
-                <div className={`${thumbColor} h-36 relative flex items-center justify-center`}>
-                  <span className="text-white text-5xl font-black opacity-20 select-none">
-                    {course.title[0]}
-                  </span>
+                {/* Thumbnail with gradient */}
+                <div className={`bg-gradient-to-br ${gradient} h-36 relative flex items-center justify-center overflow-hidden`}>
+                  {/* Background pattern */}
+                  <div className="absolute inset-0 opacity-10"
+                    style={{ backgroundImage: 'radial-gradient(circle at 20% 80%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '30px 30px' }}
+                  />
+                  <span className="text-7xl opacity-30 select-none">{emoji}</span>
+
+                  {/* Badges */}
                   <div className="absolute inset-0 flex items-end p-3 gap-2">
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${catColor}`}>
+                    <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-white/90 text-gray-700">
                       {course.category}
                     </span>
                     {course.mandatory && (
-                      <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-red-100 text-red-700">
+                      <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-red-500 text-white">
                         必修
                       </span>
                     )}
                   </div>
+
+                  {/* New badge */}
+                  {isNew && (
+                    <div className="absolute top-3 left-3">
+                      <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-yellow-400 text-yellow-900 rounded-full font-bold shadow-sm">
+                        <Sparkles size={10} /> 新
+                      </span>
+                    </div>
+                  )}
+
                   {enr && (
                     <div className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-sm">
                       {enr.status === 'completed' ? (

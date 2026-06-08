@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { useLocation } from 'wouter';
 import {
@@ -9,6 +10,9 @@ import {
   ChevronRight,
   Bell,
   ClipboardCheck,
+  Timer,
+  X,
+  User,
 } from 'lucide-react';
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
@@ -18,19 +22,47 @@ const statusBadge: Record<string, { label: string; cls: string }> = {
   rejected: { label: '已退回', cls: 'bg-red-100 text-red-700' },
 };
 
+const DEPT_OPTIONS = ['組裝一線', '組裝二線', '品管部', '資訊部', '工程部', '生管部', '業務部', '人資部'];
+const TITLE_OPTIONS = ['操作員', '技術員', '工程師', '主任', '課長', '組長', '副理', '經理'];
+
 export default function TrainingDashboard() {
   const { currentUser, getUserEnrollments, courses, getUserNotifications, getPendingReviews } = useTrainingAuth();
   const [, navigate] = useLocation();
+
+  const profileKey = `profile_done_${currentUser?.id}`;
+  const [showProfile, setShowProfile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !localStorage.getItem(profileKey);
+  });
+  const [profileForm, setProfileForm] = useState({
+    employeeId: currentUser?.email?.split('@')[0] || '',
+    name: currentUser?.name || '',
+    email: currentUser?.email || '',
+    department: currentUser?.department || '',
+    title: '',
+  });
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  useEffect(() => {
+    if (profileSaved) {
+      localStorage.setItem(profileKey, '1');
+      setTimeout(() => setShowProfile(false), 800);
+    }
+  }, [profileSaved, profileKey]);
 
   const enrollments = currentUser ? getUserEnrollments(currentUser.id) : [];
   const notifications = currentUser ? getUserNotifications(currentUser.id) : [];
   const pendingReviews = getPendingReviews();
 
+  const totalHours = enrollments.reduce((sum, e) => sum + (e.watchTimeMinutes || 0), 0) / 60;
+  const completedCount = enrollments.filter((e) => e.status === 'completed').length;
+
   const stats = {
     enrolled: enrollments.length,
-    completed: enrollments.filter((e) => e.status === 'completed').length,
+    completed: completedCount,
     pendingReview: enrollments.filter((e) => e.status === 'pending_review').length,
     certificates: enrollments.filter((e) => e.certificateIssued).length,
+    hours: totalHours,
   };
 
   const recentEnrollments = enrollments.slice(0, 4);
@@ -40,6 +72,97 @@ export default function TrainingDashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {/* Employee Profile Modal */}
+      {showProfile && currentUser?.role === 'employee' && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User size={18} className="text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900">填寫員工基本資料</h2>
+                  <p className="text-xs text-gray-500">完善您的個人資訊，以獲得更好的學習體驗</p>
+                </div>
+              </div>
+              <button onClick={() => { localStorage.setItem(profileKey, '1'); setShowProfile(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <X size={16} className="text-gray-400" />
+              </button>
+            </div>
+            {profileSaved ? (
+              <div className="p-8 text-center">
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle size={28} className="text-green-500" />
+                </div>
+                <p className="font-semibold text-gray-900">資料已儲存！</p>
+                <p className="text-sm text-gray-500 mt-1">正在進入訓練系統...</p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">工號 <span className="text-red-500">*</span></label>
+                    <input
+                      value={profileForm.employeeId}
+                      onChange={(e) => setProfileForm((p) => ({ ...p, employeeId: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      placeholder="員工工號"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">姓名 <span className="text-red-500">*</span></label>
+                    <input
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      placeholder="員工姓名"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">電子郵件</label>
+                  <input
+                    value={profileForm.email}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg text-sm bg-gray-50 text-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">部門 <span className="text-red-500">*</span></label>
+                  <select
+                    value={profileForm.department}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, department: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="">選擇部門</option>
+                    {DEPT_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">職稱</label>
+                  <select
+                    value={profileForm.title}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, title: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="">選擇職稱</option>
+                    {TITLE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <button
+                  onClick={() => setProfileSaved(true)}
+                  disabled={!profileForm.employeeId || !profileForm.name || !profileForm.department}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors"
+                >
+                  儲存並繼續
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
@@ -72,21 +195,42 @@ export default function TrainingDashboard() {
 
       {/* Stats */}
       {currentUser?.role === 'employee' && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: '已報名課程', value: stats.enrolled, icon: BookOpen, color: 'blue' },
-            { label: '已完成課程', value: stats.completed, icon: CheckCircle, color: 'green' },
-            { label: '待審核', value: stats.pendingReview, icon: Clock, color: 'yellow' },
-            { label: '已取得證書', value: stats.certificates, icon: Award, color: 'purple' },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <div className={`w-10 h-10 rounded-lg bg-${color}-50 flex items-center justify-center mb-3`}>
-                <Icon size={20} className={`text-${color}-600`} />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{value}</p>
-              <p className="text-sm text-gray-500 mt-1">{label}</p>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center mb-3">
+              <BookOpen size={20} className="text-blue-600" />
             </div>
-          ))}
+            <p className="text-3xl font-bold text-gray-900">{stats.enrolled}</p>
+            <p className="text-sm text-gray-500 mt-1">已報名課程</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center mb-3">
+              <CheckCircle size={20} className="text-green-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{stats.completed}</p>
+            <p className="text-sm text-gray-500 mt-1">已完成課程</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
+              <Timer size={20} className="text-orange-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{stats.hours > 0 ? stats.hours.toFixed(1) : '0'}h</p>
+            <p className="text-sm text-gray-500 mt-1">總訓練時數</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center mb-3">
+              <Clock size={20} className="text-yellow-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{stats.pendingReview}</p>
+            <p className="text-sm text-gray-500 mt-1">待審核</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center mb-3">
+              <Award size={20} className="text-purple-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{stats.certificates}</p>
+            <p className="text-sm text-gray-500 mt-1">已取得證書</p>
+          </div>
         </div>
       )}
 

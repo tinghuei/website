@@ -117,12 +117,37 @@ export default function ManagementReports() {
 
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <BarChart2 className="text-blue-600" size={28} />
+      {/* Header - matches video: blue banner with export buttons */}
+      <div className="bg-blue-600 rounded-2xl p-5 flex items-center justify-between shadow-md">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">管理報表</h1>
-          <p className="text-sm text-gray-500">訓練成效分析儀表板・2026年5月</p>
+          <h1 className="text-xl font-bold text-white">管理後台</h1>
+          <p className="text-blue-200 text-sm mt-0.5">監控與管理員工訓練系統並系統管理設定</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportPersonalReport}
+            disabled={!!exporting}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-medium transition-colors"
+          >
+            <Download size={14} />
+            {exporting === 'personal' ? '匯出中...' : '匯出訓練紀錄'}
+          </button>
+          <button
+            onClick={exportDeptReport}
+            disabled={!!exporting}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-medium transition-colors"
+          >
+            <Download size={14} />
+            {exporting === 'dept' ? '匯出中...' : '匯出 Excel'}
+          </button>
+          <button
+            onClick={exportTTQSReport}
+            disabled={!!exporting}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-medium transition-colors"
+          >
+            <Download size={14} />
+            {exporting === 'ttqs' ? '匯出中...' : '匯出 PDF'}
+          </button>
         </div>
       </div>
 

@@ -192,6 +192,112 @@ function CellStatusDot(status: CellStatus) {
   return 'bg-gray-300';
 }
 
+// ── Quarterly Modal ────────────────────────────────────────────────────────────
+const QUARTERLY_COURSES = [
+  '職場安全衛生法規實務',
+  '5S品質管理管理實踐',
+  'ISO 9001 品質管理系統',
+  'AI 技術應用與製造業',
+  '全車製造業基礎工廠安全生活管理教育',
+  '生產線安全意識提升課程',
+];
+
+interface QuarterlyModalProps {
+  onClose: () => void;
+  onConfirm: (year: string, quarter: string, selectedCourses: string[]) => void;
+}
+
+function QuarterlyModal({ onClose, onConfirm }: QuarterlyModalProps) {
+  const [modalYear, setModalYear] = useState('2026');
+  const [quarter, setQuarter] = useState('Q1');
+  const [selected, setSelected] = useState<string[]>([...QUARTERLY_COURSES.slice(0, 2)]);
+
+  const toggleCourse = (c: string) => {
+    setSelected((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]);
+  };
+
+  const quarterLabels: Record<string, string> = { Q1: '1-3月', Q2: '4-6月', Q3: '7-9月', Q4: '10-12月' };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">新增季度必修課程計畫</h2>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">年度</label>
+              <select
+                value={modalYear}
+                onChange={(e) => setModalYear(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+              >
+                {['2025', '2026', '2027'].map((y) => <option key={y}>{y}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">季度</label>
+              <div className="flex gap-1">
+                {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => setQuarter(q)}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+                      quarter === q ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:border-blue-300'
+                    }`}
+                  >
+                    {q}
+                    <span className="block text-[10px] font-normal opacity-70">{quarterLabels[q]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">必修課程</label>
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {QUARTERLY_COURSES.map((c) => (
+                <div key={c} className="flex items-center justify-between p-2.5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                  <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{c}</span>
+                  {selected.includes(c) ? (
+                    <button
+                      onClick={() => toggleCourse(c)}
+                      className="ml-2 text-xs px-2 py-1 bg-red-100 text-red-600 hover:bg-red-200 rounded-md transition-colors shrink-0"
+                    >
+                      刪
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => toggleCourse(c)}
+                      className="ml-2 text-xs px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md transition-colors shrink-0"
+                    >
+                      加入
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
+              取消
+            </button>
+            <button
+              onClick={() => { onConfirm(modalYear, quarter, selected); onClose(); }}
+              className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700"
+            >
+              確認新增
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AnnualTrainingPlan() {
   const [activeTab, setActiveTab] = useState(0);
@@ -200,6 +306,7 @@ export default function AnnualTrainingPlan() {
   const [planStatus, setPlanStatus] = useState<'草稿' | '提交' | '核准'>('草稿');
   const [rows, setRows] = useState<PlanRow[]>(INITIAL_ROWS);
   const [savedMsg, setSavedMsg] = useState('');
+  const [showQuarterlyModal, setShowQuarterlyModal] = useState(false);
 
   const tabs = ['年度計畫制定', '課程地圖', 'TTQS執行追蹤', '匯出報表'];
 
@@ -283,6 +390,9 @@ export default function AnnualTrainingPlan() {
               </div>
               <div className="ml-auto flex items-center gap-2 flex-wrap">
                 {savedMsg && <span className="text-sm text-green-600 font-medium">{savedMsg}</span>}
+                <button onClick={() => setShowQuarterlyModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+                  <Plus size={15} /> 新增季度必修課程
+                </button>
                 <button onClick={handleAddRow} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium transition-colors">
                   <Plus size={15} /> 新增課程
                 </button>
@@ -537,6 +647,29 @@ export default function AnnualTrainingPlan() {
             <strong>注意：</strong>匯出的 Excel 文件符合勞動部 TTQS 及 iCAP 職能發展平台規格，可直接用於評核申請。
           </div>
         </div>
+      )}
+
+      {/* Quarterly Modal */}
+      {showQuarterlyModal && (
+        <QuarterlyModal
+          onClose={() => setShowQuarterlyModal(false)}
+          onConfirm={(yr, q, courses) => {
+            const newRows = courses.map((c, i) => ({
+              id: Math.max(...rows.map((r) => r.id)) + i + 1,
+              name: c,
+              cat: '法規遵循',
+              type: '內部',
+              target: '全體員工',
+              hours: 3,
+              month: q === 'Q1' ? '3月' : q === 'Q2' ? '6月' : q === 'Q3' ? '9月' : '12月',
+              count: 50,
+              note: `${yr}年${q}必修`,
+            }));
+            setRows((prev) => [...prev, ...newRows]);
+            setSavedMsg(`已新增 ${courses.length} 門季度必修課程`);
+            setTimeout(() => setSavedMsg(''), 2500);
+          }}
+        />
       )}
     </div>
   );

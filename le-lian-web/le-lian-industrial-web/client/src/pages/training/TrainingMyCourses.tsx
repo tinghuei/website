@@ -39,45 +39,108 @@ const thumbnailColors: Record<string, string> = {
 };
 
 function CertificateModal({ enrollment, course, user, onClose }: { enrollment: Enrollment; course: Course | undefined; user: User | null; onClose: () => void }) {
+  const handleDownload = () => {
+    const el = document.getElementById('certificate-content');
+    if (!el) return;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<html><head><title>結業證書</title><style>
+      body { margin: 0; font-family: sans-serif; }
+      .cert { background: linear-gradient(135deg, #1d4ed8, #4338ca); color: white; padding: 60px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+      h1 { font-size: 48px; margin: 20px 0 8px; }
+      h2 { font-size: 28px; margin: 8px 0; color: #bfdbfe; }
+      h3 { font-size: 36px; margin: 20px 0; color: #fef08a; }
+      p { color: #bfdbfe; margin: 8px 0; }
+    </style></head><body>
+    <div class="cert">
+      <p style="letter-spacing:4px;font-size:14px;">樂聯工業 員工訓練平台</p>
+      <h1>結業證書</h1>
+      <h2>Certificate of Completion</h2>
+      <p style="margin-top:32px;">茲此證明</p>
+      <h3>${user?.name || ''}</h3>
+      <p>已完成以下訓練課程</p>
+      <p style="font-size:20px;color:white;font-weight:bold;margin:16px 0;">${course?.title || ''}</p>
+      <p style="margin-top:24px;">工號：${user?.email?.split('@')[0] || ''}</p>
+      <p>完成日期：${enrollment.completedAt || ''} &nbsp;|&nbsp; 測驗成績：${enrollment.quizScore ?? '-'} 分</p>
+    </div></body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden">
-        <div className="bg-gradient-to-br from-blue-700 to-indigo-800 p-8 text-white relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 w-40 h-40 border-4 border-white/10 rounded-full" />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 border-4 border-white/10 rounded-full" />
-          <div className="relative z-10 text-center">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Award size={32} className="text-yellow-300" />
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        id="certificate-content"
+      >
+        {/* Blue certificate header */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 px-8 pt-10 pb-8 text-white text-center relative overflow-hidden">
+          {/* Decorative circles */}
+          <div className="absolute -top-12 -right-12 w-48 h-48 border-4 border-white/10 rounded-full" />
+          <div className="absolute -bottom-8 -left-8 w-36 h-36 border-4 border-white/10 rounded-full" />
+          <div className="absolute top-4 left-4 w-16 h-16 border-2 border-white/10 rounded-full" />
+
+          <div className="relative z-10">
+            <div className="w-20 h-20 border-4 border-yellow-400/60 rounded-full flex items-center justify-center mx-auto mb-4 bg-white/10">
+              <Award size={38} className="text-yellow-300" />
             </div>
-            <p className="text-blue-200 text-sm font-medium uppercase tracking-widest mb-1">樂聯工業 員工訓練系統</p>
-            <h2 className="text-2xl font-black mb-1">結業證書</h2>
-            <p className="text-blue-200 text-sm">Certificate of Completion</p>
+            <p className="text-blue-200 text-xs font-medium tracking-[0.3em] uppercase mb-2">
+              樂聯工業 員工訓練平台
+            </p>
+            <h2 className="text-3xl font-black mb-1 tracking-wide">結業證書</h2>
+            <p className="text-blue-300 text-sm font-medium">Certificate of Completion</p>
           </div>
+
+          {/* Decorative wave strip at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-3 opacity-20"
+            style={{ background: 'repeating-linear-gradient(45deg, #fff, #fff 4px, transparent 4px, transparent 8px)' }}
+          />
         </div>
-        <div className="p-8 text-center">
-          <p className="text-gray-500 text-sm mb-1">茲證明</p>
-          <h3 className="text-2xl font-black text-gray-900 mb-4">{user?.name}</h3>
-          <p className="text-gray-500 text-sm mb-1">已完成</p>
-          <h4 className="text-xl font-bold text-blue-600 mb-4">{course?.title}</h4>
-          <div className="flex justify-center gap-8 mb-6 text-sm text-gray-600">
+
+        {/* Certificate body */}
+        <div className="px-8 py-7 text-center">
+          <p className="text-gray-400 text-sm mb-1">茲此證明</p>
+          <h3 className="text-2xl font-black text-gray-900 mb-1">{user?.name}</h3>
+          <p className="text-gray-400 text-xs mb-4">{user?.email?.split('@')[0]}</p>
+          <p className="text-gray-500 text-sm mb-1">已完成以下訓練課程</p>
+          <h4 className="text-lg font-bold text-blue-600 mb-5">{course?.title}</h4>
+
+          <div className="flex justify-center gap-10 mb-6">
             <div>
               <p className="text-gray-400 text-xs mb-0.5">測驗成績</p>
-              <p className="font-bold text-lg">{enrollment.quizScore} 分</p>
+              <p className="font-black text-2xl text-gray-900">{enrollment.quizScore ?? '-'}<span className="text-sm font-medium text-gray-500">分</span></p>
             </div>
+            <div className="w-px bg-gray-100" />
             <div>
               <p className="text-gray-400 text-xs mb-0.5">完成日期</p>
-              <p className="font-bold">{enrollment.completedAt}</p>
+              <p className="font-bold text-gray-900">{enrollment.completedAt || '-'}</p>
             </div>
           </div>
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 border-4 border-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 font-black text-xs text-center leading-tight">核准<br />蓋章</span>
+
+          {/* Stamp */}
+          <div className="flex justify-center mb-5">
+            <div className="w-14 h-14 border-4 border-blue-600 rounded-full flex items-center justify-center opacity-70">
+              <span className="text-blue-600 font-black text-[10px] text-center leading-snug">樂聯<br />核准</span>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mb-4">樂聯工業 員工訓練系統 官方核發</p>
-          <button onClick={onClose} className="flex items-center gap-2 mx-auto text-gray-500 hover:text-gray-700 text-sm">
-            <X size={16} /> 關閉
-          </button>
+
+          <p className="text-xs text-gray-300 mb-5">樂聯工業 員工訓練系統 官方核發</p>
+
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Award size={15} /> 下載 PDF
+            </button>
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-5 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition-colors"
+            >
+              <X size={15} /> 關閉
+            </button>
+          </div>
         </div>
       </div>
     </div>

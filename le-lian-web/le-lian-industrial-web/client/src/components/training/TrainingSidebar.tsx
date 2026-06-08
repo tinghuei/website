@@ -10,10 +10,10 @@ import {
   Globe,
   Trophy,
   Map,
-  TrendingUp,
   Bell,
   BarChart2,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { Link, useLocation } from 'wouter';
@@ -27,6 +27,7 @@ const navItems = [
   { to: '/training/free-courses', icon: Globe, label: '免費課程', roles: ['employee', 'manager', 'admin'] },
   { to: '/training/achievements', icon: Trophy, label: '成就獎勵', roles: ['employee', 'manager', 'admin'] },
   { to: '/training/career', icon: Map, label: '職涯規劃', roles: ['employee', 'manager', 'admin'] },
+  { to: '/training/ai-assistant', icon: MessageSquare, label: 'AI 學習助理', roles: ['employee', 'manager', 'admin'] },
   { to: '/training/notifications', icon: Bell, label: '通知中心', roles: ['employee', 'manager', 'admin'] },
   { to: '/training/management-reports', icon: BarChart2, label: '管理報表', roles: ['manager', 'admin'] },
   { to: '/training/fee-agreement', icon: FileText, label: '費用同意書', roles: ['manager', 'admin', 'hr'] },

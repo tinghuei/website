@@ -1599,6 +1599,38 @@ def check_and_checkin():
     except Exception as e:
         print(f"[Checkin Error] {e}")
 
+def _make_menu_png(member_color_hex):
+    """產生 5 格不同深淺色塊的 Rich Menu PNG（2500x843），白色分隔線區分按鈕"""
+    import struct, zlib
+    W, H = 2500, 843
+    ch = member_color_hex.lstrip("#")
+    mr, mg, mb = int(ch[0:2],16), int(ch[2:4],16), int(ch[4:6],16)
+    def shade(r,g,b,f):
+        return (min(255,int(r*f)), min(255,int(g*f)), min(255,int(b*f)))
+    sections = [shade(mr,mg,mb,f) for f in [1.0, 0.82, 0.64, 0.46, 0.30]]
+    SEC_W = W // 5
+    raw = b''
+    for y in range(H):
+        row = []
+        for x in range(W):
+            sec = min(x // SEC_W, 4)
+            # 白色分隔線（每個區塊左側 6px）
+            if x % SEC_W < 6 and sec > 0:
+                row.extend([255, 255, 255])
+            # 頂部和底部白色框線
+            elif y < 6 or y > H - 7:
+                row.extend([255, 255, 255])
+            else:
+                row.extend(list(sections[sec]))
+        raw += b'\x00' + bytes(row)
+    def chunk(tag, data):
+        c = tag + data
+        return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', W, H, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(raw))
+            + chunk(b'IEND', b''))
+
 def _make_solid_png(w, h, r, g, b):
     import struct, zlib
     raw = b''
@@ -1661,7 +1693,7 @@ def setup_rich_menu():
         menu_id = result.get("richMenuId", "")
         if not menu_id:
             print(f"[RichMenu] 建立失敗：{result}"); return
-        img = _make_solid_png(2500, 843, r, g, b)
+        img = _make_menu_png(m.get("color", "#C8547A"))
         conn2 = http.client.HTTPSConnection("api-data.line.me", context=ctx)
         conn2.request("POST", f"/v2/bot/richmenu/{menu_id}/content", body=img, headers={
             "Authorization": f"Bearer {LINE_ACCESS_TOKEN}", "Content-Type": "image/png"})

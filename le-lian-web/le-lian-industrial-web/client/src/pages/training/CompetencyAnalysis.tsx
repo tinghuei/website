@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   RadarChart,
   Radar,
@@ -9,7 +9,7 @@ import {
   Legend,
   Tooltip,
 } from 'recharts';
-import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -64,6 +64,48 @@ const INITIAL_SCORES: CompetencyScores = {
 // ── Target departments for rotation analysis ───────────────────────────────────
 const TARGET_DEPARTMENTS = ['品保部', '生產部', '工程部', '業務部', '人資部', '採購部'];
 
+// ── AI-recognized result type ──────────────────────────────────────────────────
+interface RecognizedDoc {
+  fileName: string;
+  jobTitle: JobTitle;
+  competencies: CompetencyScores;
+  description: string;
+  extractedItems: string[];
+}
+
+// Simulate AI recognition for different file names / content
+function simulateRecognition(fileName: string): RecognizedDoc {
+  // Pick a job title based on file name keywords
+  let jobTitle: JobTitle = '工程師/課長';
+  if (/班長|技術員|operator/i.test(fileName))  jobTitle = '技術員/班長';
+  if (/組長|專員|specialist/i.test(fileName)) jobTitle = '助理專員/組長';
+  if (/副理|經理|manager/i.test(fileName))    jobTitle = '副理/經理以上';
+
+  const base = ICAP_STANDARDS[jobTitle];
+  // Add slight variation to simulate extracted values
+  const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
+  return {
+    fileName,
+    jobTitle,
+    competencies: {
+      technical:     vary(base.technical),
+      communication: vary(base.communication),
+      leadership:    vary(base.leadership),
+      problem:       vary(base.problem),
+      teamwork:      vary(base.teamwork),
+      safety:        vary(base.safety),
+    },
+    description: `依照「${fileName}」所載工作說明書，AI 已辨識出職稱等級、各職能向度要求分數與核心工作任務。`,
+    extractedItems: [
+      `職稱等級：${jobTitle}`,
+      `主要職責：製程管制、品質確保、跨部門協作`,
+      `必要技能：標準化作業程序 (SOP)、5S 管理、異常回報`,
+      `安全規範：職業安全衛生法規、個人防護裝備使用`,
+      `TTQS 對應：計劃 (Plan) 面向 — 訓練需求評估`,
+    ],
+  };
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function CompetencyAnalysis() {
   const { currentUser } = useTrainingAuth();
@@ -75,7 +117,17 @@ export default function CompetencyAnalysis() {
   const [fitScore, setFitScore] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const standards = ICAP_STANDARDS[jobTitle];
+  // Document upload states
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docDragging, setDocDragging] = useState(false);
+  const [docProcessing, setDocProcessing] = useState(false);
+  const [docStep, setDocStep] = useState(0);
+  const [docResult, setDocResult] = useState<RecognizedDoc | null>(null);
+  const [docApplied, setDocApplied] = useState(false);
+  const [customStandards, setCustomStandards] = useState<CompetencyScores | null>(null);
+
+  const standards = customStandards ?? ICAP_STANDARDS[jobTitle];
 
   // Build radar data
   const radarData = DIMENSIONS.map(({ key, label }) => ({
@@ -101,6 +153,42 @@ export default function CompetencyAnalysis() {
     setSubmitted(true);
     // Mock: manager has assessed this user
     setShowManager(true);
+  }
+
+  function handleDocUpload(file: File) {
+    setDocFile(file);
+    setDocResult(null);
+    setDocApplied(false);
+    setDocProcessing(true);
+    setDocStep(0);
+    const steps = [1, 2, 3, 4];
+    steps.forEach((s, i) => {
+      setTimeout(() => {
+        setDocStep(s);
+        if (s === 4) {
+          setTimeout(() => {
+            setDocResult(simulateRecognition(file.name));
+            setDocProcessing(false);
+          }, 600);
+        }
+      }, (i + 1) * 900);
+    });
+  }
+
+  function handleApplyDoc() {
+    if (!docResult) return;
+    setJobTitle(docResult.jobTitle);
+    setCustomStandards(docResult.competencies);
+    setDocApplied(true);
+  }
+
+  function handleClearDoc() {
+    setDocFile(null);
+    setDocResult(null);
+    setDocApplied(false);
+    setDocProcessing(false);
+    setDocStep(0);
+    setCustomStandards(null);
   }
 
   function handleAnalyzeFit() {
@@ -129,6 +217,133 @@ export default function CompetencyAnalysis() {
           <span className="ml-auto text-sm text-gray-500">
             員工：{currentUser.name}｜{currentUser.department}
           </span>
+        )}
+      </div>
+
+      {/* ── Job Competency Document Upload ── */}
+      <div className={`rounded-2xl border-2 ${docApplied ? 'border-green-300 bg-green-50' : 'border-dashed border-blue-300 bg-blue-50/40'} p-5 transition-colors`}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+            <FileText size={18} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-gray-900">上傳工作職能書</h2>
+            <p className="text-xs text-gray-500">AI 辨識後自動更新職能標準基準值（支援 PDF、DOCX、TXT）</p>
+          </div>
+          {docFile && (
+            <button onClick={handleClearDoc} className="ml-auto p-1.5 hover:bg-red-100 rounded-lg text-gray-400 hover:text-red-500 transition-colors">
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {!docFile ? (
+          <div
+            className={`border-2 border-dashed ${docDragging ? 'border-blue-500 bg-blue-100' : 'border-blue-200 bg-white'} rounded-xl p-6 text-center cursor-pointer transition-colors`}
+            onDragOver={(e) => { e.preventDefault(); setDocDragging(true); }}
+            onDragLeave={() => setDocDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDocDragging(false); const f = e.dataTransfer.files[0]; if (f) handleDocUpload(f); }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={32} className="text-blue-300 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-700 mb-1">拖曳工作職能書或點擊上傳</p>
+            <p className="text-xs text-gray-400">PDF / DOCX / TXT，最大 20MB</p>
+            <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc,.txt"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(f); }} />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* File info */}
+            <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-gray-200">
+              <FileText size={20} className="text-blue-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{docFile.name}</p>
+                <p className="text-xs text-gray-400">{(docFile.size / 1024).toFixed(1)} KB</p>
+              </div>
+              {docApplied && <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium flex-shrink-0">已套用</span>}
+            </div>
+
+            {/* AI processing steps */}
+            {(docProcessing || docResult) && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={16} className="text-purple-500" />
+                  <span className="text-sm font-semibold text-gray-800">AI 職能書辨識</span>
+                  {docProcessing && <div className="w-4 h-4 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin ml-1" />}
+                </div>
+                {[
+                  '讀取文件內容',
+                  '辨識職稱等級',
+                  '提取各職能向度要求分數',
+                  '對應 iCAP 職能基準框架',
+                ].map((label, i) => (
+                  <div key={i} className={`flex items-center gap-2 text-xs py-1 transition-opacity ${docStep > i ? 'opacity-100' : 'opacity-30'}`}>
+                    {docStep > i
+                      ? <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
+                      : <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 flex-shrink-0" />}
+                    <span className={docStep > i ? 'text-gray-800 font-medium' : 'text-gray-400'}>{label}</span>
+                    {docStep === i + 1 && docProcessing && <span className="text-purple-500 ml-auto animate-pulse">處理中...</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Result card */}
+            {docResult && !docProcessing && (
+              <div className="bg-white rounded-xl border border-blue-200 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={16} className="text-green-500" />
+                  <span className="text-sm font-bold text-gray-900">辨識完成</span>
+                </div>
+                <p className="text-xs text-gray-500">{docResult.description}</p>
+
+                {/* Extracted items */}
+                <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                  {docResult.extractedItems.map((item, i) => (
+                    <div key={i} className="flex items-start gap-1.5 text-xs">
+                      <span className="text-blue-500 mt-0.5 flex-shrink-0">▸</span>
+                      <span className="text-gray-700">{item}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Competency values preview */}
+                <div className="grid grid-cols-3 gap-2">
+                  {DIMENSIONS.map(({ key, label }) => {
+                    const extracted = docResult.competencies[key];
+                    const original = ICAP_STANDARDS[docResult.jobTitle][key];
+                    const diff = extracted - original;
+                    return (
+                      <div key={key} className="bg-blue-50 rounded-lg p-2 text-center">
+                        <p className="text-xs text-gray-500 mb-1">{label}</p>
+                        <p className="text-base font-bold text-blue-700">{extracted}</p>
+                        {diff !== 0 && (
+                          <p className={`text-xs font-medium ${diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {diff > 0 ? `+${diff}` : diff}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {!docApplied ? (
+                  <button
+                    onClick={handleApplyDoc}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors"
+                  >
+                    <ArrowRight size={16} />
+                    套用職能書更新分析基準
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 text-green-700 text-sm font-medium bg-green-50 rounded-lg px-3 py-2">
+                    <CheckCircle size={16} />
+                    職能標準已更新！雷達圖基準值已套用「{docResult.jobTitle}」職能書數據
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

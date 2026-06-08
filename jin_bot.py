@@ -566,7 +566,7 @@ def _build_time_refs():
 # ── Groq API（文字）──────────────────────────────────────────
 def call_claude(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt  = _task_prompt().format(now=now_str, time_refs=_build_time_refs())
+    prompt  = _task_prompt().replace("{now}", now_str).replace("{time_refs}", _build_time_refs())
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user",   "content": text},
@@ -576,7 +576,7 @@ def call_claude(text):
 # ── Groq API（純聊天）────────────────────────────────────────
 def call_chat(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt  = _chat_prompt().format(now=now_str)
+    prompt  = _chat_prompt().replace("{now}", now_str)
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user",   "content": text},
@@ -714,7 +714,7 @@ def call_parse_recurring(text):
 # ── 空閒關心 / 每日關心（動態成員）─────────────────────────────
 def call_checkin():
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt  = _checkin_prompt().format(now=now_str)
+    prompt  = _checkin_prompt().replace("{now}", now_str)
     messages = [{"role": "user", "content": prompt}]
     return _call_groq(messages, max_tokens=200).strip()
 
@@ -1527,7 +1527,7 @@ def send_daily_checkin(slot_time, slot_name, greeting):
         return
     try:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-        prompt  = _daily_checkin_prompt(slot_name).format(now=now_str)
+        prompt  = _daily_checkin_prompt(slot_name).replace("{now}", now_str)
         messages = [{"role": "user", "content": prompt}]
         msg = _call_groq(messages, max_tokens=200).strip()
         m   = get_member()

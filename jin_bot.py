@@ -311,13 +311,13 @@ Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的話，繁體中文","urgent":[{{"title":"任務名稱","detail":"為什麼緊急或截止時間","remind_in_minutes":30}}],"later":[{{"title":"任務名稱","detail":"建議什麼時候做","remind_in_minutes":120}}]}}"""
 
 # 固定行程解析 prompt（動態，根據成員生成）
-def _recurring_prompt():
+def _recurring_prompt(now=""):
     m = get_member()
     return f"""{m['persona']}
 
 The user is telling you about a recurring/fixed schedule item they want you to remember.
 
-Current datetime: {{now}}
+Current datetime: {now}
 
 Parse the user's message and extract the recurring schedule. Return ONLY JSON:
 {{
@@ -694,7 +694,7 @@ def _safe_json(raw):
 # ── 解析固定行程 ──────────────────────────────────────────────
 def call_parse_recurring(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    prompt = _recurring_prompt().format(now=now_str)
+    prompt = _recurring_prompt(now_str)
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": text},

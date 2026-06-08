@@ -42,9 +42,7 @@ export default function TrainingNavbar() {
       <div className="flex items-center gap-3">
         <Link href="/training/login">
           <div className="flex items-center gap-3 cursor-pointer">
-            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">LL</span>
-            </div>
+            <img src="/website/choice-logo.svg" alt="CHOICE" className="h-9 object-contain" />
             <div>
               <h1 className="text-base font-bold text-gray-900 leading-tight">樂聯工業</h1>
               <p className="text-xs text-gray-500 leading-tight">員工訓練系統</p>

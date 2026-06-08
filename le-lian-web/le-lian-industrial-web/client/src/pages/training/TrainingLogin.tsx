@@ -103,9 +103,7 @@ export default function TrainingLogin() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
-            <span className="text-white font-black text-xl">LL</span>
-          </div>
+          <img src="/website/choice-logo.svg" alt="CHOICE" className="h-14 mb-4 object-contain" />
           <h1 className="text-2xl font-bold text-gray-900">樂聯工業</h1>
           <p className="text-sm text-gray-500 mt-1">員工訓練系統</p>
         </div>

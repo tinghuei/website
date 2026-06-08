@@ -1859,15 +1859,30 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.wfile.write(f"{m['name']} Bot is running!".encode("utf-8"))
 
 # ── 主程式 ────────────────────────────────────────────────────
+def _startup_check():
+    """啟動時確認 JSONBin 設定，並印出診斷資訊"""
+    print("=" * 50)
+    print(f"Bot 啟動！port {PORT}  成員：{get_member()['full_name']}")
+    print(f"模式：{'☁️ 雲端' if IS_CLOUD else '💻 本地'}")
+    if IS_CLOUD:
+        if JSONBIN_API_KEY:
+            print(f"✅ JSONBin 記憶模式：已啟用（資料不會因重啟消失）")
+            # 啟動時試讀一次，確認連線
+            try:
+                tasks = load_tasks()
+                print(f"   目前任務數：{len([t for t in tasks if t.get('status')=='pending'])} 筆")
+            except Exception as e:
+                print(f"   ⚠️ JSONBin 讀取失敗：{e}")
+        else:
+            print("❌ 警告：JSONBIN_API_KEY 未設定！重啟後資料會消失！")
+            print("   請到 Render → Environment 加入 JSONBIN_API_KEY")
+    print("=" * 50)
+
 if __name__ == "__main__":
+    _startup_check()
     threading.Thread(target=run_scheduler, daemon=True).start()
     if IS_CLOUD:
         threading.Thread(target=setup_rich_menu, daemon=True).start()
 
     server = HTTPServer(("0.0.0.0", PORT), WebhookHandler)
-    print("=" * 50)
-    print(f"Bot 啟動！port {PORT}  成員：{get_member()['full_name']}")
-    print(f"模式：{'☁️ 雲端' if IS_CLOUD else '💻 本地'}")
-    print("傳照片給 Bot 可辨識手寫清單！")
-    print("=" * 50)
     server.serve_forever()

@@ -1666,9 +1666,12 @@ def _make_menu_png(member_color_hex):
     draw = ImageDraw.Draw(img)
 
     SEC_W = W // 5
-    font_cjk = _get_cjk_font(100)
+    font_cjk = _get_cjk_font(160)
     from PIL import ImageFont
-    font_fallback = ImageFont.load_default()
+    try:
+        font_fallback = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+    except Exception:
+        font_fallback = ImageFont.load_default()
 
     for i, (color, label_zh, label_en) in enumerate(buttons):
         x0 = i * SEC_W + (6 if i > 0 else 0)
@@ -1682,9 +1685,12 @@ def _make_menu_png(member_color_hex):
                 continue
             except Exception:
                 pass
-        # 字型不支援中文時用英文
-        tw = len(label_en) * 6
-        draw.text((cx - tw // 2, cy - 5), label_en, font=font_fallback, fill=(255,255,255))
+        # 字型不支援中文時用英文粗體
+        try:
+            draw.text((cx, cy), label_en, font=font_fallback, fill=(255,255,255), anchor="mm")
+        except Exception:
+            tw = len(label_en) * 8
+            draw.text((cx - tw // 2, cy - 8), label_en, font=font_fallback, fill=(255,255,255))
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")

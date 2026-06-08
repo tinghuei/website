@@ -1600,14 +1600,16 @@ def check_and_checkin():
         print(f"[Checkin Error] {e}")
 
 def _get_cjk_font(size):
-    """取得中文字型，優先系統字型，找不到就下載 Noto Sans"""
+    """取得中文字型，優先系統字型，找不到就下載 Noto Sans CJK"""
     from PIL import ImageFont
-    import os
+    import os, urllib.request
+    # 系統字型候選
     candidates = [
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJKtc-Regular.otf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKtc-Regular.otf",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
     ]
     for path in candidates:
         if os.path.exists(path):
@@ -1615,20 +1617,26 @@ def _get_cjk_font(size):
                 return ImageFont.truetype(path, size)
             except Exception:
                 pass
-    # 下載 Noto Sans CJK
-    font_path = _DATA_DIR / "NotoSansCJK.ttf"
+    # 下載字型（多個備用 URL）
+    font_path = Path("/tmp/NotoSansCJK.otf")
     if not font_path.exists():
-        try:
-            import urllib.request
-            url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/SubsetOTF/TC/NotoSansCJKtc-Regular.otf"
-            urllib.request.urlretrieve(url, str(font_path))
-        except Exception:
-            font_path = None
-    if font_path and font_path.exists():
+        urls = [
+            "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansCJKtc-Regular.otf",
+            "https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/TC/NotoSansCJKtc-Regular.otf",
+        ]
+        for url in urls:
+            try:
+                print(f"[Font] 下載字型中：{url}")
+                urllib.request.urlretrieve(url, str(font_path))
+                print(f"[Font] 下載完成：{font_path.stat().st_size} bytes")
+                break
+            except Exception as e:
+                print(f"[Font] 下載失敗：{e}")
+    if font_path.exists():
         try:
             return ImageFont.truetype(str(font_path), size)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Font] 載入失敗：{e}")
     return ImageFont.load_default()
 
 def _make_menu_png(member_color_hex):
@@ -1647,36 +1655,36 @@ def _make_menu_png(member_color_hex):
         return (min(255,int(r*f)), min(255,int(g*f)), min(255,int(b*f)))
 
     buttons = [
-        (shade(mr,mg,mb,1.00), "📋", "查看任務"),
-        (shade(mr,mg,mb,0.82), "📅", "固定行程"),
-        (shade(mr,mg,mb,0.64), "📸", "拍照辨識"),
-        (shade(mr,mg,mb,0.46), "🎤", "切換成員"),
-        (shade(mr,mg,mb,0.30), "❓", "說明"),
+        (shade(mr,mg,mb,1.00), "查看任務", "TASKS"),
+        (shade(mr,mg,mb,0.82), "固定行程", "SCHEDULE"),
+        (shade(mr,mg,mb,0.64), "拍照辨識", "PHOTO"),
+        (shade(mr,mg,mb,0.46), "切換成員", "SWITCH"),
+        (shade(mr,mg,mb,0.30), "說明",     "HELP"),
     ]
 
     img = Image.new("RGB", (W, H), (255, 255, 255))
     draw = ImageDraw.Draw(img)
 
     SEC_W = W // 5
-    font_label = _get_cjk_font(90)
-    font_icon  = _get_cjk_font(110)
+    font_cjk = _get_cjk_font(100)
+    from PIL import ImageFont
+    font_fallback = ImageFont.load_default()
 
-    for i, (color, icon, label) in enumerate(buttons):
+    for i, (color, label_zh, label_en) in enumerate(buttons):
         x0 = i * SEC_W + (6 if i > 0 else 0)
         x1 = (i + 1) * SEC_W
         draw.rectangle([x0, 6, x1, H - 6], fill=color)
-
         cx = i * SEC_W + SEC_W // 2
-        # emoji icon
-        try:
-            draw.text((cx, H//2 - 100), icon, font=font_icon, fill=(255,255,255), anchor="mm")
-        except Exception:
-            pass
-        # Chinese label
-        try:
-            draw.text((cx, H//2 + 30), label, font=font_label, fill=(255,255,255), anchor="mm")
-        except Exception:
-            draw.text((cx - len(label)*25, H//2 + 20), label, font=font_label, fill=(255,255,255))
+        cy = H // 2
+        if font_cjk:
+            try:
+                draw.text((cx, cy), label_zh, font=font_cjk, fill=(255,255,255), anchor="mm")
+                continue
+            except Exception:
+                pass
+        # 字型不支援中文時用英文
+        tw = len(label_en) * 6
+        draw.text((cx - tw // 2, cy - 5), label_en, font=font_fallback, fill=(255,255,255))
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")

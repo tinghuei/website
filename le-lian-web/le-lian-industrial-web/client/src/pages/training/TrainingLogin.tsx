@@ -127,38 +127,9 @@ export default function TrainingLogin() {
             使用 Google 帳號登入
           </button>
 
-          {/* Divider */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-gray-400">Demo 帳號快速進入</span>
-            </div>
-          </div>
-
-          {/* Quick demo links */}
-          <div className="space-y-2">
-            {mockGoogleAccounts.slice(0, 3).map((acc) => (
-              <button
-                key={acc.email}
-                onClick={() => handleGoogleSelect(acc.email)}
-                disabled={loading}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all group disabled:opacity-60"
-              >
-                <div className={`w-8 h-8 ${acc.color} rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-                  {signingIn === acc.email ? (
-                    <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  ) : acc.photo}
-                </div>
-                <div className="text-left flex-1">
-                  <p className="text-sm font-medium text-gray-800">{acc.name}</p>
-                  <p className="text-xs text-gray-400">{acc.dept} · {acc.role}</p>
-                </div>
-                <ChevronRight size={14} className="text-gray-300 group-hover:text-blue-400" />
-              </button>
-            ))}
-          </div>
+          <p className="text-xs text-center text-gray-400 mt-2">
+            使用公司核發的 Google 帳號登入
+          </p>
         </div>
 
         {/* Footer links */}

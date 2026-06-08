@@ -20,16 +20,21 @@ import { Users, CheckCircle, Star, Clock, Download, TrendingUp, BarChart2 } from
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 
 const deptData = [
+  { dept: '總經理室', completion: 95, target: 80 },
   { dept: '品保課', completion: 92, target: 80 },
-  { dept: '資訊課', completion: 88, target: 80 },
+  { dept: '管理部', completion: 90, target: 80 },
+  { dept: '財務部', completion: 88, target: 80 },
   { dept: '業務課', completion: 85, target: 80 },
-  { dept: '人力資源課', completion: 82, target: 80 },
-  { dept: '財務課', completion: 78, target: 80 },
-  { dept: '組裝一線', completion: 75, target: 80 },
-  { dept: '組裝二線', completion: 71, target: 80 },
-  { dept: '焊接線', completion: 68, target: 80 },
-  { dept: '沖壓線', completion: 65, target: 80 },
-  { dept: '塗裝線', completion: 62, target: 80 },
+  { dept: '研發課', completion: 83, target: 80 },
+  { dept: '總務課', completion: 82, target: 80 },
+  { dept: '人資安全組', completion: 80, target: 80 },
+  { dept: '廠務部', completion: 76, target: 80 },
+  { dept: '製造課', completion: 74, target: 80 },
+  { dept: '沖床組', completion: 71, target: 80 },
+  { dept: '塗裝組', completion: 68, target: 80 },
+  { dept: '加工組', completion: 65, target: 80 },
+  { dept: '組一組', completion: 63, target: 80 },
+  { dept: '組二組', completion: 61, target: 80 },
 ];
 
 const monthlyData = [
@@ -92,26 +97,149 @@ export default function ManagementReports() {
 
   const exportTTQSReport = () => {
     setExporting('ttqs');
-    const summary = [
-      { 指標: '年度訓練總時數', 數值: '1,119小時' },
-      { 指標: '訓練總人次', 數值: '485人次' },
-      { 指標: '平均每人訓練時數', 數值: '7.2小時' },
-      { 指標: '整體完成率', 數值: '73%' },
-      { 指標: '平均測驗分數', 數值: '82.4分' },
-      { 指標: '證書發放數', 數值: '312張' },
-      { 指標: '外部訓練比例', 數值: '38%' },
-      { 指標: '內部訓練比例', 數值: '62%' },
-    ];
-    const ws = XLSX.utils.json_to_sheet(summary);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'TTQS年度成效');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deptData.map(d => ({
-      部門: d.dept, 完成率: `${d.completion}%`, 目標: `${d.target}%`
-    }))), '部門明細');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(monthlyData.map(m => ({
-      月份: m.month, 計畫時數: m.planned, 實際時數: m.actual, 參與人數: m.participants
-    }))), '月度趨勢');
-    XLSX.writeFile(wb, 'TTQS年度成效報告.xlsx');
+
+    // Build SVG bar chart for dept completion
+    const barW = 420, barH = 280, barLeft = 80;
+    const deptBars = deptData.map((d, i) => {
+      const y = 20 + i * 26;
+      const w = Math.round((d.completion / 100) * (barW - barLeft - 10));
+      const fill = d.completion >= d.target ? '#22c55e' : '#f59e0b';
+      return `<g>
+        <text x="0" y="${y + 14}" font-size="10" fill="#374151">${d.dept}</text>
+        <rect x="${barLeft}" y="${y}" width="${w}" height="18" fill="${fill}" rx="2"/>
+        <text x="${barLeft + w + 4}" y="${y + 13}" font-size="10" fill="#374151">${d.completion}%</text>
+        <line x1="${barLeft + Math.round(0.8 * (barW - barLeft - 10))}" y1="${y}" x2="${barLeft + Math.round(0.8 * (barW - barLeft - 10))}" y2="${y + 18}" stroke="#ef4444" stroke-dasharray="3,2" stroke-width="1"/>
+      </g>`;
+    }).join('');
+
+    // Build SVG line chart for monthly trend
+    const mx = 50, my = 20, mw = 420, mh = 200;
+    const maxVal = 300;
+    const pts = (key: 'planned' | 'actual') => monthlyData.map((d, i) => {
+      const x = mx + i * ((mw - mx) / (monthlyData.length - 1));
+      const y = my + mh - (d[key] / maxVal) * mh;
+      return `${x},${y}`;
+    }).join(' ');
+    const monthLabels = monthlyData.map((d, i) => {
+      const x = mx + i * ((mw - mx) / (monthlyData.length - 1));
+      return `<text x="${x}" y="${my + mh + 16}" text-anchor="middle" font-size="10" fill="#6b7280">${d.month}</text>`;
+    }).join('');
+
+    // Pie chart for course status
+    const total = courseStatus.reduce((s, c) => s + c.value, 0);
+    let startAngle = -Math.PI / 2;
+    const cx2 = 120, cy2 = 110, r = 80;
+    const slices = courseStatus.map(c => {
+      const angle = (c.value / total) * 2 * Math.PI;
+      const x1 = cx2 + r * Math.cos(startAngle);
+      const y1 = cy2 + r * Math.sin(startAngle);
+      startAngle += angle;
+      const x2 = cx2 + r * Math.cos(startAngle);
+      const y2 = cy2 + r * Math.sin(startAngle);
+      const large = angle > Math.PI ? 1 : 0;
+      return `<path d="M ${cx2} ${cy2} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${c.fill}" opacity="0.85"/>`;
+    }).join('');
+    const pieLegend = courseStatus.map((c, i) => `<text x="250" y="${60 + i * 22}" font-size="11" fill="#374151">■ ${c.name}：${c.value}筆 (${Math.round(c.value/total*100)}%)</text><rect x="240" y="${48 + i * 22}" width="12" height="12" fill="${c.fill}"/>`).join('');
+
+    const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">
+<title>TTQS年度成效報告 2026</title>
+<style>
+  body { font-family: 'Microsoft JhengHei', Arial, sans-serif; margin: 0; padding: 20px; color: #1f2937; background: #f9fafb; }
+  .cover { background: linear-gradient(135deg,#1d4ed8,#4f46e5); color:white; padding:40px; border-radius:12px; text-align:center; margin-bottom:24px; }
+  .cover h1 { font-size:28px; margin:0 0 8px; }
+  .cover p { font-size:14px; opacity:.85; margin:0; }
+  .section { background:white; border-radius:10px; padding:20px; margin-bottom:20px; box-shadow:0 1px 4px rgba(0,0,0,.08); page-break-inside:avoid; }
+  .section h2 { font-size:16px; font-weight:700; color:#1d4ed8; margin:0 0 12px; padding-bottom:8px; border-bottom:2px solid #e5e7eb; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:4px; }
+  .kpi { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:14px; text-align:center; }
+  .kpi .val { font-size:22px; font-weight:800; color:#0284c7; }
+  .kpi .lbl { font-size:11px; color:#64748b; margin-top:4px; }
+  @media print { body { background:white; } .section { box-shadow:none; border:1px solid #e5e7eb; } }
+</style></head><body>
+<div class="cover">
+  <h1>樂聯工業股份有限公司</h1>
+  <h1>TTQS 年度訓練成效報告</h1>
+  <p>報告期間：2025年12月 – 2026年5月｜列印日期：${new Date().toLocaleDateString('zh-TW')}</p>
+</div>
+
+<div class="section">
+  <h2>📊 年度關鍵績效指標</h2>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="val">1,119</div><div class="lbl">年度訓練總時數（小時）</div></div>
+    <div class="kpi"><div class="val">485</div><div class="lbl">訓練總人次</div></div>
+    <div class="kpi"><div class="val">7.2</div><div class="lbl">平均每人訓練時數</div></div>
+    <div class="kpi"><div class="val">73%</div><div class="lbl">整體完成率</div></div>
+    <div class="kpi"><div class="val">82.4</div><div class="lbl">平均測驗分數（分）</div></div>
+    <div class="kpi"><div class="val">312</div><div class="lbl">結業證書發放數</div></div>
+    <div class="kpi"><div class="val">38%</div><div class="lbl">外部訓練比例</div></div>
+    <div class="kpi"><div class="val">62%</div><div class="lbl">內部訓練比例</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>📈 各部門訓練完成率（目標：80%）</h2>
+  <svg width="100%" viewBox="0 0 520 ${20 + deptData.length * 26 + 20}" xmlns="http://www.w3.org/2000/svg">
+    <text x="0" y="12" font-size="10" fill="#9ca3af">部門</text>
+    <text x="${barLeft + Math.round(0.8*(barW-barLeft-10)) - 18}" y="12" font-size="10" fill="#ef4444">目標80%</text>
+    ${deptBars}
+    <rect x="${barLeft + 10}" y="${20 + deptData.length * 26 - 6}" width="12" height="12" fill="#22c55e"/>
+    <text x="${barLeft + 26}" y="${20 + deptData.length * 26 + 6}" font-size="10" fill="#374151">達標（≥80%）</text>
+    <rect x="${barLeft + 130}" y="${20 + deptData.length * 26 - 6}" width="12" height="12" fill="#f59e0b"/>
+    <text x="${barLeft + 146}" y="${20 + deptData.length * 26 + 6}" font-size="10" fill="#374151">未達標（&lt;80%）</text>
+  </svg>
+</div>
+
+<div class="section">
+  <h2>📉 月度訓練趨勢（計畫 vs 實際時數）</h2>
+  <svg width="100%" viewBox="0 0 ${mw + 20} ${my + mh + 40}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${mx}" y1="${my}" x2="${mx}" y2="${my+mh}" stroke="#e5e7eb" stroke-width="1"/>
+    <line x1="${mx}" y1="${my+mh}" x2="${mw}" y2="${my+mh}" stroke="#e5e7eb" stroke-width="1"/>
+    ${[0,100,200,300].map(v => `<text x="${mx-4}" y="${my+mh-(v/maxVal)*mh+4}" text-anchor="end" font-size="10" fill="#9ca3af">${v}</text><line x1="${mx}" y1="${my+mh-(v/maxVal)*mh}" x2="${mw}" y2="${my+mh-(v/maxVal)*mh}" stroke="#f3f4f6" stroke-width="1"/>`).join('')}
+    <polyline points="${pts('planned')}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,3"/>
+    <polyline points="${pts('actual')}" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+    ${monthLabels}
+    <circle cx="${mx+20}" cy="${my+mh+30}" r="5" fill="#94a3b8"/><text x="${mx+28}" y="${my+mh+34}" font-size="10" fill="#374151">計畫時數</text>
+    <circle cx="${mx+110}" cy="${my+mh+30}" r="5" fill="#3b82f6"/><text x="${mx+118}" y="${my+mh+34}" font-size="10" fill="#374151">實際時數</text>
+  </svg>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:12px">
+    <thead><tr style="background:#f1f5f9">${['月份','計畫時數','實際時數','達成率','參與人數'].map(h=>`<th style="padding:6px 10px;text-align:left;border:1px solid #e5e7eb">${h}</th>`).join('')}</tr></thead>
+    <tbody>${monthlyData.map((d,i)=>`<tr style="background:${i%2?'#f9fafb':'white'}">
+      <td style="padding:6px 10px;border:1px solid #e5e7eb">${d.month}</td>
+      <td style="padding:6px 10px;border:1px solid #e5e7eb">${d.planned}</td>
+      <td style="padding:6px 10px;border:1px solid #e5e7eb">${d.actual}</td>
+      <td style="padding:6px 10px;border:1px solid #e5e7eb;color:${d.actual/d.planned>=0.9?'#16a34a':'#d97706'}">${Math.round(d.actual/d.planned*100)}%</td>
+      <td style="padding:6px 10px;border:1px solid #e5e7eb">${d.participants}人</td>
+    </tr>`).join('')}</tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>🥧 課程完成狀態分佈</h2>
+  <svg width="100%" viewBox="0 0 440 240" xmlns="http://www.w3.org/2000/svg">
+    ${slices}
+    <circle cx="${cx2}" cy="${cy2}" r="40" fill="white"/>
+    <text x="${cx2}" y="${cy2-6}" text-anchor="middle" font-size="13" font-weight="bold" fill="#374151">${total}</text>
+    <text x="${cx2}" y="${cy2+14}" text-anchor="middle" font-size="10" fill="#6b7280">總筆數</text>
+    ${pieLegend}
+  </svg>
+</div>
+
+<div class="section">
+  <h2>🤖 AI 智能分析摘要</h2>
+  <div style="background:#f0f4ff;border-left:4px solid #3b82f6;padding:16px;border-radius:0 8px 8px 0;font-size:13px;line-height:1.8">
+    <b>本月訓練成效摘要（2026年5月）</b><br/>
+    整體表現：本月訓練完成率73%，較上月提升5個百分點。<br/>
+    ⚠️ 需要關注：塗裝線完成率僅62%，低於公司目標80%；焊接線、沖壓線完成率偏低，需加強推動。<br/>
+    ✅ 優秀表現：品保課完成率92%，超越目標12個百分點；本月新增完訓證書47張，較上月增加18%。<br/>
+    🎯 建議行動：對完成率低於70%的部門安排補救訓練；推動外籍員工參與多語言課程；下月重點：智慧製造與ISO品質課程。
+  </div>
+</div>
+
+<script>window.onload=()=>window.print();</script>
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
     setTimeout(() => setExporting(null), 1000);
   };
 

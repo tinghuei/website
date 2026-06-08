@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Globe, RefreshCw, Plus, Sparkles, Clock, Filter, Check } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Globe, RefreshCw, Plus, Sparkles, Clock, Filter, Check, X, Play, Pause } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface FreeCourse {
@@ -60,6 +60,109 @@ const LANG_FLAGS: Record<string, string> = {
   vi: '🇻🇳',
 };
 
+// ── Free Course Modal ─────────────────────────────────────────────────────────
+function FreeCourseModal({ course, onClose, onAdd }: { course: FreeCourse; onClose: () => void; onAdd: () => void }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [watchTime, setWatchTime] = useState(0);
+  const [added, setAdded] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (isPlaying) {
+      intervalRef.current = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) { setIsPlaying(false); return 100; }
+          const next = prev + (100 / (course.hours * 60));
+          setWatchTime(Math.round((next / 100) * course.hours * 60));
+          return next;
+        });
+      }, 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [isPlaying, course.hours]);
+
+  const gradients: Record<string, string> = {
+    blue: 'from-blue-500 to-blue-700', purple: 'from-purple-500 to-purple-700',
+    green: 'from-green-500 to-green-700', orange: 'from-orange-500 to-orange-700',
+    teal: 'from-teal-500 to-teal-700', red: 'from-red-500 to-red-700',
+  };
+  const gradient = gradients[course.sourceColor] || 'from-blue-500 to-blue-700';
+
+  const handleAdd = () => { setAdded(true); onAdd(); };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg line-clamp-1">{course.title}</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} className="text-gray-500" /></button>
+        </div>
+
+        {/* Video player */}
+        <div className={`bg-gradient-to-br ${gradient} relative aspect-video flex items-center justify-center overflow-hidden`}>
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(0deg, transparent 24%, white 25%, white 26%, transparent 27%), linear-gradient(90deg, transparent 24%, white 25%, white 26%, transparent 27%)', backgroundSize: '50px 50px' }} />
+          {isPlaying && (
+            <div className="absolute top-0 left-0 h-0.5 bg-white/60 transition-all duration-1000" style={{ width: `${progress}%` }} />
+          )}
+          <span className="text-white/10 text-9xl font-black select-none absolute">{course.title[0]}</span>
+          <button
+            onClick={() => setIsPlaying(p => !p)}
+            className="relative z-10 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center transition-all hover:scale-110"
+          >
+            {isPlaying ? <Pause size={28} className="text-white" /> : <Play size={28} className="text-white ml-1" />}
+          </button>
+          <div className="absolute top-3 right-3">
+            {isPlaying
+              ? <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />播放中</span>
+              : <span className="bg-black/40 text-white text-xs px-2.5 py-1 rounded-full">已暫停</span>
+            }
+          </div>
+          <div className="absolute bottom-3 left-3 bg-black/50 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+            <Clock size={12} />{Math.floor(watchTime / 60)}:{String(watchTime % 60).padStart(2, '0')} / {course.hours}h
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div className="px-5 pt-3 pb-1">
+          <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <span>{isPlaying ? '▶ 觀看中...' : '點擊播放'}</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="bg-gray-100 rounded-full h-1.5">
+            <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="px-5 py-4 space-y-2">
+          <p className="text-sm text-gray-600 leading-relaxed">{course.desc}</p>
+          <div className="flex items-center gap-4 text-xs text-gray-500 pt-1">
+            <span className="flex items-center gap-1"><Clock size={12} />{course.hours}小時</span>
+            <span>{course.langs.map(l => LANG_FLAGS[l] || l).join(' ')}</span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${SOURCE_BADGE_MAP[course.sourceColor] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{course.source}</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="px-5 pb-5 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">關閉</button>
+          <button
+            onClick={handleAdd}
+            disabled={added}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${added ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+          >
+            {added ? <><Check size={14} />已加入課程庫</> : <><Plus size={14} />加入課程庫</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Toast ──────────────────────────────────────────────────────────────────────
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
@@ -76,10 +179,12 @@ function CourseCard({
   course,
   onAddToLibrary,
   onGenerateQuiz,
+  onView,
 }: {
   course: FreeCourse;
   onAddToLibrary: (id: string) => void;
   onGenerateQuiz: (id: string) => void;
+  onView: (id: string) => void;
 }) {
   const [quizState, setQuizState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [added, setAdded] = useState(false);
@@ -97,7 +202,10 @@ function CourseCard({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
+    <div
+      className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden cursor-pointer"
+      onClick={() => onView(course.id)}
+    >
       {/* Top color strip */}
       <div className={`${SOURCE_COLOR_MAP[course.sourceColor] || 'bg-gray-400'} h-1.5`} />
 
@@ -131,7 +239,7 @@ function CourseCard({
           </span>
           <div className="flex items-center gap-1.5 ml-auto flex-wrap">
             <button
-              onClick={handleAdd}
+              onClick={(e) => { e.stopPropagation(); handleAdd(); }}
               disabled={added}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                 added
@@ -143,7 +251,7 @@ function CourseCard({
               {added ? '已加入' : '加入課程庫'}
             </button>
             <button
-              onClick={handleQuiz}
+              onClick={(e) => { e.stopPropagation(); handleQuiz(); }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border ${
                 quizState === 'done'
                   ? 'bg-green-100 text-green-700 border-green-200 cursor-default'
@@ -175,6 +283,7 @@ export default function FreeCourses() {
   const [fetching, setFetching] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [toast, setToast] = useState('');
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -206,8 +315,17 @@ export default function FreeCourses() {
     return true;
   });
 
+  const viewingCourse = viewingId ? FREE_COURSES.find(c => c.id === viewingId) ?? null : null;
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {viewingCourse && (
+        <FreeCourseModal
+          course={viewingCourse}
+          onClose={() => setViewingId(null)}
+          onAdd={() => { handleAddToLibrary(viewingCourse.id); }}
+        />
+      )}
       {/* Page header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Globe size={28} className="text-green-600" />
@@ -296,6 +414,7 @@ export default function FreeCourses() {
               course={course}
               onAddToLibrary={handleAddToLibrary}
               onGenerateQuiz={handleGenerateQuiz}
+              onView={(id) => setViewingId(id)}
             />
           ))}
         </div>

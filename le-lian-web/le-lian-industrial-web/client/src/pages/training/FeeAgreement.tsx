@@ -3,9 +3,9 @@ import { FileText, Printer, Download, Save, Eye, EyeOff } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 
 const DEPARTMENTS = [
-  '品保課', '資訊課', '業務課', '人力資源課', '財務課',
-  '組裝一線', '組裝二線', '焊接線', '沖壓線', '塗裝線',
-  '工程課', '生管課',
+  '總經理室', '品保課', '管理部', '總務課', '營業部', '業務課',
+  '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組',
+  '組三組', '沖床組', '塗裝組', '加工組', '財務部', '庶務組', '人資安全組',
 ];
 
 interface FeeForm {

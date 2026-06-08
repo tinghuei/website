@@ -93,12 +93,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 // ── Sub-components ───────────────────────────────────────────────────────────────
 
-function PointsTab() {
-  const level = getLevel(TOTAL_POINTS);
-  const progressInLevel = TOTAL_POINTS - level.current;
-  const rangeInLevel = level.next - level.current;
-  const progressPct = level.label === '鑽石學員' ? 100 : Math.min(100, (progressInLevel / rangeInLevel) * 100);
-
+function PointsTab({ availablePoints }: { availablePoints: number }) {
   return (
     <div className="space-y-6">
       {/* Summary cards */}
@@ -106,7 +101,7 @@ function PointsTab() {
         {[
           { label: '總積分', value: TOTAL_POINTS, color: 'blue', icon: Star },
           { label: '本月新增', value: THIS_MONTH_POINTS, color: 'green', icon: TrendingUp },
-          { label: '可兌換積分', value: TOTAL_POINTS, color: 'purple', icon: Gift },
+          { label: '可兌換積分', value: availablePoints, color: 'purple', icon: Gift },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
             <div className={`w-10 h-10 rounded-lg bg-${color}-50 flex items-center justify-center mx-auto mb-3`}>
@@ -302,68 +297,136 @@ function LeaderboardTab() {
   );
 }
 
-function RedeemTab() {
-  const [redeemed, setRedeemed] = useState<string | null>(null);
+interface RedeemRecord { id: string; itemId: string; itemName: string; itemIcon: string; points: number; status: 'pending' | 'approved' | 'cancelled'; redeemedAt: string; }
+
+function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onRedeem: (cost: number, record: RedeemRecord) => void }) {
   const [confirming, setConfirming] = useState<string | null>(null);
-  const [successItems, setSuccessItems] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState('');
+  const [history, setHistory] = useState<RedeemRecord[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   const handleConfirm = () => {
     if (!confirming) return;
-    setSuccessItems((prev) => new Set(prev).add(confirming));
+    const item = REDEEM_ITEMS.find(i => i.id === confirming);
+    if (!item) return;
+    const record: RedeemRecord = {
+      id: `r${Date.now()}`,
+      itemId: item.id,
+      itemName: item.name,
+      itemIcon: item.icon,
+      points: item.points,
+      status: 'pending',
+      redeemedAt: new Date().toLocaleString('zh-TW'),
+    };
+    setHistory(prev => [record, ...prev]);
+    onRedeem(item.points, record);
     setConfirming(null);
-    setRedeemed(confirming);
-    setTimeout(() => setRedeemed(null), 3000);
+    showToast(`「${item.name}」兌換成功！申請已送出，請等待HR確認。`);
   };
+
+  const handleCancel = (recordId: string) => {
+    setHistory(prev => prev.map(r => r.id === recordId ? { ...r, status: 'cancelled' as const } : r));
+    const record = history.find(r => r.id === recordId);
+    if (record) onRedeem(-record.points, record);
+    showToast('已取消兌換申請，積分已返還。');
+  };
+
+  const redeemedIds = new Set(history.filter(r => r.status === 'pending' || r.status === 'approved').map(r => r.itemId));
 
   return (
     <div className="space-y-4">
-      {/* Available points */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl p-5 text-white">
-        <p className="text-sm opacity-80 mb-1">您目前可兌換積分</p>
-        <p className="text-4xl font-bold">{TOTAL_POINTS} 點</p>
-      </div>
-
-      {redeemed && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-green-700 font-medium text-center">
-          兌換成功！申請已送出，請等待HR確認。
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
+          <span className="text-green-400">✓</span>{toast}
         </div>
       )}
 
-      {/* Item grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {REDEEM_ITEMS.map((item) => {
-          const canAfford = TOTAL_POINTS >= item.points;
-          const done = successItems.has(item.id);
-          return (
-            <div key={item.id} className={`bg-white rounded-xl border shadow-sm p-5 flex flex-col ${!canAfford ? 'opacity-60' : 'hover:shadow-md transition-shadow'}`}>
-              <div className="text-4xl mb-3">{item.icon}</div>
-              <h4 className="font-semibold text-gray-900 mb-1">{item.name}</h4>
-              <p className="text-xs text-gray-500 mb-3 flex-1">{item.desc}</p>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-blue-600 font-bold">{item.points} 點</span>
-                <span className="text-xs text-gray-400">庫存 {item.stock}</span>
-              </div>
-              {done ? (
-                <div className="text-center text-sm text-green-600 font-medium bg-green-50 rounded-lg py-2">
-                  已申請兌換
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirming(item.id)}
-                  disabled={!canAfford}
-                  className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    canAfford
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  {canAfford ? '兌換' : '積分不足'}
-                </button>
-              )}
-            </div>
-          );
-        })}
+      {/* Available points */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl p-5 text-white flex items-center justify-between">
+        <div>
+          <p className="text-sm opacity-80 mb-1">您目前可兌換積分</p>
+          <p className="text-4xl font-bold">{availablePoints} 點</p>
+        </div>
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-white transition-colors"
+        >
+          {showHistory ? '返回兌換' : `兌換紀錄 (${history.length})`}
+        </button>
       </div>
+
+      {showHistory ? (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900">兌換紀錄</h3>
+          </div>
+          {history.length === 0 ? (
+            <p className="text-center py-8 text-gray-400 text-sm">尚無兌換紀錄</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {history.map(r => (
+                <div key={r.id} className="flex items-center gap-3 px-5 py-3">
+                  <span className="text-2xl">{r.itemIcon}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{r.itemName}</p>
+                    <p className="text-xs text-gray-400">{r.redeemedAt}</p>
+                  </div>
+                  <span className={`text-xs font-bold ${r.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>
+                    -{r.points}點
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    r.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                    r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {r.status === 'pending' ? '審核中' : r.status === 'approved' ? '已核准' : '已取消'}
+                  </span>
+                  {r.status === 'pending' && (
+                    <button onClick={() => handleCancel(r.id)} className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-0.5 rounded-lg">取消</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Item grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {REDEEM_ITEMS.map((item) => {
+              const canAfford = availablePoints >= item.points;
+              const done = redeemedIds.has(item.id);
+              return (
+                <div key={item.id} className={`bg-white rounded-xl border shadow-sm p-5 flex flex-col ${!canAfford && !done ? 'opacity-60' : 'hover:shadow-md transition-shadow'}`}>
+                  <div className="text-4xl mb-3">{item.icon}</div>
+                  <h4 className="font-semibold text-gray-900 mb-1">{item.name}</h4>
+                  <p className="text-xs text-gray-500 mb-3 flex-1">{item.desc}</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-blue-600 font-bold">{item.points} 點</span>
+                    <span className="text-xs text-gray-400">庫存 {item.stock}</span>
+                  </div>
+                  {done ? (
+                    <div className="text-center text-sm text-yellow-700 font-medium bg-yellow-50 border border-yellow-200 rounded-lg py-2">
+                      ⏳ 審核中
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirming(item.id)}
+                      disabled={!canAfford}
+                      className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        canAfford ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {canAfford ? '兌換' : '積分不足'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Confirm dialog */}
       {confirming && (
@@ -372,26 +435,13 @@ function RedeemTab() {
             <div className="text-center mb-4">
               <div className="text-4xl mb-3">{REDEEM_ITEMS.find((i) => i.id === confirming)?.icon}</div>
               <h3 className="font-bold text-gray-900 text-lg mb-1">確認兌換</h3>
-              <p className="text-gray-600 text-sm">
-                確定要兌換「{REDEEM_ITEMS.find((i) => i.id === confirming)?.name}」嗎？
-              </p>
-              <p className="text-blue-600 font-bold mt-1">
-                消耗 {REDEEM_ITEMS.find((i) => i.id === confirming)?.points} 點積分
-              </p>
+              <p className="text-gray-600 text-sm">確定要兌換「{REDEEM_ITEMS.find((i) => i.id === confirming)?.name}」嗎？</p>
+              <p className="text-blue-600 font-bold mt-1">消耗 {REDEEM_ITEMS.find((i) => i.id === confirming)?.points} 點積分</p>
+              <p className="text-gray-400 text-xs mt-1">剩餘積分：{availablePoints - (REDEEM_ITEMS.find(i => i.id === confirming)?.points || 0)} 點</p>
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={() => setConfirming(null)}
-                className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleConfirm}
-                className="flex-1 py-2.5 bg-blue-600 rounded-xl text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                確認兌換
-              </button>
+              <button onClick={() => setConfirming(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50">取消</button>
+              <button onClick={handleConfirm} className="flex-1 py-2.5 bg-blue-600 rounded-xl text-sm font-semibold text-white hover:bg-blue-700">確認兌換</button>
             </div>
           </div>
         </div>
@@ -413,9 +463,14 @@ type TabId = typeof TABS[number]['id'];
 export default function Achievements() {
   const { currentUser } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState<TabId>('points');
+  const [availablePoints, setAvailablePoints] = useState(TOTAL_POINTS);
 
-  const level = getLevel(TOTAL_POINTS);
-  const progressInLevel = TOTAL_POINTS - level.current;
+  const handleRedeem = (cost: number) => {
+    setAvailablePoints(prev => Math.max(0, prev - cost));
+  };
+
+  const level = getLevel(availablePoints);
+  const progressInLevel = availablePoints - level.current;
   const rangeInLevel = level.next - level.current;
   const progressPct = level.label === '鑽石學員' ? 100 : Math.min(100, (progressInLevel / rangeInLevel) * 100);
 
@@ -441,13 +496,13 @@ export default function Achievements() {
                 <span className="text-3xl">{level.emoji}</span>
                 <span className="text-xl font-bold">{level.label}</span>
               </div>
-              <p className="text-blue-200 text-sm">累積積分：{TOTAL_POINTS} 點</p>
+              <p className="text-blue-200 text-sm">累積積分：{availablePoints} 點</p>
             </div>
             <div className="text-right">
               {level.label !== '鑽石學員' && (
                 <>
                   <p className="text-blue-200 text-xs">距下一等級</p>
-                  <p className="text-2xl font-bold">{level.next - TOTAL_POINTS}</p>
+                  <p className="text-2xl font-bold">{level.next - availablePoints}</p>
                   <p className="text-blue-200 text-xs">積分</p>
                 </>
               )}
@@ -490,9 +545,9 @@ export default function Achievements() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'points' && <PointsTab />}
+      {activeTab === 'points' && <PointsTab availablePoints={availablePoints} />}
       {activeTab === 'leaderboard' && <LeaderboardTab />}
-      {activeTab === 'redeem' && <RedeemTab />}
+      {activeTab === 'redeem' && <RedeemTab availablePoints={availablePoints} onRedeem={handleRedeem} />}
     </div>
   );
 }

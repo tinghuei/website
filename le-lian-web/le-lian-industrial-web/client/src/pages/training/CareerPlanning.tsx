@@ -8,8 +8,36 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import { Map, Target, ClipboardList, BrainCircuit, ChevronRight, CheckCircle, AlertCircle, XCircle, Send } from 'lucide-react';
+import { Map, Target, ClipboardList, BrainCircuit, ChevronRight, CheckCircle, AlertCircle, XCircle, Send, History, UserCheck, Clock, MessageSquare } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+
+// ── Career Goal Types ───────────────────────────────────────────────────────────
+interface CareerGoalRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  targetPosition: string;
+  targetDate: string;
+  motivation: string;
+  status: 'proposed' | 'approved' | 'rejected' | 'revised';
+  managerComment: string;
+  managerId: string;
+  managerName: string;
+  proposedAt: string;
+  reviewedAt?: string;
+}
+
+const CAREER_GOAL_STORAGE_KEY = 'career_goals_v1';
+
+function loadGoals(): CareerGoalRecord[] {
+  try {
+    return JSON.parse(localStorage.getItem(CAREER_GOAL_STORAGE_KEY) || '[]');
+  } catch { return []; }
+}
+
+function saveGoals(goals: CareerGoalRecord[]) {
+  localStorage.setItem(CAREER_GOAL_STORAGE_KEY, JSON.stringify(goals));
+}
 
 // ── Data ────────────────────────────────────────────────────────────────────────
 
@@ -28,8 +56,9 @@ const CURRENT_POSITION_TITLE = '技術員';
 const CURRENT_LEVEL = 1;
 
 const DEPARTMENTS = [
-  '組裝一線', '組裝二線', '品保課', '工程課', '生管課',
-  '採購課', '資材課', '模具課', '設備課', '總務課', '人資課', '財務課',
+  '總經理室', '品保課', '管理部', '總務課', '營業部', '業務課',
+  '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組',
+  '組三組', '沖床組', '塗裝組', '加工組', '財務部', '庶務組', '人資安全組',
 ];
 
 const ROTATION_QUESTIONS = [
@@ -185,36 +214,213 @@ function CareerLadderSection() {
   );
 }
 
-// ── Section 2: Goal Setting ─────────────────────────────────────────────────────
+// ── Section 2: Goal Setting (Employee + Manager co-setting with history) ──────────
 
 function GoalSettingSection() {
+  const { currentUser } = useTrainingAuth();
+  const isManager = currentUser?.role === 'manager' || currentUser?.role === 'admin';
+
+  const [goals, setGoals] = useState<CareerGoalRecord[]>(() => loadGoals());
+  const [showHistory, setShowHistory] = useState(false);
+  const [showPropose, setShowPropose] = useState(false);
+  const [reviewingGoal, setReviewingGoal] = useState<CareerGoalRecord | null>(null);
+
+  // Employee proposal form
   const [targetPosition, setTargetPosition] = useState('班長');
   const [targetDate, setTargetDate] = useState('2027-12-31');
+  const [motivation, setMotivation] = useState('');
+  const [proposeSaved, setProposeSaved] = useState(false);
+
+  // Manager review form
+  const [managerComment, setManagerComment] = useState('');
+  const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected' | 'revised'>('approved');
+
+  const myGoals = goals.filter((g) => g.employeeId === currentUser?.id);
+  const pendingForManager = goals.filter((g) => g.status === 'proposed');
+  const latestGoal = myGoals[myGoals.length - 1];
 
   const courses = TARGET_POSITION_COURSES[targetPosition] || [];
-  const radarData = COMPETENCY_DATA;
+
+  function handlePropose() {
+    if (!currentUser || !motivation.trim()) return;
+    const newGoal: CareerGoalRecord = {
+      id: `cg_${Date.now()}`,
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      targetPosition,
+      targetDate,
+      motivation: motivation.trim(),
+      status: 'proposed',
+      managerComment: '',
+      managerId: currentUser.managerId || '2',
+      managerName: '李主管',
+      proposedAt: new Date().toLocaleString('zh-TW'),
+    };
+    const updated = [...goals, newGoal];
+    setGoals(updated);
+    saveGoals(updated);
+    setMotivation('');
+    setShowPropose(false);
+    setProposeSaved(true);
+    setTimeout(() => setProposeSaved(false), 3000);
+  }
+
+  function handleReview() {
+    if (!reviewingGoal) return;
+    const updated = goals.map((g) =>
+      g.id === reviewingGoal.id
+        ? { ...g, status: reviewStatus, managerComment, managerId: currentUser?.id || '2', managerName: currentUser?.name || '主管', reviewedAt: new Date().toLocaleString('zh-TW') }
+        : g
+    );
+    setGoals(updated);
+    saveGoals(updated);
+    setReviewingGoal(null);
+    setManagerComment('');
+  }
+
+  const statusLabel: Record<string, { text: string; color: string }> = {
+    proposed: { text: '待主管審核', color: 'bg-yellow-100 text-yellow-700' },
+    approved: { text: '主管已核准', color: 'bg-green-100 text-green-700' },
+    rejected: { text: '主管退回', color: 'bg-red-100 text-red-700' },
+    revised: { text: '需要修改', color: 'bg-orange-100 text-orange-700' },
+  };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
-          <Target size={18} className="text-purple-600" />
+    <div className="space-y-4">
+      {/* Header card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
+              <Target size={18} className="text-purple-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg">職涯目標設定</h2>
+              <p className="text-xs text-gray-500">員工提案 → 主管核准共同設定</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            <History size={14} />
+            設定紀錄 ({goals.length})
+          </button>
         </div>
-        <div>
-          <h2 className="font-bold text-gray-900 text-lg">職涯目標設定</h2>
-          <p className="text-xs text-gray-500">規劃您的成長目標</p>
-        </div>
+
+        {/* Current goal status */}
+        {latestGoal && !isManager && (
+          <div className={`p-4 rounded-xl border mb-4 ${statusLabel[latestGoal.status]?.color.replace('text-', 'border-').split(' ')[0].replace('bg-', 'border-') || 'border-gray-200'} bg-opacity-50`}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-800 mb-1">最新目標：{latestGoal.targetPosition}</p>
+                <p className="text-xs text-gray-500">目標日期：{latestGoal.targetDate} · 提案時間：{latestGoal.proposedAt}</p>
+              </div>
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusLabel[latestGoal.status]?.color}`}>
+                {statusLabel[latestGoal.status]?.text}
+              </span>
+            </div>
+            {latestGoal.managerComment && (
+              <div className="mt-3 p-3 bg-white/60 rounded-lg border border-gray-100">
+                <p className="text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><MessageSquare size={12} /> 主管意見：</p>
+                <p className="text-sm text-gray-700">{latestGoal.managerComment}</p>
+                {latestGoal.reviewedAt && <p className="text-xs text-gray-400 mt-1">審核時間：{latestGoal.reviewedAt}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Manager: pending proposals */}
+        {isManager && pendingForManager.length > 0 && (
+          <div className="mb-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+            <p className="text-sm font-semibold text-yellow-800 mb-3 flex items-center gap-2">
+              <Clock size={14} />
+              待審核的職涯目標提案 ({pendingForManager.length} 筆)
+            </p>
+            <div className="space-y-2">
+              {pendingForManager.map((g) => (
+                <div key={g.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-100">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{g.employeeName} → <span className="text-blue-600">{g.targetPosition}</span></p>
+                    <p className="text-xs text-gray-500">目標日期：{g.targetDate} · 提案：{g.proposedAt}</p>
+                    <p className="text-xs text-gray-600 mt-1 italic">「{g.motivation}」</p>
+                  </div>
+                  <button
+                    onClick={() => { setReviewingGoal(g); setManagerComment(''); setReviewStatus('approved'); }}
+                    className="shrink-0 ml-3 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700"
+                  >
+                    審核
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Manager review modal */}
+        {reviewingGoal && (
+          <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <p className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2"><UserCheck size={14} /> 審核：{reviewingGoal.employeeName} 的職涯目標提案</p>
+            <div className="p-3 bg-white rounded-lg border border-blue-100 mb-3 text-sm text-gray-700">
+              <p><strong>目標職位：</strong>{reviewingGoal.targetPosition}</p>
+              <p><strong>目標日期：</strong>{reviewingGoal.targetDate}</p>
+              <p><strong>員工說明：</strong>{reviewingGoal.motivation}</p>
+            </div>
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-700 mb-1">審核意見</label>
+              <textarea
+                value={managerComment}
+                onChange={(e) => setManagerComment(e.target.value)}
+                placeholder="填寫給員工的回饋意見..."
+                rows={3}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div className="flex gap-2 mb-3">
+              {(['approved', 'revised', 'rejected'] as const).map((s) => (
+                <button key={s}
+                  onClick={() => setReviewStatus(s)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${reviewStatus === s ? (s === 'approved' ? 'bg-green-600 text-white border-green-600' : s === 'revised' ? 'bg-orange-500 text-white border-orange-500' : 'bg-red-500 text-white border-red-500') : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  {s === 'approved' ? '✅ 核准' : s === 'revised' ? '✏️ 請修改' : '❌ 退回'}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setReviewingGoal(null)} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">取消</button>
+              <button onClick={handleReview} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">確認審核</button>
+            </div>
+          </div>
+        )}
+
+        {proposeSaved && (
+          <div className="mb-3 p-3 bg-green-50 rounded-xl border border-green-200 text-sm text-green-700 font-medium flex items-center gap-2">
+            <CheckCircle size={14} /> 職涯目標提案已送出，等待主管審核
+          </div>
+        )}
+
+        {/* Employee proposal form toggle */}
+        {!isManager && (
+          <button
+            onClick={() => setShowPropose(!showPropose)}
+            className="w-full py-2.5 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 flex items-center justify-center gap-2"
+          >
+            <Target size={15} />
+            {showPropose ? '收起' : (latestGoal ? '更新職涯目標' : '設定職涯目標')}
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: selectors + courses */}
-        <div className="space-y-4">
+      {/* Employee proposal form */}
+      {!isManager && showPropose && (
+        <div className="bg-white rounded-2xl border border-purple-100 shadow-sm p-6 space-y-4">
+          <h3 className="font-semibold text-gray-800 flex items-center gap-2"><Target size={16} className="text-purple-500" /> 填寫職涯目標</h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">目標職位</label>
             <select
               value={targetPosition}
               onChange={(e) => setTargetPosition(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
             >
               {CAREER_LADDER.filter((s) => s.level > CURRENT_LEVEL).map((s) => (
                 <option key={s.title} value={s.title}>{s.title}</option>
@@ -231,39 +437,70 @@ function GoalSettingSection() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">達成目標所需課程</label>
-            <div className="space-y-2">
-              {courses.map((course, i) => (
-                <div key={i} className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold shrink-0">
-                    {i + 1}
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">目標說明 / 動機</label>
+            <textarea
+              value={motivation}
+              onChange={(e) => setMotivation(e.target.value)}
+              placeholder="說明您設定此目標的原因及計畫..."
+              rows={3}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+          </div>
+          {courses.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">達成目標建議課程</label>
+              <div className="space-y-2">
+                {courses.map((course, i) => (
+                  <div key={i} className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold shrink-0">{i + 1}</div>
+                    <span className="text-sm text-blue-800 font-medium">{course}</span>
                   </div>
-                  <span className="text-sm text-blue-800 font-medium">{course}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          )}
+          <div className="flex gap-3">
+            <button onClick={() => setShowPropose(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">取消</button>
+            <button
+              onClick={handlePropose}
+              disabled={!motivation.trim()}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${motivation.trim() ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+            >
+              <Send size={14} /> 送出提案給主管審核
+            </button>
           </div>
         </div>
+      )}
 
-        {/* Right: radar chart */}
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-3">職能差距視覺化</p>
-          <ResponsiveContainer width="100%" height={260}>
-            <RadarChart data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
-              <PolarGrid stroke="#e5e7eb" />
-              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#6b7280' }} />
-              <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9, fill: '#9ca3af' }} />
-              <Radar name="目前能力" dataKey="self" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} />
-              <Radar name="目標需求" dataKey="required" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.15} strokeDasharray="5 3" />
-              <Tooltip />
-            </RadarChart>
-          </ResponsiveContainer>
-          <div className="flex justify-center gap-4 text-xs text-gray-500 mt-1">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-1 bg-blue-500 rounded inline-block" /> 目前能力</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-1 bg-amber-400 rounded inline-block" style={{ border: '1px dashed' }} /> 目標需求</span>
+      {/* History panel */}
+      {showHistory && goals.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><History size={16} className="text-blue-500" /> 職涯目標設定紀錄</h3>
+          <div className="space-y-3">
+            {[...goals].reverse().map((g) => (
+              <div key={g.id} className="p-4 rounded-xl border border-gray-100 bg-gray-50">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{g.employeeName} → <span className="text-blue-600">{g.targetPosition}</span></p>
+                    <p className="text-xs text-gray-500">目標日期：{g.targetDate} · 提案：{g.proposedAt}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusLabel[g.status]?.color}`}>{statusLabel[g.status]?.text}</span>
+                </div>
+                <p className="text-xs text-gray-600 italic mb-2">員工說明：「{g.motivation}」</p>
+                {g.managerComment && (
+                  <div className="p-2 bg-white rounded-lg border border-gray-100 text-xs text-gray-600">
+                    <span className="font-medium text-gray-700">{g.managerName} 意見：</span>{g.managerComment}
+                    {g.reviewedAt && <span className="text-gray-400 ml-2">({g.reviewedAt})</span>}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
+      {showHistory && goals.length === 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-400 text-sm">尚無職涯目標設定紀錄</div>
+      )}
     </div>
   );
 }

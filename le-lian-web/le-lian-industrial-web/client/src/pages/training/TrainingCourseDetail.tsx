@@ -52,7 +52,7 @@ export default function TrainingCourseDetail() {
   useEffect(() => {
     if (enrollment) {
       setProgress(enrollment.progressPercent || 0);
-      setWatchTime(enrollment.watchTimeMinutes || 0);
+      setWatchTime((enrollment.watchTimeMinutes || 0) * 60); // store as seconds internally
     }
   }, [id]);
 
@@ -66,32 +66,22 @@ export default function TrainingCourseDetail() {
   // Video progress interval
   useEffect(() => {
     if (isPlaying) {
+      const durationSec = (course?.duration || 60) * 60;
       intervalRef.current = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
+        setWatchTime((prevTime) => {
+          const newTime = prevTime + 1; // 1 real second = 1 video second
+          const newProg = Math.min(100, (newTime / durationSec) * 100);
+          setProgress(newProg);
+          if (newTime >= durationSec) {
             setIsPlaying(false);
             if (intervalRef.current) clearInterval(intervalRef.current);
-            if (enrollment) {
-              updateEnrollment(enrollment.id, {
-                progressPercent: 100,
-                watchTimeMinutes: course?.duration || 60,
-                videoWatched: true,
-              });
-            }
-            return 100;
+            if (enrollment) updateEnrollment(enrollment.id, { progressPercent: 100, watchTimeMinutes: course?.duration || 60, videoWatched: true });
+          } else if (enrollment && newTime % 30 === 0) {
+            updateEnrollment(enrollment.id, { progressPercent: Math.round(newProg), watchTimeMinutes: Math.floor(newTime / 60) });
           }
-          const newProg = prev + 0.5;
-          const newTime = Math.round((newProg / 100) * (course?.duration || 60));
-          setWatchTime(newTime);
-          if (enrollment && Math.floor(newProg) % 10 === 0) {
-            updateEnrollment(enrollment.id, {
-              progressPercent: Math.round(newProg),
-              watchTimeMinutes: newTime,
-            });
-          }
-          return newProg;
+          return newTime;
         });
-      }, 500);
+      }, 1000);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (enrollment && progress > 0) {
@@ -135,8 +125,9 @@ export default function TrainingCourseDetail() {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const newProgress = Math.min(100, Math.max(0, (x / rect.width) * 100));
+    const newTimeSec = Math.round((newProgress / 100) * (course.duration || 60) * 60);
     setProgress(newProgress);
-    setWatchTime(Math.round((newProgress / 100) * (course.duration || 60)));
+    setWatchTime(newTimeSec);
   };
 
   const handlePostComment = () => {
@@ -184,13 +175,20 @@ export default function TrainingCourseDetail() {
         <div className="lg:col-span-2 space-y-5">
           {/* Video Player */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className={`${thumbColor} relative aspect-video flex items-center justify-center`}>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white/10 text-8xl font-black select-none">{course.title[0]}</span>
-              </div>
+            <div className={`${thumbColor} relative aspect-video flex items-center justify-center overflow-hidden`}>
+              {/* Simulated video grid overlay */}
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+              {/* Playing scan-line animation */}
+              {isPlaying && (
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/40 animate-pulse" />
+              )}
+              {/* Progress overlay bar at top */}
+              <div className="absolute top-0 left-0 h-1 bg-white/30 transition-all duration-1000" style={{ width: `${progress}%` }} />
+              <span className="text-white/10 text-8xl font-black select-none absolute">{course.title[0]}</span>
+              {/* Center play button */}
               <button
                 onClick={handlePlayPause}
-                className="relative z-10 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center transition-all hover:scale-110"
+                className="relative z-10 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center transition-all hover:scale-110 border border-white/30"
               >
                 {isPlaying ? (
                   <Pause size={28} className="text-white" />
@@ -205,13 +203,15 @@ export default function TrainingCourseDetail() {
                     播放中
                   </span>
                 ) : (
-                  <span className="bg-black/40 text-white text-xs px-2.5 py-1 rounded-full">已暫停</span>
+                  <span className="bg-black/50 text-white text-xs px-2.5 py-1 rounded-full">已暫停</span>
                 )}
               </div>
-              <div className="absolute bottom-3 left-3 bg-black/50 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+              <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-mono">
                 <Clock size={12} />
-                {watchTime} / {course.duration} 分鐘
+                {Math.floor(watchTime / 60)}:{String(watchTime % 60).padStart(2,'0')} / {Math.floor(course.duration / 60)}:{String(course.duration % 60).padStart(2,'0')}
               </div>
+              {/* Volume / quality indicator */}
+              <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">HD</div>
             </div>
 
             {/* Progress bar */}

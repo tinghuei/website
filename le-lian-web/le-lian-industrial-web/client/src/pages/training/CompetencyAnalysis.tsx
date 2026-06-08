@@ -62,7 +62,7 @@ const INITIAL_SCORES: CompetencyScores = {
 };
 
 // ── Target departments for rotation analysis ───────────────────────────────────
-const TARGET_DEPARTMENTS = ['品保部', '生產部', '工程部', '業務部', '人資部', '採購部'];
+const TARGET_DEPARTMENTS = ['品保課', '製造課', '研發課', '業務課', '人資安全組', '財務部', '廠務部', '總務課'];
 
 // ── AI-recognized result type ──────────────────────────────────────────────────
 interface RecognizedDoc {

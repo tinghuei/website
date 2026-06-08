@@ -22,7 +22,7 @@ const statusBadge: Record<string, { label: string; cls: string }> = {
   rejected: { label: '已退回', cls: 'bg-red-100 text-red-700' },
 };
 
-const DEPT_OPTIONS = ['組裝一線', '組裝二線', '品管部', '資訊部', '工程部', '生管部', '業務部', '人資部'];
+const DEPT_OPTIONS = ['總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組', '組三組', '沖床組', '塗裝組', '加工組', '財務部', '庶務組', '人資安全組'];
 const TITLE_OPTIONS = ['操作員', '技術員', '工程師', '主任', '課長', '組長', '副理', '經理'];
 
 export default function TrainingDashboard() {

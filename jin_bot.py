@@ -862,8 +862,39 @@ def _task_card(title, detail, remind_at, idx=1, total=1):
         }
     }
 
+def _nav_card():
+    """導航功能卡片"""
+    m = get_member()
+    def _nav_btn(label, text):
+        return {"type": "button", "style": "secondary", "height": "sm", "margin": "xs",
+                "action": {"type": "message", "label": label, "text": text}}
+    return {
+        "type": "flex", "altText": "其他功能",
+        "contents": {
+            "type": "bubble", "size": "kilo",
+            "body": {
+                "type": "box", "layout": "vertical", "spacing": "xs",
+                "paddingAll": "12px",
+                "contents": [
+                    {"type": "text", "text": "其他功能", "size": "xs",
+                     "color": "#888888", "margin": "none"},
+                    {"type": "box", "layout": "horizontal", "spacing": "xs", "margin": "sm",
+                     "contents": [
+                         _nav_btn("📋 所有任務", "查看任務"),
+                         _nav_btn("📅 固定行程", "查看固定行程"),
+                     ]},
+                    {"type": "box", "layout": "horizontal", "spacing": "xs",
+                     "contents": [
+                         _nav_btn(f"🎤 切換成員", "切換成員"),
+                         _nav_btn("❓ 說明", "幫助"),
+                     ]},
+                ]
+            }
+        }
+    }
+
 def _tasks_flex(jin_message, tasks_data):
-    """jin_message 文字 + 任務卡片（單張或輪播）"""
+    """jin_message 文字 + 任務卡片（單張或輪播）+ 導航卡片"""
     m = get_member()
     text_msg = {"type": "text", "text": f"{m['emoji']} {m['name']}：{jin_message}"}
     if not tasks_data:
@@ -880,7 +911,7 @@ def _tasks_flex(jin_message, tasks_data):
         flex_content = {"type": "carousel", "contents": bubbles[:10]}
 
     flex_msg = {"type": "flex", "altText": f"已建立 {len(tasks_data)} 個提醒", "contents": flex_content}
-    return [text_msg, flex_msg]
+    return [text_msg, flex_msg, _nav_card()]
 
 def _task_list_flex(pending_tasks):
     """任務列表輪播卡片"""

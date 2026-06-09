@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Globe, RefreshCw, Plus, Sparkles, Clock, Filter, Check, X, Play, Pause } from 'lucide-react';
+import { useTrainingAuth } from '../../context/TrainingAuthContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface FreeCourse {
@@ -239,6 +240,7 @@ function CourseCard({
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function FreeCourses() {
+  const { addCourse } = useTrainingAuth();
   const [filterCat, setFilterCat] = useState('全部');
   const [filterSource, setFilterSource] = useState('全部');
   const [filterLang, setFilterLang] = useState('全部');
@@ -263,7 +265,21 @@ export default function FreeCourses() {
   }
 
   function handleAddToLibrary(id: string) {
-    showToast(`已加入課程庫，正在自動生成測驗...（課程 ${id}）`);
+    const course = FREE_COURSES.find(c => c.id === id);
+    if (!course) return;
+    addCourse({
+      title: course.title,
+      description: course.desc,
+      category: course.category,
+      instructor: course.source,
+      duration: course.hours * 60,
+      mandatory: false,
+      thumbnail: 'bg-green-500',
+      passingScore: 70,
+      quizQuestions: [],
+      status: 'active',
+    });
+    showToast(`「${course.title}」已成功加入課程庫！`);
   }
 
   function handleGenerateQuiz(_id: string) {

@@ -39,6 +39,8 @@ import FeeAgreement from "./pages/training/FeeAgreement";
 import NotificationCenter from "./pages/training/NotificationCenter";
 import AIAssistant from "./pages/training/AIAssistant";
 import PhysicalTraining from "./pages/training/PhysicalTraining";
+import InstructorRoster from "./pages/training/InstructorRoster";
+import PerformanceTracking from "./pages/training/PerformanceTracking";
 
 function Router() {
   return (
@@ -184,6 +186,20 @@ function Router() {
         {() => (
           <TrainingLayout>
             <AIAssistant />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/instructor-roster"}>
+        {() => (
+          <TrainingLayout roles={['manager', 'admin', 'hr']}>
+            <InstructorRoster />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/performance-tracking"}>
+        {() => (
+          <TrainingLayout>
+            <PerformanceTracking />
           </TrainingLayout>
         )}
       </Route>

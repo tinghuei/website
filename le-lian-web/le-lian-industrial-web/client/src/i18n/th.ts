@@ -6,6 +6,8 @@ const th = {
     career: 'การวางแผนอาชีพ', aiAssistant: 'ผู้ช่วย AI', notifications: 'การแจ้งเตือน',
     reports: 'รายงาน', feeAgreement: 'ข้อตกลงค่าธรรมเนียม', dispatch: 'มอบหมายคอร์ส',
     physicalTraining: 'บันทึกการฝึกอบรม',
+    instructorRoster: 'ทะเบียนวิทยากร/นักเรียน',
+    performanceTracking: 'ติดตามผลการฝึกอบรม',
     currentUser: 'เข้าสู่ระบบในฐานะ',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

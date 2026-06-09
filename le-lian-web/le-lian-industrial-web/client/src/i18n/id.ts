@@ -6,6 +6,8 @@ const id = {
     career: 'Perencanaan Karir', aiAssistant: 'Asisten AI', notifications: 'Notifikasi',
     reports: 'Laporan', feeAgreement: 'Perjanjian Biaya', dispatch: 'Tugaskan Kursus',
     physicalTraining: 'Catatan Pelatihan Fisik',
+    instructorRoster: 'Daftar Instruktur/Peserta',
+    performanceTracking: 'Pelacakan Kinerja Pelatihan',
     currentUser: 'Masuk Sebagai',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

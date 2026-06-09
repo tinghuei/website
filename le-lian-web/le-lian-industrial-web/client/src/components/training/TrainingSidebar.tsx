@@ -16,6 +16,8 @@ import {
   MessageSquare,
   Send,
   ClipboardList,
+  Users,
+  TrendingUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
@@ -35,6 +37,8 @@ const navItems = [
   { to: '/training/management-reports', icon: BarChart2,       labelKey: 'nav.reports',       roles: ['manager', 'admin'] },
   { to: '/training/fee-agreement',      icon: FileText,        labelKey: 'nav.feeAgreement',      roles: ['manager', 'admin', 'hr'] },
   { to: '/training/physical-training',  icon: ClipboardList,   labelKey: 'nav.physicalTraining',  roles: ['manager', 'admin', 'hr'] },
+  { to: '/training/instructor-roster',  icon: Users,           labelKey: 'nav.instructorRoster',  roles: ['manager', 'admin', 'hr'] },
+  { to: '/training/performance-tracking', icon: TrendingUp,    labelKey: 'nav.performanceTracking', roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/review',             icon: ClipboardCheck,  labelKey: 'nav.review',            roles: ['manager', 'admin'] },
   { to: '/training/admin',              icon: Settings,        labelKey: 'nav.admin',         roles: ['admin'] },
 ];

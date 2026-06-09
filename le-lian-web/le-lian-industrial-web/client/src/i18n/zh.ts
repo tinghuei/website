@@ -6,6 +6,8 @@ const zh = {
     career: '職涯規劃', aiAssistant: 'AI 學習助理', notifications: '通知中心',
     reports: '管理報表', feeAgreement: '費用同意書', dispatch: '課程派發',
     physicalTraining: '實體訓練記錄',
+    instructorRoster: '講師/學員名冊',
+    performanceTracking: '訓練績效追蹤',
     currentUser: '目前登入',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

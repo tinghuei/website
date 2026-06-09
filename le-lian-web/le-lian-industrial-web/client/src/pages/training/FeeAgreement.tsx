@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, Printer, Download, Save, Eye, EyeOff } from 'lucide-react';
+import { FileText, Printer, Download, Save, Eye, EyeOff, Send, Archive, CheckCircle } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 
 const DEPARTMENTS = [
@@ -23,6 +23,42 @@ interface FeeForm {
   certFee: number;
   travelFee: number;
   otherFee: number;
+}
+
+interface SentAgreement {
+  id: string;
+  employeeName: string;
+  employeeId: string;
+  department: string;
+  title: string;
+  courseName: string;
+  trainingType: '外部訓練' | '內部訓練';
+  institution: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  totalFee: number;
+  servicePeriod: string;
+  sentAt: string;
+  sentBy: string;
+  status: 'pending_sign' | 'signed' | 'archived';
+  signedAt?: string;
+  employeeSignature?: string;
+}
+
+const STORAGE_KEY = 'fee_agreements_v1';
+
+function loadAgreements(): SentAgreement[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAgreements(list: SentAgreement[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
 const INITIAL_FORM: FeeForm = {
@@ -58,9 +94,10 @@ interface DocumentPreviewProps {
   form: FeeForm;
   totalFee: number;
   servicePeriod: string;
+  signedInfo?: { signature: string; signedAt: string };
 }
 
-function DocumentPreview({ form, totalFee, servicePeriod }: DocumentPreviewProps) {
+function DocumentPreview({ form, totalFee, servicePeriod, signedInfo }: DocumentPreviewProps) {
   return (
     <div
       id="fee-agreement-print"
@@ -124,8 +161,17 @@ function DocumentPreview({ form, totalFee, servicePeriod }: DocumentPreviewProps
         <div className="grid grid-cols-3 gap-6 text-sm text-gray-700">
           <div>
             <p className="mb-6">甲方簽名：</p>
-            <div className="border-b border-gray-500 w-40" />
-            <p className="mt-1 text-xs text-gray-400">日期：___________</p>
+            {signedInfo ? (
+              <div>
+                <p className="font-bold text-green-700 text-base">{signedInfo.signature}</p>
+                <p className="mt-1 text-xs text-green-600">電子簽署於：{signedInfo.signedAt}</p>
+              </div>
+            ) : (
+              <>
+                <div className="border-b border-gray-500 w-40" />
+                <p className="mt-1 text-xs text-gray-400">日期：___________</p>
+              </>
+            )}
           </div>
           <div>
             <p className="mb-6">主管簽名：</p>
@@ -144,11 +190,21 @@ function DocumentPreview({ form, totalFee, servicePeriod }: DocumentPreviewProps
   );
 }
 
+function statusBadge(status: SentAgreement['status']) {
+  if (status === 'pending_sign') return <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-yellow-100 text-yellow-700">待簽名</span>;
+  if (status === 'signed') return <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-green-100 text-green-700">已簽名</span>;
+  return <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-500">已歸檔</span>;
+}
+
 export default function FeeAgreement() {
   const { currentUser } = useTrainingAuth();
   const [form, setForm] = useState<FeeForm>(INITIAL_FORM);
   const [showPreview, setShowPreview] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
+  const [agreements, setAgreements] = useState<SentAgreement[]>(() => loadAgreements());
+  const [viewingAgreement, setViewingAgreement] = useState<SentAgreement | null>(null);
+  const [signatureInput, setSignatureInput] = useState('');
+  const [signSuccess, setSignSuccess] = useState(false);
 
   const totalFee = useMemo(
     () => form.courseFee + form.certFee + form.travelFee + form.otherFee,
@@ -171,7 +227,6 @@ export default function FeeAgreement() {
   };
 
   const handleExportPDF = () => {
-    // For Chinese content, use browser print with print-specific styling
     window.print();
   };
 
@@ -180,7 +235,204 @@ export default function FeeAgreement() {
     setTimeout(() => setSavedMessage(''), 3000);
   };
 
-  if (!currentUser || !['manager', 'admin', 'hr'].includes(currentUser.role)) {
+  const handleSendToEmployee = () => {
+    if (!form.employeeName || !form.courseName) {
+      setSavedMessage('請填寫員工姓名與課程名稱');
+      setTimeout(() => setSavedMessage(''), 3000);
+      return;
+    }
+    const newAgreement: SentAgreement = {
+      id: `fa-${Date.now()}`,
+      employeeName: form.employeeName,
+      employeeId: form.employeeId,
+      department: form.department,
+      title: form.title,
+      courseName: form.courseName,
+      trainingType: form.trainingType,
+      institution: form.institution,
+      startDate: form.startDate,
+      endDate: form.endDate,
+      location: form.location,
+      totalFee,
+      servicePeriod,
+      sentAt: new Date().toLocaleString('zh-TW'),
+      sentBy: currentUser?.name || '系統管理員',
+      status: 'pending_sign',
+    };
+    const updated = [newAgreement, ...agreements];
+    setAgreements(updated);
+    saveAgreements(updated);
+    setSavedMessage(`同意書已發送給 ${form.employeeName}！`);
+    setTimeout(() => setSavedMessage(''), 3000);
+  };
+
+  const handleArchive = (id: string) => {
+    const updated = agreements.map(a => a.id === id ? { ...a, status: 'archived' as const } : a);
+    setAgreements(updated);
+    saveAgreements(updated);
+    if (viewingAgreement?.id === id) setViewingAgreement({ ...viewingAgreement, status: 'archived' });
+  };
+
+  const handleSign = (agreementId: string) => {
+    if (!signatureInput.trim()) return;
+    const now = new Date().toLocaleString('zh-TW');
+    const updated = agreements.map(a =>
+      a.id === agreementId
+        ? { ...a, status: 'signed' as const, signedAt: now, employeeSignature: signatureInput.trim() }
+        : a
+    );
+    setAgreements(updated);
+    saveAgreements(updated);
+    const signed = updated.find(a => a.id === agreementId) || null;
+    setViewingAgreement(signed);
+    setSignSuccess(true);
+    setSignatureInput('');
+    setTimeout(() => setSignSuccess(false), 4000);
+  };
+
+  const isEmployee = currentUser?.role === 'employee';
+  const isAdminOrHR = currentUser && ['manager', 'admin', 'hr'].includes(currentUser.role);
+
+  // For employee: filter agreements sent to them
+  const myAgreements = useMemo(() => {
+    if (!currentUser) return [];
+    return agreements.filter(
+      a => a.employeeName === currentUser.name || a.employeeId === (currentUser as { employeeId?: string }).employeeId
+    );
+  }, [agreements, currentUser]);
+
+  // Employee view
+  if (isEmployee) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <style>{`
+          @media print {
+            body > * { display: none !important; }
+            #fee-agreement-print { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
+          }
+        `}</style>
+
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+            <FileText size={22} className="text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">費用訓練同意書</h1>
+            <p className="text-sm text-gray-500">查看並簽署您的訓練費用同意書</p>
+          </div>
+        </div>
+
+        {myAgreements.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-100 p-12 text-center text-gray-400">
+            <FileText size={40} className="mx-auto mb-3 opacity-30" />
+            <p className="text-base font-medium">目前沒有待簽署的同意書</p>
+            <p className="text-sm mt-1">當人資發送同意書給您後，將在此顯示</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {myAgreements.map(agreement => (
+              <div key={agreement.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-base">{agreement.courseName}</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">NT$ {fmt(agreement.totalFee)} · 發送日期：{agreement.sentAt}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">發送人：{agreement.sentBy}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {statusBadge(agreement.status)}
+                    <button
+                      onClick={() => { setViewingAgreement(agreement); setSignSuccess(false); setSignatureInput(''); }}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium underline"
+                    >
+                      查看
+                    </button>
+                  </div>
+                </div>
+
+                {viewingAgreement?.id === agreement.id && (
+                  <div className="mt-4 space-y-4">
+                    <DocumentPreview
+                      form={{
+                        employeeName: agreement.employeeName,
+                        employeeId: agreement.employeeId,
+                        department: agreement.department,
+                        title: agreement.title,
+                        courseName: agreement.courseName,
+                        trainingType: agreement.trainingType,
+                        institution: agreement.institution,
+                        startDate: agreement.startDate,
+                        endDate: agreement.endDate,
+                        location: agreement.location,
+                        courseFee: 0,
+                        certFee: 0,
+                        travelFee: 0,
+                        otherFee: agreement.totalFee,
+                      }}
+                      totalFee={agreement.totalFee}
+                      servicePeriod={agreement.servicePeriod}
+                      signedInfo={agreement.status === 'signed' && agreement.employeeSignature ? { signature: agreement.employeeSignature, signedAt: agreement.signedAt! } : undefined}
+                    />
+
+                    {agreement.status === 'pending_sign' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-4">
+                        <h4 className="font-semibold text-blue-900">電子簽署</h4>
+                        <div>
+                          <label className="block text-sm font-medium text-blue-800 mb-1.5">
+                            簽名（請輸入您的中文全名作為電子簽名）
+                          </label>
+                          <input
+                            type="text"
+                            value={signatureInput}
+                            onChange={e => setSignatureInput(e.target.value)}
+                            placeholder="請輸入您的中文全名"
+                            className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          />
+                        </div>
+                        {signSuccess && (
+                          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-green-700 text-sm">
+                            <CheckCircle size={16} />
+                            簽署成功！已記錄您的電子簽名。
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handleSign(agreement.id)}
+                          disabled={!signatureInput.trim()}
+                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          <CheckCircle size={16} />
+                          確認並電子簽署
+                        </button>
+                      </div>
+                    )}
+
+                    {agreement.status === 'signed' && (
+                      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-green-700">
+                        <CheckCircle size={20} />
+                        <div>
+                          <p className="font-semibold">已完成電子簽署</p>
+                          <p className="text-sm">簽署人：{agreement.employeeSignature} · 時間：{agreement.signedAt}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setViewingAgreement(null)}
+                      className="text-sm text-gray-500 hover:text-gray-700 underline"
+                    >
+                      收起
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Admin / manager / hr view
+  if (!isAdminOrHR) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-gray-500 text-lg">您沒有權限查看此頁面</p>
@@ -455,6 +707,15 @@ export default function FeeAgreement() {
               </button>
             </div>
 
+            {/* Send to employee button */}
+            <button
+              onClick={handleSendToEmployee}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-semibold"
+            >
+              <Send size={16} />
+              發送給員工
+            </button>
+
             <p className="text-xs text-gray-400 text-center">
               PDF 匯出使用系統列印功能以確保中文正確顯示
             </p>
@@ -479,6 +740,107 @@ export default function FeeAgreement() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Agreements list section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-900">已發送同意書清單（{agreements.length} 筆）</h2>
+            <p className="text-xs text-gray-400 mt-0.5">追蹤所有已發送的訓練費用同意書狀態</p>
+          </div>
+        </div>
+
+        {agreements.length === 0 ? (
+          <div className="p-10 text-center text-gray-400">
+            <Send size={32} className="mx-auto mb-3 opacity-30" />
+            <p>尚未發送任何同意書</p>
+          </div>
+        ) : (
+          <>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">員工姓名</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">課程名稱</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">金額</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">發送日期</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">狀態</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {agreements.map(agreement => (
+                  <tr key={agreement.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{agreement.employeeName}</p>
+                      <p className="text-xs text-gray-400">{agreement.department}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-gray-800 max-w-[180px] truncate">{agreement.courseName}</p>
+                      <p className="text-xs text-gray-400">{agreement.trainingType}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm font-medium text-gray-900">NT$ {fmt(agreement.totalFee)}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{agreement.sentAt}</td>
+                    <td className="px-4 py-3">{statusBadge(agreement.status)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setViewingAgreement(viewingAgreement?.id === agreement.id ? null : agreement)}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          查看
+                        </button>
+                        {agreement.status !== 'archived' && (
+                          <button
+                            onClick={() => handleArchive(agreement.id)}
+                            className="text-xs text-gray-500 hover:text-gray-700 font-medium px-2 py-1 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1"
+                          >
+                            <Archive size={13} />
+                            歸檔
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Inline document view */}
+            {viewingAgreement && (
+              <div className="border-t border-gray-100 p-6 bg-gray-50">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-800">同意書詳情 — {viewingAgreement.employeeName} · {viewingAgreement.courseName}</h3>
+                  <button onClick={() => setViewingAgreement(null)} className="text-xs text-gray-500 hover:text-gray-700 underline">關閉</button>
+                </div>
+                <DocumentPreview
+                  form={{
+                    employeeName: viewingAgreement.employeeName,
+                    employeeId: viewingAgreement.employeeId,
+                    department: viewingAgreement.department,
+                    title: viewingAgreement.title,
+                    courseName: viewingAgreement.courseName,
+                    trainingType: viewingAgreement.trainingType,
+                    institution: viewingAgreement.institution,
+                    startDate: viewingAgreement.startDate,
+                    endDate: viewingAgreement.endDate,
+                    location: viewingAgreement.location,
+                    courseFee: 0,
+                    certFee: 0,
+                    travelFee: 0,
+                    otherFee: viewingAgreement.totalFee,
+                  }}
+                  totalFee={viewingAgreement.totalFee}
+                  servicePeriod={viewingAgreement.servicePeriod}
+                  signedInfo={viewingAgreement.status === 'signed' && viewingAgreement.employeeSignature ? { signature: viewingAgreement.employeeSignature, signedAt: viewingAgreement.signedAt! } : undefined}
+                />
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

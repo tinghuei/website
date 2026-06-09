@@ -17,7 +17,14 @@ import {
   Eye,
   EyeOff,
   Send,
+  BarChart3,
+  ClipboardList,
+  Lock,
+  ChevronDown,
+  ChevronRight,
+  Plus,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
 import type { Course } from '../../data/trainingMockData';
 
 const ADMIN_TABS = [
@@ -27,6 +34,97 @@ const ADMIN_TABS = [
   { id: 'audit', label: '稽核日誌', icon: FileText },
   { id: 'dispatch', label: '課程派發', icon: Send },
   { id: 'dual-review', label: '雙重審核', icon: CheckCircle },
+  { id: 'satisfaction', label: '滿意度分析', icon: BarChart3 },
+  { id: 'routine', label: '例行課程管理', icon: ClipboardList },
+  { id: 'permissions', label: '權限管理', icon: Lock },
+];
+
+// Feature permission matrix (F-001 to F-020)
+interface Feature { id: string; name: string; group: string; }
+const FEATURES: Feature[] = [
+  { id: 'F-001', name: '查看課程庫', group: '課程學習' },
+  { id: 'F-002', name: '報名課程', group: '課程學習' },
+  { id: 'F-003', name: '查看我的課程', group: '課程學習' },
+  { id: 'F-004', name: '提交心得報告', group: '課程學習' },
+  { id: 'F-005', name: '參加測驗', group: '課程學習' },
+  { id: 'F-006', name: '查看免費課程', group: '課程學習' },
+  { id: 'F-007', name: '查看職能分析', group: '職能發展' },
+  { id: 'F-008', name: '查看成就獎勵', group: '職能發展' },
+  { id: 'F-009', name: '查看職涯規劃', group: '職能發展' },
+  { id: 'F-010', name: '查看通知中心', group: '通知系統' },
+  { id: 'F-011', name: '發布公告', group: '通知系統' },
+  { id: 'F-012', name: '查看年度訓練計畫', group: '管理功能' },
+  { id: 'F-013', name: '編輯年度訓練計畫', group: '管理功能' },
+  { id: 'F-014', name: '查看管理報表', group: '管理功能' },
+  { id: 'F-015', name: '課程審核', group: '管理功能' },
+  { id: 'F-016', name: '查看費用訓練同意書', group: '管理功能' },
+  { id: 'F-017', name: '發送費用訓練同意書', group: '管理功能' },
+  { id: 'F-018', name: '管理實體訓練記錄', group: '管理功能' },
+  { id: 'F-019', name: '課程派發', group: '管理功能' },
+  { id: 'F-020', name: '系統管理', group: '管理功能' },
+];
+
+const ROLES = ['employee', 'manager', 'hr', 'admin'] as const;
+type Role = typeof ROLES[number];
+const ROLE_LABELS: Record<Role, string> = { employee: '員工', manager: '主管', hr: '人資', admin: '管理員' };
+
+type PermMatrix = Record<string, Record<Role, boolean>>;
+
+function initPermissions(): PermMatrix {
+  const defaults: Record<string, Role[]> = {
+    'F-001': ['employee', 'manager', 'hr', 'admin'],
+    'F-002': ['employee', 'manager', 'hr', 'admin'],
+    'F-003': ['employee'],
+    'F-004': ['employee', 'manager', 'hr', 'admin'],
+    'F-005': ['employee', 'manager', 'hr', 'admin'],
+    'F-006': ['employee', 'manager', 'hr', 'admin'],
+    'F-007': ['employee', 'manager', 'hr', 'admin'],
+    'F-008': ['employee', 'manager', 'hr', 'admin'],
+    'F-009': ['employee', 'manager', 'hr', 'admin'],
+    'F-010': ['employee', 'manager', 'hr', 'admin'],
+    'F-011': ['manager', 'hr', 'admin'],
+    'F-012': ['manager', 'hr', 'admin'],
+    'F-013': ['manager', 'hr', 'admin'],
+    'F-014': ['manager', 'hr', 'admin'],
+    'F-015': ['manager', 'admin'],
+    'F-016': ['manager', 'hr', 'admin'],
+    'F-017': ['hr', 'admin'],
+    'F-018': ['manager', 'hr', 'admin'],
+    'F-019': ['manager', 'hr', 'admin'],
+    'F-020': ['admin'],
+  };
+  const matrix: PermMatrix = {};
+  for (const f of FEATURES) {
+    matrix[f.id] = { employee: false, manager: false, hr: false, admin: false };
+    for (const role of (defaults[f.id] || [])) {
+      matrix[f.id][role] = true;
+    }
+  }
+  return matrix;
+}
+
+// Routine course types
+interface RoutineCourse {
+  id: string;
+  courseName: string;
+  instructor: string;
+  date: string;
+  hours: number;
+  department: string;
+  participants: string[];
+  outline: string;
+  status: 'draft' | 'pending_hr' | 'hr_approved' | 'sign_in_sent' | 'completed';
+  submittedBy: string;
+  submittedAt: string;
+  hrComment?: string;
+  signedParticipants?: string[];
+  surveyCount?: number;
+}
+
+const INITIAL_ROUTINE: RoutineCourse[] = [
+  { id: 'rc1', courseName: '新進人員安全教育訓練', instructor: '林志明', date: '2026-06-05', hours: 3, department: '管理部', participants: ['王小明', '陳美玲', '林志偉'], outline: '公司安全規定、緊急疏散程序、個人防護裝備使用', status: 'hr_approved', submittedBy: '林志明', submittedAt: '2026-06-01', signedParticipants: ['王小明', '陳美玲'] },
+  { id: 'rc2', courseName: '5S現場改善技法', instructor: '品保課李主管', date: '2026-06-10', hours: 2, department: '品保課', participants: ['李大明', '黃雅婷'], outline: '5S定義與推行方法、實際案例演練、改善成果追蹤', status: 'pending_hr', submittedBy: '李主管', submittedAt: '2026-06-03' },
+  { id: 'rc3', courseName: '設備保養SOP講習', instructor: '工程課王工程師', date: '2026-06-15', hours: 4, department: '工程課', participants: ['王小華', '劉俊達', '蔡建志'], outline: '設備保養週期說明、潤滑油更換規範、異常處理程序', status: 'draft', submittedBy: '王工程師', submittedAt: '2026-06-04' },
 ];
 
 const roleLabel: Record<string, string> = { admin: '系統管理員', manager: '部門主管', employee: '員工' };
@@ -75,6 +173,21 @@ export default function TrainingAdminPanel() {
   const [dispatchNote, setDispatchNote] = useState('');
   const [dispatchSuccess, setDispatchSuccess] = useState(false);
   const [reviewComment, setReviewComment] = useState('');
+
+  // Satisfaction analysis state
+  const [satCourseFilter, setSatCourseFilter] = useState('all');
+
+  // Routine course state
+  const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>(INITIAL_ROUTINE);
+  const [selectedRoutine, setSelectedRoutine] = useState<string | null>(null);
+  const [showAddRoutine, setShowAddRoutine] = useState(false);
+  const [routineForm, setRoutineForm] = useState({ courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '' });
+  const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
+
+  // Permission matrix state
+  const [permissions, setPermissions] = useState<PermMatrix>(() => initPermissions());
+  const [expandedGroup, setExpandedGroup] = useState<string | null>('課程學習');
+  const [permSaved, setPermSaved] = useState(false);
 
   const handleAiToggle = () => {
     setAiEnabled(!aiEnabled);
@@ -960,6 +1073,420 @@ export default function TrainingAdminPanel() {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 滿意度分析 */}
+      {activeTab === 'satisfaction' && (() => {
+        const surveyEnrollments = enrollments.filter(e => e.surveyData && Object.keys(e.surveyData).length > 0);
+        const courseOptions = Array.from(new Set(surveyEnrollments.map(e => e.courseId))).map(cid => courses.find(c => c.id === cid)).filter(Boolean) as Course[];
+        const filteredEnr = satCourseFilter === 'all' ? surveyEnrollments : surveyEnrollments.filter(e => e.courseId === satCourseFilter);
+
+        const avg = (key: string) => {
+          const vals = filteredEnr.map(e => Number(e.surveyData?.[key] || 0)).filter(v => v > 0);
+          return vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) : '0.0';
+        };
+
+        const radarData = [
+          { subject: '課程內容', value: parseFloat(avg('content')), fullMark: 5 },
+          { subject: '授課講師', value: parseFloat(avg('instructor')), fullMark: 5 },
+          { subject: '教材品質', value: parseFloat(avg('materials')), fullMark: 5 },
+          { subject: '實用性', value: parseFloat(avg('practical')), fullMark: 5 },
+          { subject: '整體滿意', value: parseFloat(avg('overall')), fullMark: 5 },
+        ];
+
+        const barData = courseOptions.slice(0, 10).map(c => {
+          const ces = surveyEnrollments.filter(e => e.courseId === c.id);
+          const avgOverall = ces.length ? (ces.reduce((s, e) => s + Number(e.surveyData?.overall || 0), 0) / ces.length) : 0;
+          return { name: c.title.length > 12 ? c.title.slice(0, 12) + '…' : c.title, 整體滿意度: parseFloat(avgOverall.toFixed(1)), 回覆人數: ces.length };
+        });
+
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 mb-2">
+              <select
+                value={satCourseFilter}
+                onChange={e => setSatCourseFilter(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+              >
+                <option value="all">全部課程</option>
+                {courseOptions.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+              <span className="text-sm text-gray-500">共 {filteredEnr.length} 份滿意度調查</span>
+            </div>
+
+            {filteredEnr.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-100 p-12 text-center text-gray-400">
+                <BarChart3 size={32} className="mx-auto mb-3 opacity-30" />
+                <p>尚無滿意度調查資料</p>
+                <p className="text-xs mt-1">員工提交心得報告後，滿意度資料將在此顯示</p>
+              </div>
+            ) : (
+              <>
+                {/* Summary cards */}
+                <div className="grid grid-cols-5 gap-3">
+                  {[
+                    { key: 'content', label: '課程內容' },
+                    { key: 'instructor', label: '授課講師' },
+                    { key: 'materials', label: '教材品質' },
+                    { key: 'practical', label: '實用性' },
+                    { key: 'overall', label: '整體滿意' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+                      <p className="text-2xl font-bold text-blue-600">{avg(key)}</p>
+                      <p className="text-xs text-gray-500 mt-1">{label}</p>
+                      <div className="mt-2 bg-gray-100 rounded-full h-1.5">
+                        <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${(parseFloat(avg(key)) / 5) * 100}%` }} />
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">/ 5.0</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {/* Radar chart */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                    <h3 className="font-semibold text-gray-800 mb-4">各面向平均評分（雷達圖）</h3>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <RadarChart data={radarData}>
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                        <Radar name="平均" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Bar chart */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                    <h3 className="font-semibold text-gray-800 mb-4">各課程整體滿意度</h3>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={barData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 11 }} />
+                        <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Bar dataKey="整體滿意度" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Detailed table */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-800">填寫明細</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {['員工', '課程', '內容', '講師', '教材', '實用', '整體', '建議'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {filteredEnr.map(e => {
+                          const u = users.find(u => u.id === e.userId);
+                          const c = courses.find(c => c.id === e.courseId);
+                          return (
+                            <tr key={e.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 font-medium text-gray-800">{u?.name || '-'}</td>
+                              <td className="px-4 py-2 text-gray-600 max-w-[140px] truncate">{c?.title || '-'}</td>
+                              {['content', 'instructor', 'materials', 'practical', 'overall'].map(k => (
+                                <td key={k} className="px-4 py-2 text-center">
+                                  <span className={`text-xs font-bold ${Number(e.surveyData?.[k] || 0) >= 4 ? 'text-green-600' : Number(e.surveyData?.[k] || 0) >= 3 ? 'text-yellow-600' : 'text-red-500'}`}>
+                                    {e.surveyData?.[k] ? `${e.surveyData[k]}★` : '-'}
+                                  </span>
+                                </td>
+                              ))}
+                              <td className="px-4 py-2 text-gray-400 text-xs max-w-[150px] truncate">{String(e.surveyData?.suggestions || '') || '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* 例行課程管理 */}
+      {activeTab === 'routine' && (
+        <div className="space-y-5">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+            <p className="font-semibold mb-1">例行課程工作流程</p>
+            <p>授課人員建立課程資料 → 送簽人資單位 → 人資審核後建立簽到表 → 傳送給學員線上簽名 → 收集心得報告與滿意度調查</p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900">例行課程清單（{routineCourses.length} 筆）</h2>
+            <button
+              onClick={() => setShowAddRoutine(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus size={15} /> 新增例行課程
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {routineCourses.map(rc => {
+              const statusColors: Record<string, string> = {
+                draft: 'bg-gray-100 text-gray-600',
+                pending_hr: 'bg-yellow-100 text-yellow-700',
+                hr_approved: 'bg-blue-100 text-blue-700',
+                sign_in_sent: 'bg-purple-100 text-purple-700',
+                completed: 'bg-green-100 text-green-700',
+              };
+              const statusLabels: Record<string, string> = {
+                draft: '草稿',
+                pending_hr: '待人資審核',
+                hr_approved: '人資已核准',
+                sign_in_sent: '簽到表已傳送',
+                completed: '已完成',
+              };
+              const isExpanded = expandedRoutine === rc.id;
+              return (
+                <div key={rc.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div
+                    className="p-4 flex items-start justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => setExpandedRoutine(isExpanded ? null : rc.id)}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${statusColors[rc.status]}`}>{statusLabels[rc.status]}</span>
+                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{rc.department}</span>
+                        <span className="text-xs text-gray-400">{rc.date}</span>
+                      </div>
+                      <p className="font-semibold text-gray-900">{rc.courseName}</p>
+                      <p className="text-sm text-gray-500 mt-0.5">講師：{rc.instructor} · {rc.hours}小時 · {rc.participants.length}人</p>
+                    </div>
+                    <ChevronRight size={16} className={`text-gray-400 mt-1 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                  </div>
+
+                  {isExpanded && (
+                    <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-1">課程大綱</p>
+                        <p className="text-sm text-gray-700">{rc.outline || '（未填寫）'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-1">學員名單（{rc.participants.length} 人）</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {rc.participants.map(p => (
+                            <span key={p} className={`text-xs px-2 py-0.5 rounded-full border ${rc.signedParticipants?.includes(p) ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                              {p} {rc.signedParticipants?.includes(p) ? '✓' : '（待簽）'}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {rc.hrComment && (
+                        <div className="bg-blue-50 rounded-lg p-3">
+                          <p className="text-xs font-semibold text-blue-700 mb-0.5">人資意見</p>
+                          <p className="text-sm text-blue-800">{rc.hrComment}</p>
+                        </div>
+                      )}
+                      {/* Action buttons based on status */}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {rc.status === 'draft' && (
+                          <button
+                            onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'pending_hr' } : r))}
+                            className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                          >
+                            送簽人資審核
+                          </button>
+                        )}
+                        {rc.status === 'pending_hr' && (currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+                          <>
+                            <button
+                              onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'hr_approved', hrComment: '已審核通過，請傳送簽到表' } : r))}
+                              className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
+                            >
+                              ✓ 人資審核通過
+                            </button>
+                            <button
+                              onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'draft', hrComment: '需補充資料後重新提交' } : r))}
+                              className="text-sm px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors"
+                            >
+                              退回修正
+                            </button>
+                          </>
+                        )}
+                        {rc.status === 'hr_approved' && (
+                          <button
+                            onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'sign_in_sent' } : r))}
+                            className="text-sm px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors"
+                          >
+                            傳送簽到表給學員
+                          </button>
+                        )}
+                        {rc.status === 'sign_in_sent' && (
+                          <button
+                            onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'completed', surveyCount: (r.surveyCount || 0) + r.participants.length, signedParticipants: r.participants } : r))}
+                            className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
+                          >
+                            完成課程
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add routine course modal */}
+          {showAddRoutine && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
+                <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                  <h3 className="font-bold text-gray-900">新增例行課程記錄</h3>
+                  <button onClick={() => setShowAddRoutine(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">課程名稱 *</label>
+                      <input type="text" value={routineForm.courseName} onChange={e => setRoutineForm(f => ({ ...f, courseName: e.target.value }))} placeholder="請輸入課程名稱" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">講師</label>
+                      <input type="text" value={routineForm.instructor} onChange={e => setRoutineForm(f => ({ ...f, instructor: e.target.value }))} placeholder="講師姓名" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">訓練日期</label>
+                      <input type="date" value={routineForm.date} onChange={e => setRoutineForm(f => ({ ...f, date: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">訓練時數</label>
+                      <input type="number" value={routineForm.hours} onChange={e => setRoutineForm(f => ({ ...f, hours: e.target.value }))} placeholder="2" min={1} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">部門</label>
+                      <input type="text" value={routineForm.department} onChange={e => setRoutineForm(f => ({ ...f, department: e.target.value }))} placeholder="受訓部門" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">學員名單（逗號分隔）</label>
+                      <input type="text" value={routineForm.participants} onChange={e => setRoutineForm(f => ({ ...f, participants: e.target.value }))} placeholder="王小明,陳美玲,林志偉" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">課程大綱</label>
+                      <textarea value={routineForm.outline} onChange={e => setRoutineForm(f => ({ ...f, outline: e.target.value }))} placeholder="課程內容概要..." rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 border-t border-gray-100 flex gap-3">
+                  <button onClick={() => setShowAddRoutine(false)} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">取消</button>
+                  <button
+                    onClick={() => {
+                      if (!routineForm.courseName) return;
+                      const newRc: RoutineCourse = {
+                        id: `rc${Date.now()}`,
+                        courseName: routineForm.courseName,
+                        instructor: routineForm.instructor,
+                        date: routineForm.date,
+                        hours: parseInt(routineForm.hours) || 1,
+                        department: routineForm.department,
+                        participants: routineForm.participants.split(',').map(s => s.trim()).filter(Boolean),
+                        outline: routineForm.outline,
+                        status: 'draft',
+                        submittedBy: currentUser?.name || '系統',
+                        submittedAt: new Date().toISOString().split('T')[0],
+                      };
+                      setRoutineCourses(prev => [newRc, ...prev]);
+                      setRoutineForm({ courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '' });
+                      setShowAddRoutine(false);
+                    }}
+                    disabled={!routineForm.courseName}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    儲存草稿
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 權限管理 */}
+      {activeTab === 'permissions' && (
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+            <p className="font-semibold mb-1">功能權限矩陣</p>
+            <p>每個功能項目均有獨立編號（F-001 起），可為每個角色分別開啟或關閉各項功能。管理員角色的核心權限（F-020）不建議調整。</p>
+          </div>
+
+          {permSaved && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700 flex items-center gap-2">
+              <CheckCircle size={16} /> 權限設定已儲存
+            </div>
+          )}
+
+          {Array.from(new Set(FEATURES.map(f => f.group))).map(group => (
+            <div key={group} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <button
+                className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                onClick={() => setExpandedGroup(expandedGroup === group ? null : group)}
+              >
+                <span className="font-semibold text-gray-800">{group}</span>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedGroup === group ? 'rotate-180' : ''}`} />
+              </button>
+
+              {expandedGroup === group && (
+                <div className="border-t border-gray-100">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-20">編號</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">功能名稱</th>
+                        {ROLES.map(r => (
+                          <th key={r} className="px-4 py-2 text-center text-xs font-medium text-gray-500 w-20">{ROLE_LABELS[r]}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {FEATURES.filter(f => f.group === group).map(feat => (
+                        <tr key={feat.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-2.5">
+                            <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{feat.id}</span>
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-800 font-medium">{feat.name}</td>
+                          {ROLES.map(role => (
+                            <td key={role} className="px-4 py-2.5 text-center">
+                              <input
+                                type="checkbox"
+                                checked={permissions[feat.id]?.[role] ?? false}
+                                onChange={e => setPermissions(prev => ({
+                                  ...prev,
+                                  [feat.id]: { ...prev[feat.id], [role]: e.target.checked },
+                                }))}
+                                disabled={feat.id === 'F-020' && role === 'admin'}
+                                className="w-4 h-4 accent-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="flex justify-end">
+            <button
+              onClick={() => { setPermSaved(true); setTimeout(() => setPermSaved(false), 3000); }}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              儲存權限設定
+            </button>
           </div>
         </div>
       )}

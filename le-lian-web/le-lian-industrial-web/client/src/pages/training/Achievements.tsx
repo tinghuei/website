@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trophy, Star, Gift, Award, TrendingUp } from 'lucide-react';
+import { Trophy, Star, Gift, Award, TrendingUp, Settings } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 
 // ── Data ────────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ interface RedeemItem {
   desc: string;
 }
 
-const REDEEM_ITEMS: RedeemItem[] = [
+const REDEEM_ITEMS_INITIAL: RedeemItem[] = [
   { id: 'r1', name: '半天特休假', icon: '🌴', points: 500, stock: 10, desc: '兌換半天特休假一次' },
   { id: 'r2', name: '書籍禮品卡 NT$500', icon: '📖', points: 300, stock: 20, desc: '可至合作書店使用' },
   { id: 'r3', name: '下午茶券', icon: '☕', points: 150, stock: 50, desc: '公司福委會下午茶一份' },
@@ -299,7 +299,17 @@ function LeaderboardTab() {
 
 interface RedeemRecord { id: string; itemId: string; itemName: string; itemIcon: string; points: number; status: 'pending' | 'approved' | 'cancelled'; redeemedAt: string; }
 
-function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onRedeem: (cost: number, record: RedeemRecord) => void }) {
+function RedeemTab({
+  availablePoints,
+  onRedeem,
+  redeemItems,
+  onDeductStock,
+}: {
+  availablePoints: number;
+  onRedeem: (cost: number, record: RedeemRecord) => void;
+  redeemItems: RedeemItem[];
+  onDeductStock: (itemId: string) => void;
+}) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [toast, setToast] = useState('');
   const [history, setHistory] = useState<RedeemRecord[]>([]);
@@ -309,7 +319,7 @@ function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onR
 
   const handleConfirm = () => {
     if (!confirming) return;
-    const item = REDEEM_ITEMS.find(i => i.id === confirming);
+    const item = redeemItems.find(i => i.id === confirming);
     if (!item) return;
     const record: RedeemRecord = {
       id: `r${Date.now()}`,
@@ -322,6 +332,7 @@ function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onR
     };
     setHistory(prev => [record, ...prev]);
     onRedeem(item.points, record);
+    onDeductStock(item.id);
     setConfirming(null);
     showToast(`「${item.name}」兌換成功！申請已送出，請等待HR確認。`);
   };
@@ -334,6 +345,7 @@ function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onR
   };
 
   const redeemedIds = new Set(history.filter(r => r.status === 'pending' || r.status === 'approved').map(r => r.itemId));
+  const confirmingItem = redeemItems.find((i) => i.id === confirming);
 
   return (
     <div className="space-y-4">
@@ -394,21 +406,26 @@ function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onR
         <>
           {/* Item grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {REDEEM_ITEMS.map((item) => {
+            {redeemItems.map((item) => {
               const canAfford = availablePoints >= item.points;
               const done = redeemedIds.has(item.id);
+              const outOfStock = item.stock <= 0;
               return (
-                <div key={item.id} className={`bg-white rounded-xl border shadow-sm p-5 flex flex-col ${!canAfford && !done ? 'opacity-60' : 'hover:shadow-md transition-shadow'}`}>
+                <div key={item.id} className={`bg-white rounded-xl border shadow-sm p-5 flex flex-col ${(!canAfford || outOfStock) && !done ? 'opacity-60' : 'hover:shadow-md transition-shadow'}`}>
                   <div className="text-4xl mb-3">{item.icon}</div>
                   <h4 className="font-semibold text-gray-900 mb-1">{item.name}</h4>
                   <p className="text-xs text-gray-500 mb-3 flex-1">{item.desc}</p>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-blue-600 font-bold">{item.points} 點</span>
-                    <span className="text-xs text-gray-400">庫存 {item.stock}</span>
+                    <span className={`text-xs ${outOfStock ? 'text-red-400 font-semibold' : 'text-gray-400'}`}>庫存 {item.stock}</span>
                   </div>
                   {done ? (
                     <div className="text-center text-sm text-yellow-700 font-medium bg-yellow-50 border border-yellow-200 rounded-lg py-2">
                       ⏳ 審核中
+                    </div>
+                  ) : outOfStock ? (
+                    <div className="text-center text-sm text-gray-500 font-medium bg-gray-50 border border-gray-200 rounded-lg py-2">
+                      已售完
                     </div>
                   ) : (
                     <button
@@ -429,15 +446,15 @@ function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onR
       )}
 
       {/* Confirm dialog */}
-      {confirming && (
+      {confirming && confirmingItem && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
             <div className="text-center mb-4">
-              <div className="text-4xl mb-3">{REDEEM_ITEMS.find((i) => i.id === confirming)?.icon}</div>
+              <div className="text-4xl mb-3">{confirmingItem.icon}</div>
               <h3 className="font-bold text-gray-900 text-lg mb-1">確認兌換</h3>
-              <p className="text-gray-600 text-sm">確定要兌換「{REDEEM_ITEMS.find((i) => i.id === confirming)?.name}」嗎？</p>
-              <p className="text-blue-600 font-bold mt-1">消耗 {REDEEM_ITEMS.find((i) => i.id === confirming)?.points} 點積分</p>
-              <p className="text-gray-400 text-xs mt-1">剩餘積分：{availablePoints - (REDEEM_ITEMS.find(i => i.id === confirming)?.points || 0)} 點</p>
+              <p className="text-gray-600 text-sm">確定要兌換「{confirmingItem.name}」嗎？</p>
+              <p className="text-blue-600 font-bold mt-1">消耗 {confirmingItem.points} 點積分</p>
+              <p className="text-gray-400 text-xs mt-1">剩餘積分：{availablePoints - confirmingItem.points} 點</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setConfirming(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50">取消</button>
@@ -450,23 +467,308 @@ function RedeemTab({ availablePoints, onRedeem }: { availablePoints: number; onR
   );
 }
 
+// ── Manage Tab ───────────────────────────────────────────────────────────────────
+
+interface NewItemForm {
+  name: string;
+  icon: string;
+  points: string;
+  stock: string;
+  desc: string;
+}
+
+const DEFAULT_NEW_FORM: NewItemForm = { name: '', icon: '🎁', points: '', stock: '', desc: '' };
+
+function ManageTab({
+  redeemItems,
+  setRedeemItems,
+}: {
+  redeemItems: RedeemItem[];
+  setRedeemItems: React.Dispatch<React.SetStateAction<RedeemItem[]>>;
+}) {
+  const [newForm, setNewForm] = useState<NewItemForm>(DEFAULT_NEW_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<NewItemForm>(DEFAULT_NEW_FORM);
+  const [toast, setToast] = useState('');
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+  const handleAdd = () => {
+    const name = newForm.name.trim();
+    const points = parseInt(newForm.points, 10);
+    const stock = parseInt(newForm.stock, 10);
+    if (!name || isNaN(points) || isNaN(stock) || points <= 0 || stock < 0) {
+      showToast('請填寫完整欄位（名稱、積分、庫存為必填且需為正整數）');
+      return;
+    }
+    const newItem: RedeemItem = {
+      id: `r${Date.now()}`,
+      name,
+      icon: newForm.icon || '🎁',
+      points,
+      stock,
+      desc: newForm.desc.trim(),
+    };
+    setRedeemItems(prev => [...prev, newItem]);
+    setNewForm(DEFAULT_NEW_FORM);
+    showToast(`已新增「${name}」兌換項目`);
+  };
+
+  const handleEdit = (item: RedeemItem) => {
+    setEditingId(item.id);
+    setEditForm({ name: item.name, icon: item.icon, points: String(item.points), stock: String(item.stock), desc: item.desc });
+  };
+
+  const handleSaveEdit = (id: string) => {
+    const name = editForm.name.trim();
+    const points = parseInt(editForm.points, 10);
+    const stock = parseInt(editForm.stock, 10);
+    if (!name || isNaN(points) || isNaN(stock) || points <= 0 || stock < 0) {
+      showToast('請填寫完整欄位（名稱、積分、庫存為必填且需為正整數）');
+      return;
+    }
+    setRedeemItems(prev => prev.map(item =>
+      item.id === id
+        ? { ...item, name, icon: editForm.icon || '🎁', points, stock, desc: editForm.desc.trim() }
+        : item
+    ));
+    setEditingId(null);
+    showToast('已儲存變更');
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (!window.confirm(`確定要刪除「${name}」嗎？`)) return;
+    setRedeemItems(prev => prev.filter(item => item.id !== id));
+    showToast(`已刪除「${name}」`);
+  };
+
+  return (
+    <div className="space-y-5">
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
+          <span className="text-green-400">✓</span>{toast}
+        </div>
+      )}
+
+      {/* Add new item form */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <h2 className="font-semibold text-gray-800 mb-4">新增兌換項目</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">圖示（Emoji）</label>
+            <input
+              type="text"
+              value={newForm.icon}
+              onChange={e => setNewForm(f => ({ ...f, icon: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="🎁"
+              maxLength={4}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">名稱 *</label>
+            <input
+              type="text"
+              value={newForm.name}
+              onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="獎項名稱"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">所需積分 *</label>
+            <input
+              type="number"
+              value={newForm.points}
+              onChange={e => setNewForm(f => ({ ...f, points: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="100"
+              min={1}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">庫存 *</label>
+            <input
+              type="number"
+              value={newForm.stock}
+              onChange={e => setNewForm(f => ({ ...f, stock: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="10"
+              min={0}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">說明</label>
+            <input
+              type="text"
+              value={newForm.desc}
+              onChange={e => setNewForm(f => ({ ...f, desc: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="兌換項目說明"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleAdd}
+          className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          + 新增項目
+        </button>
+      </div>
+
+      {/* Items table */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800">兌換項目列表</h2>
+          <span className="text-xs text-gray-400">{redeemItems.length} 項</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                {['圖示', '名稱', '所需積分', '庫存', '說明', '操作'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {redeemItems.map(item => (
+                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                  {editingId === item.id ? (
+                    <>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editForm.icon}
+                          onChange={e => setEditForm(f => ({ ...f, icon: e.target.value }))}
+                          className="w-14 border border-gray-200 rounded px-2 py-1 text-sm text-center"
+                          maxLength={4}
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm min-w-[120px]"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          value={editForm.points}
+                          onChange={e => setEditForm(f => ({ ...f, points: e.target.value }))}
+                          className="w-20 border border-gray-200 rounded px-2 py-1 text-sm"
+                          min={1}
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          value={editForm.stock}
+                          onChange={e => setEditForm(f => ({ ...f, stock: e.target.value }))}
+                          className="w-16 border border-gray-200 rounded px-2 py-1 text-sm"
+                          min={0}
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editForm.desc}
+                          onChange={e => setEditForm(f => ({ ...f, desc: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm min-w-[150px]"
+                        />
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSaveEdit(item.id)}
+                            className="text-xs px-2.5 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                          >
+                            儲存
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="text-xs px-2.5 py-1 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3 text-2xl">{item.icon}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{item.name}</td>
+                      <td className="px-4 py-3 text-blue-600 font-bold">{item.points} 點</td>
+                      <td className="px-4 py-3">
+                        <span className={`font-semibold ${item.stock === 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                          {item.stock}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate">{item.desc}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="text-xs px-2.5 py-1 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 font-medium"
+                          >
+                            編輯
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id, item.name)}
+                            className="text-xs px-2.5 py-1 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 font-medium"
+                          >
+                            刪除
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              {redeemItems.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">
+                    尚無兌換項目，請新增
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { id: 'points', label: '我的積分 & 徽章', icon: Star },
-  { id: 'leaderboard', label: '排行榜', icon: Award },
-  { id: 'redeem', label: '積分兌換', icon: Gift },
-] as const;
-
-type TabId = typeof TABS[number]['id'];
+type TabId = 'points' | 'leaderboard' | 'redeem' | 'manage';
 
 export default function Achievements() {
   const { currentUser } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState<TabId>('points');
   const [availablePoints, setAvailablePoints] = useState(TOTAL_POINTS);
+  const [redeemItems, setRedeemItems] = useState<RedeemItem[]>(REDEEM_ITEMS_INITIAL);
+
+  const isAdminOrManager = currentUser && ['admin', 'manager'].includes(currentUser.role);
+
+  const tabs = [
+    { id: 'points' as TabId, label: '積分 / 徽章', icon: Star },
+    { id: 'leaderboard' as TabId, label: '排行榜', icon: Award },
+    { id: 'redeem' as TabId, label: '積分兌換', icon: Gift },
+    ...(isAdminOrManager ? [{ id: 'manage' as TabId, label: '獎項管理', icon: Settings }] : []),
+  ];
 
   const handleRedeem = (cost: number) => {
     setAvailablePoints(prev => Math.max(0, prev - cost));
+  };
+
+  const handleDeductStock = (itemId: string) => {
+    setRedeemItems(prev => prev.map(item =>
+      item.id === itemId ? { ...item, stock: Math.max(0, item.stock - 1) } : item
+    ));
   };
 
   const level = getLevel(availablePoints);
@@ -528,7 +830,7 @@ export default function Achievements() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
@@ -547,7 +849,17 @@ export default function Achievements() {
       {/* Tab content */}
       {activeTab === 'points' && <PointsTab availablePoints={availablePoints} />}
       {activeTab === 'leaderboard' && <LeaderboardTab />}
-      {activeTab === 'redeem' && <RedeemTab availablePoints={availablePoints} onRedeem={handleRedeem} />}
+      {activeTab === 'redeem' && (
+        <RedeemTab
+          availablePoints={availablePoints}
+          onRedeem={handleRedeem}
+          redeemItems={redeemItems}
+          onDeductStock={handleDeductStock}
+        />
+      )}
+      {activeTab === 'manage' && isAdminOrManager && (
+        <ManageTab redeemItems={redeemItems} setRedeemItems={setRedeemItems} />
+      )}
     </div>
   );
 }

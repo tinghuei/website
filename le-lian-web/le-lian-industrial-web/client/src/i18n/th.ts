@@ -5,6 +5,7 @@ const th = {
     competency: 'การวิเคราะห์สมรรถนะ', freeCourses: 'คอร์สฟรี', achievements: 'ความสำเร็จ', logout: 'ออกจากระบบ',
     career: 'การวางแผนอาชีพ', aiAssistant: 'ผู้ช่วย AI', notifications: 'การแจ้งเตือน',
     reports: 'รายงาน', feeAgreement: 'ข้อตกลงค่าธรรมเนียม', dispatch: 'มอบหมายคอร์ส',
+    physicalTraining: 'บันทึกการฝึกอบรม',
     currentUser: 'เข้าสู่ระบบในฐานะ',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

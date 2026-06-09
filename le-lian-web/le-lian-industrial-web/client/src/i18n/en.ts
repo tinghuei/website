@@ -5,6 +5,7 @@ const en = {
     competency: 'Competency', freeCourses: 'Free Courses', achievements: 'Achievements', logout: 'Logout',
     career: 'Career Planning', aiAssistant: 'AI Assistant', notifications: 'Notifications',
     reports: 'Reports', feeAgreement: 'Fee Agreement', dispatch: 'Dispatch Courses',
+    physicalTraining: 'Physical Training',
     currentUser: 'Logged In As',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

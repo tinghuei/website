@@ -5,6 +5,7 @@ const id = {
     competency: 'Analisis Kompetensi', freeCourses: 'Kursus Gratis', achievements: 'Pencapaian', logout: 'Keluar',
     career: 'Perencanaan Karir', aiAssistant: 'Asisten AI', notifications: 'Notifikasi',
     reports: 'Laporan', feeAgreement: 'Perjanjian Biaya', dispatch: 'Tugaskan Kursus',
+    physicalTraining: 'Catatan Pelatihan Fisik',
     currentUser: 'Masuk Sebagai',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

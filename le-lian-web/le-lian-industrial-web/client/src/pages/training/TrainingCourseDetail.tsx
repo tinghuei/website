@@ -43,13 +43,6 @@ interface YTConfig {
   };
 }
 
-const CATEGORY_VIDEO_MAP: Record<string, string> = {
-  '行政職能課程': 'wWKbQIfBFcc',
-  '法令規範課程': 'kNNLe_hEXBM',
-  '核心提升課程': 'M7lc1UVf-VE',
-  '專業領域課程': 'VVxCuMVn5JE',
-};
-
 const tabList = [
   { id: 'content', label: '課程內容' },
   { id: 'discussion', label: '討論區' },
@@ -86,7 +79,7 @@ export default function TrainingCourseDetail() {
   const course = courses.find((c) => c.id === id);
   const enrollment = currentUser ? getEnrollmentForUser(currentUser.id, id || '') : null;
 
-  const videoId = course?.videoId || CATEGORY_VIDEO_MAP[course?.category || ''];
+  const videoId = course?.videoId;
 
   // Sync state from enrollment on mount
   useEffect(() => {

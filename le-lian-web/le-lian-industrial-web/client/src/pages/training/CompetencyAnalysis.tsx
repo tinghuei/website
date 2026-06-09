@@ -75,15 +75,65 @@ interface RecognizedDoc {
 
 // Simulate AI recognition for different file names / content
 function simulateRecognition(fileName: string): RecognizedDoc {
-  // Pick a job title based on file name keywords
   let jobTitle: JobTitle = '工程師/課長';
-  if (/班長|技術員|operator/i.test(fileName))  jobTitle = '技術員/班長';
-  if (/組長|專員|specialist/i.test(fileName)) jobTitle = '助理專員/組長';
-  if (/副理|經理|manager/i.test(fileName))    jobTitle = '副理/經理以上';
+  if (/班長|技術員|operator|作業員|生產線/i.test(fileName))  jobTitle = '技術員/班長';
+  if (/組長|專員|specialist|助理|副|lead/i.test(fileName)) jobTitle = '助理專員/組長';
+  if (/副理|經理|manager|主任|協理|總監/i.test(fileName))    jobTitle = '副理/經理以上';
+  if (/課長|工程師|engineer|品保|品管|研發/i.test(fileName))  jobTitle = '工程師/課長';
 
   const base = ICAP_STANDARDS[jobTitle];
-  // Add slight variation to simulate extracted values
   const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
+
+  // Extract department context from filename
+  const deptMap: Record<string, string> = {
+    '品保|品管|QA|QC|IATF|ISO': '品保課',
+    '製造|生產|沖床|焊接|塗裝|加工': '製造課',
+    '研發|設計|RD|模具': '研發課',
+    '業務|銷售|客服|營業': '業務課',
+    '人資|HR|人事|招募': '人資安全組',
+    '財務|會計|成本|採購': '財務部',
+    '廠務|設備|維修|TPM': '廠務部',
+  };
+  let dept = '管理部';
+  for (const [pattern, deptName] of Object.entries(deptMap)) {
+    if (new RegExp(pattern, 'i').test(fileName)) { dept = deptName; break; }
+  }
+
+  // Derive key responsibilities from job title
+  const responsibilityMap: Record<JobTitle, string[]> = {
+    '技術員/班長': [
+      '依 SOP 執行生產作業，確保製程品質與產出數量',
+      '執行5S整理整頓，維持工作現場安全衛生',
+      '異常狀況即時通報，配合品保課進行首件確認',
+      '協助新進人員現場作業訓練與指導',
+    ],
+    '助理專員/組長': [
+      '帶領班組達成日/月生產目標，協調人機料法環',
+      '主導現場改善提案（IE/QCC），降低製程損耗',
+      '執行跨班交接、問題追蹤與異常處理回報',
+      '協助課長推行教育訓練計畫，擔任內部講師',
+    ],
+    '工程師/課長': [
+      '負責課別目標管理、預算規劃與績效考核',
+      '主導製程標準化、SOP建立及技術文件維護',
+      '跨部門溝通協調（品保/研發/業務），處理客訴與改善',
+      '規劃部屬職能發展，提報年度訓練需求',
+    ],
+    '副理/經理以上': [
+      '制定部門策略目標，確保與公司整體方向一致',
+      '統籌跨部門資源整合，推動組織效能提升',
+      '對外代表公司與客戶、供應商進行高層談判',
+      '建立人才梯隊，實施接班人計畫與績效管理制度',
+    ],
+  };
+
+  const skills: Record<JobTitle, string[]> = {
+    '技術員/班長':   ['機械操作技能', '品質基礎知識(外觀/尺寸檢驗)', '職業安全衛生法規(6小時)'],
+    '助理專員/組長': ['生產管理基礎(效率/稼動率)', '問題分析與解決(QCC/8D)', '勞動法令基礎'],
+    '工程師/課長':   ['ISO 9001/IATF 16949品質系統', '專案管理(PDCA/FMEA)', '財務報表解讀與成本分析'],
+    '副理/經理以上': ['策略規劃與組織管理', '財務管控與預算管理', '法律風險與勞動關係'],
+  };
+
   return {
     fileName,
     jobTitle,
@@ -95,13 +145,16 @@ function simulateRecognition(fileName: string): RecognizedDoc {
       teamwork:      vary(base.teamwork),
       safety:        vary(base.safety),
     },
-    description: `依照「${fileName}」所載工作說明書，AI 已辨識出職稱等級、各職能向度要求分數與核心工作任務。`,
+    description: `AI 已成功辨識「${fileName}」為【${jobTitle}】職級工作說明書，適用部門：${dept}。已依 iCAP 職能基準自動對應各職能向度標準分數，並提取主要工作職責與必要技能。`,
     extractedItems: [
-      `職稱等級：${jobTitle}`,
-      `主要職責：製程管制、品質確保、跨部門協作`,
-      `必要技能：標準化作業程序 (SOP)、5S 管理、異常回報`,
-      `安全規範：職業安全衛生法規、個人防護裝備使用`,
-      `TTQS 對應：計劃 (Plan) 面向 — 訓練需求評估`,
+      `📋 職稱等級：${jobTitle}`,
+      `🏢 適用部門：${dept}`,
+      `📌 主要職責：${responsibilityMap[jobTitle][0]}`,
+      `📌 工作項目：${responsibilityMap[jobTitle][1]}`,
+      `🎯 必要技能：${skills[jobTitle][0]}`,
+      `🎯 進階技能：${skills[jobTitle][1]}`,
+      `⚖️ 法規遵循：${skills[jobTitle][2]}`,
+      `📊 TTQS對應：計劃(Plan)—訓練需求評估 / 設計(Design)—職能課程規劃`,
     ],
   };
 }

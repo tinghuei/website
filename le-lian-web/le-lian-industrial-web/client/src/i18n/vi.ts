@@ -5,6 +5,7 @@ const vi = {
     competency: 'Phân tích năng lực', freeCourses: 'Khóa học miễn phí', achievements: 'Thành tích', logout: 'Đăng xuất',
     career: 'Lập kế hoạch nghề nghiệp', aiAssistant: 'Trợ lý AI', notifications: 'Thông báo',
     reports: 'Báo cáo', feeAgreement: 'Hợp đồng phí', dispatch: 'Phân công khóa học',
+    physicalTraining: 'Hồ sơ đào tạo thực tế',
     currentUser: 'Đăng nhập với tư cách',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Globe, RefreshCw, Plus, Sparkles, Clock, Filter, Check, X, Play, Pause } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -62,27 +62,7 @@ const LANG_FLAGS: Record<string, string> = {
 
 // ── Free Course Modal ─────────────────────────────────────────────────────────
 function FreeCourseModal({ course, onClose, onAdd }: { course: FreeCourse; onClose: () => void; onAdd: () => void }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [watchTime, setWatchTime] = useState(0);
   const [added, setAdded] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (isPlaying) {
-      intervalRef.current = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) { setIsPlaying(false); return 100; }
-          const next = prev + (100 / (course.hours * 60));
-          setWatchTime(Math.round((next / 100) * course.hours * 60));
-          return next;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [isPlaying, course.hours]);
 
   const gradients: Record<string, string> = {
     blue: 'from-blue-500 to-blue-700', purple: 'from-purple-500 to-purple-700',
@@ -102,38 +82,17 @@ function FreeCourseModal({ course, onClose, onAdd }: { course: FreeCourse; onClo
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} className="text-gray-500" /></button>
         </div>
 
-        {/* Video player */}
-        <div className={`bg-gradient-to-br ${gradient} relative aspect-video flex items-center justify-center overflow-hidden`}>
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(0deg, transparent 24%, white 25%, white 26%, transparent 27%), linear-gradient(90deg, transparent 24%, white 25%, white 26%, transparent 27%)', backgroundSize: '50px 50px' }} />
-          {isPlaying && (
-            <div className="absolute top-0 left-0 h-0.5 bg-white/60 transition-all duration-1000" style={{ width: `${progress}%` }} />
-          )}
-          <span className="text-white/10 text-9xl font-black select-none absolute">{course.title[0]}</span>
-          <button
-            onClick={() => setIsPlaying(p => !p)}
-            className="relative z-10 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center transition-all hover:scale-110"
-          >
-            {isPlaying ? <Pause size={28} className="text-white" /> : <Play size={28} className="text-white ml-1" />}
-          </button>
-          <div className="absolute top-3 right-3">
-            {isPlaying
-              ? <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />播放中</span>
-              : <span className="bg-black/40 text-white text-xs px-2.5 py-1 rounded-full">已暫停</span>
-            }
+        {/* External platform banner */}
+        <div className={`bg-gradient-to-br ${gradient} px-6 py-8 flex flex-col items-center justify-center gap-4`}>
+          <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+            <Globe size={32} className="text-white" />
           </div>
-          <div className="absolute bottom-3 left-3 bg-black/50 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-            <Clock size={12} />{Math.floor(watchTime / 60)}:{String(watchTime % 60).padStart(2, '0')} / {course.hours}h
+          <div className="text-center">
+            <p className="text-white font-bold text-lg">{course.title}</p>
+            <p className="text-white/80 text-sm mt-1">{course.source} 提供</p>
           </div>
-        </div>
-
-        {/* Progress */}
-        <div className="px-5 pt-3 pb-1">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>{isPlaying ? '▶ 觀看中...' : '點擊播放'}</span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="bg-gray-100 rounded-full h-1.5">
-            <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+          <div className="bg-white/20 backdrop-blur rounded-xl px-4 py-2 text-white/90 text-sm text-center">
+            此課程為外部免費資源，請至對應平台觀看
           </div>
         </div>
 
@@ -144,6 +103,9 @@ function FreeCourseModal({ course, onClose, onAdd }: { course: FreeCourse; onClo
             <span className="flex items-center gap-1"><Clock size={12} />{course.hours}小時</span>
             <span>{course.langs.map(l => LANG_FLAGS[l] || l).join(' ')}</span>
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${SOURCE_BADGE_MAP[course.sourceColor] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{course.source}</span>
+          </div>
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+            <strong>說明：</strong>此為政府機關或公益平台提供的免費課程資源。完成後可加入課程庫作為參訓記錄，並由人資審核確認。
           </div>
         </div>
 

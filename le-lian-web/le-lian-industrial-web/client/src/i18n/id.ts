@@ -1,8 +1,11 @@
 const id = {
   nav: {
-    dashboard: 'Dasbor', courses: 'Kursus', myCourses: 'Pelatihan Saya',
-    review: 'Tinjauan', admin: 'Panel Admin', annualPlan: 'Rencana Tahunan',
-    competency: 'Analisis Kompetensi', freeCourses: 'Kursus Gratis', achievements: 'Pencapaian', logout: 'Keluar'
+    dashboard: 'Dasbor', courses: 'Perpustakaan Kursus', myCourses: 'Kursus Saya',
+    review: 'Panel Tinjauan', admin: 'Admin Sistem', annualPlan: 'Rencana Tahunan',
+    competency: 'Analisis Kompetensi', freeCourses: 'Kursus Gratis', achievements: 'Pencapaian', logout: 'Keluar',
+    career: 'Perencanaan Karir', aiAssistant: 'Asisten AI', notifications: 'Notifikasi',
+    reports: 'Laporan', feeAgreement: 'Perjanjian Biaya', dispatch: 'Tugaskan Kursus',
+    currentUser: 'Masuk Sebagai',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },
   common: {

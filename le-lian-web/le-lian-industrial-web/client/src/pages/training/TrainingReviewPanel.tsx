@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function TrainingReviewPanel() {
-  const { enrollments, courses, users, approveEnrollment, rejectEnrollment } = useTrainingAuth();
+  const { enrollments, courses, users, currentUser, approveEnrollment, rejectEnrollment, approveAsManager, approveAsHR } = useTrainingAuth();
   const [filterDept, setFilterDept] = useState('全部');
   const [filterStatus, setFilterStatus] = useState('pending');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -268,55 +268,86 @@ export default function TrainingReviewPanel() {
                     )}
 
                     {isPending && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                          <h5 className="font-semibold text-green-800 text-sm mb-2 flex items-center gap-1.5">
-                            <CheckCircle size={15} /> 審核通過
-                          </h5>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={approveComment}
-                              onChange={(e) => setApproveComment(e.target.value)}
-                              placeholder="審核意見（選填）"
-                              className="flex-1 border border-green-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
-                            />
-                            <button
-                              onClick={() => handleApprove(enr.id)}
-                              disabled={processing === enr.id + 'approve'}
-                              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
-                            >
-                              {processing === enr.id + 'approve' ? (
-                                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                              ) : (
-                                <><Award size={14} /> 通過</>
-                              )}
-                            </button>
+                      <div className="space-y-4">
+                        {/* Dual approval status */}
+                        <div className="flex gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs">
+                          <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg ${enr.managerApproved ? 'bg-green-100 text-green-700' : 'bg-white text-gray-500 border border-gray-200'}`}>
+                            <CheckCircle size={14} />
+                            <span className="font-medium">主管審核：{enr.managerApproved ? `✓ 通過 (${enr.managerApprovedAt || ''})` : '待審核'}</span>
+                          </div>
+                          <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg ${enr.hrApproved ? 'bg-purple-100 text-purple-700' : 'bg-white text-gray-500 border border-gray-200'}`}>
+                            <CheckCircle size={14} />
+                            <span className="font-medium">人資審核：{enr.hrApproved ? `✓ 通過 (${enr.hrApprovedAt || ''})` : '待審核'}</span>
                           </div>
                         </div>
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                          <h5 className="font-semibold text-red-800 text-sm mb-2 flex items-center gap-1.5">
-                            <XCircle size={15} /> 退回
-                          </h5>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={rejectComment}
-                              onChange={(e) => setRejectComment(e.target.value)}
-                              placeholder="退回原因（必填）"
-                              className="flex-1 border border-red-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
-                            />
-                            <button
-                              onClick={() => handleReject(enr.id)}
-                              disabled={!rejectComment.trim() || processing === enr.id + 'reject'}
-                              className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
-                            >
-                              {processing === enr.id + 'reject' ? (
-                                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                              ) : (
-                                <><XCircle size={14} /> 退回</>
-                              )}
-                            </button>
+                        {(!enr.managerApproved || !enr.hrApproved) && (
+                          <div className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+                            ⚠ 需主管及人資雙方均審核通過後，系統才會自動核發結業證書
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Manager approve */}
+                          {!enr.managerApproved && (currentUser?.role === 'manager' || currentUser?.role === 'admin') && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                              <h5 className="font-semibold text-blue-800 text-sm mb-2 flex items-center gap-1.5">
+                                <CheckCircle size={15} /> 主管審核通過
+                              </h5>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={approveComment}
+                                  onChange={(e) => setApproveComment(e.target.value)}
+                                  placeholder="審核意見（選填）"
+                                  className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                                />
+                                <button
+                                  onClick={() => { setProcessing(enr.id + 'mgr'); setTimeout(() => { approveAsManager(enr.id, approveComment); setExpandedId(null); setApproveComment(''); setProcessing(null); }, 600); }}
+                                  disabled={processing === enr.id + 'mgr'}
+                                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+                                >
+                                  {processing === enr.id + 'mgr' ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <><Award size={14} /> 主管通過</>}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {/* HR approve */}
+                          {!enr.hrApproved && currentUser?.role === 'admin' && (
+                            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                              <h5 className="font-semibold text-purple-800 text-sm mb-2 flex items-center gap-1.5">
+                                <CheckCircle size={15} /> 人資審核通過
+                              </h5>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setProcessing(enr.id + 'hr'); setTimeout(() => { approveAsHR(enr.id); setExpandedId(null); setProcessing(null); }, 600); }}
+                                  disabled={processing === enr.id + 'hr'}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+                                >
+                                  {processing === enr.id + 'hr' ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <><Award size={14} /> 人資通過</>}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {/* Reject */}
+                          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                            <h5 className="font-semibold text-red-800 text-sm mb-2 flex items-center gap-1.5">
+                              <XCircle size={15} /> 退回申請
+                            </h5>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={rejectComment}
+                                onChange={(e) => setRejectComment(e.target.value)}
+                                placeholder="退回原因（必填）"
+                                className="flex-1 border border-red-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                              />
+                              <button
+                                onClick={() => handleReject(enr.id)}
+                                disabled={!rejectComment.trim() || processing === enr.id + 'reject'}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+                              >
+                                {processing === enr.id + 'reject' ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <><XCircle size={14} /> 退回</>}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>

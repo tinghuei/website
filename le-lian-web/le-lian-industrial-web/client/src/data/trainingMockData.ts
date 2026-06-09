@@ -30,6 +30,18 @@ export interface Course {
   status: 'active' | 'inactive';
   createdAt: string;
   quizQuestions: QuizQuestion[];
+  videoId?: string; // YouTube video ID (可由管理員在後台設定)
+}
+
+export interface CourseAssignment {
+  id: string;
+  userId: string;
+  courseId: string;
+  assignedBy: string;
+  assignedByName: string;
+  assignedAt: string;
+  dueDate?: string;
+  note?: string;
 }
 
 export interface Enrollment {
@@ -52,6 +64,12 @@ export interface Enrollment {
   reportContent?: string;
   surveyData?: Record<string, number | string>;
   videoWatched?: boolean;
+  managerApproved?: boolean;   // 主管審核通過
+  hrApproved?: boolean;        // 人資審核通過
+  managerApprovedAt?: string;
+  hrApprovedAt?: string;
+  managerApprovedBy?: string;
+  hrApprovedBy?: string;
 }
 
 export interface Discussion {
@@ -1306,5 +1324,92 @@ export const AUDIT_LOGS: AuditLog[] = [
     target: 'AI職場加速術：高效應用×智慧工作',
     timestamp: '2025-02-15 09:00',
     details: '新增AI應用核心課程，開放全體員工選修',
+  },
+];
+
+
+export const ASSIGNMENTS: CourseAssignment[] = [
+  {
+    id: 'a1',
+    userId: '1',
+    courseId: 'c4',
+    assignedBy: '3',
+    assignedByName: 'Admin管理員',
+    assignedAt: '2025-01-05',
+    dueDate: '2025-03-31',
+    note: '法定必修，請於Q1完成',
+  },
+  {
+    id: 'a2',
+    userId: '4',
+    courseId: 'c4',
+    assignedBy: '3',
+    assignedByName: 'Admin管理員',
+    assignedAt: '2025-01-05',
+    dueDate: '2025-03-31',
+    note: '法定必修，請於Q1完成',
+  },
+  {
+    id: 'a3',
+    userId: '5',
+    courseId: 'c4',
+    assignedBy: '3',
+    assignedByName: 'Admin管理員',
+    assignedAt: '2025-01-05',
+    dueDate: '2025-03-31',
+    note: '法定必修，請於Q1完成',
+  },
+];
+
+export const COMPANY_ANNOUNCEMENTS = [
+  {
+    id: 'ann1',
+    title: '2026年度訓練計畫公告',
+    content: '本年度教育訓練計畫已完成制定，請各部門主管配合督導同仁於規定期限前完成各項必修課程。年度訓練時數目標：每人至少 24 小時。詳細課程排程請參閱年度計劃頁面。',
+    category: '訓練通知',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-02',
+    pinned: true,
+    important: true,
+  },
+  {
+    id: 'ann2',
+    title: '消防演練日期通知 (2026/01/15)',
+    content: '本次全廠消防演練訂於 2026 年 1 月 15 日（三）下午 14:00 舉行，請全體員工屆時配合疏散至指定集合點。各部門主管請事先完成人員清點分組，疏散路線圖已張貼於各樓層。',
+    category: '安全通知',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-08',
+    pinned: true,
+    important: true,
+  },
+  {
+    id: 'ann3',
+    title: 'ERP系統導入訓練班開放報名',
+    content: '企業全流程 ERP 管理需求課程（上）（下）已開放報名，課程分為兩梯次於 3 月份舉行，每梯次限額 30 名。有意參加之同仁請於 2/28 前向人資部報名，額滿為止。',
+    category: '課程公告',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-02-01',
+    pinned: false,
+    important: false,
+  },
+  {
+    id: 'ann4',
+    title: '年度績效考核制度更新說明',
+    content: '2026 年起績效考核制度調整，訓練時數完成率納入個人年度考核項目，佔比 10%。年度訓練時數未達標者，考核等級上限為「符合預期」，敬請各同仁重視教育訓練參與。',
+    category: '人事公告',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-15',
+    pinned: false,
+    important: false,
+  },
+  {
+    id: 'ann5',
+    title: '外語職場溝通課程開放申請補助',
+    content: '「外語職場溝通（英語）」課程符合勞動力發展署補助資格，員工可申請最高 70% 訓練費用補助。有意報名者請攜帶在職證明向人資部辦理，申請截止日期為 2026/11/30。',
+    category: '補助資訊',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-20',
+    pinned: false,
+    important: false,
   },
 ];

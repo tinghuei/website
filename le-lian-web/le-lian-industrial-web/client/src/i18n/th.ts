@@ -1,8 +1,11 @@
 const th = {
   nav: {
-    dashboard: 'แดชบอร์ด', courses: 'คอร์สเรียน', myCourses: 'การฝึกอบรมของฉัน',
-    review: 'การตรวจสอบ', admin: 'แผงผู้ดูแล', annualPlan: 'แผนประจำปี',
-    competency: 'การวิเคราะห์สมรรถนะ', freeCourses: 'คอร์สฟรี', achievements: 'ความสำเร็จ', logout: 'ออกจากระบบ'
+    dashboard: 'แดชบอร์ด', courses: 'คลังคอร์ส', myCourses: 'คอร์สของฉัน',
+    review: 'แผงตรวจสอบ', admin: 'ระบบจัดการ', annualPlan: 'แผนประจำปี',
+    competency: 'การวิเคราะห์สมรรถนะ', freeCourses: 'คอร์สฟรี', achievements: 'ความสำเร็จ', logout: 'ออกจากระบบ',
+    career: 'การวางแผนอาชีพ', aiAssistant: 'ผู้ช่วย AI', notifications: 'การแจ้งเตือน',
+    reports: 'รายงาน', feeAgreement: 'ข้อตกลงค่าธรรมเนียม', dispatch: 'มอบหมายคอร์ส',
+    currentUser: 'เข้าสู่ระบบในฐานะ',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },
   common: {

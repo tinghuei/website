@@ -25,6 +25,8 @@ const ADMIN_TABS = [
   { id: 'users', label: '人員管理', icon: Users },
   { id: 'upload', label: '上傳教材', icon: Upload },
   { id: 'audit', label: '稽核日誌', icon: FileText },
+  { id: 'dispatch', label: '課程派發', icon: Send },
+  { id: 'dual-review', label: '雙重審核', icon: CheckCircle },
 ];
 
 const roleLabel: Record<string, string> = { admin: '系統管理員', manager: '部門主管', employee: '員工' };
@@ -35,7 +37,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, toggleCourseStatus, addCourse, currentUser, setUserRole, addUser } = useTrainingAuth();
+  const { courses, users, auditLogs, enrollments, assignments, toggleCourseStatus, addCourse, currentUser, setUserRole, addUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -65,6 +67,14 @@ export default function TrainingAdminPanel() {
   const [quizPreview, setQuizPreview] = useState<QuizPreviewItem[]>([]);
   const [showQuizPreview, setShowQuizPreview] = useState(false);
   const [published, setPublished] = useState(false);
+
+  // Dispatch tab state
+  const [dispatchUserId, setDispatchUserId] = useState('');
+  const [dispatchCourseId, setDispatchCourseId] = useState('');
+  const [dispatchDueDate, setDispatchDueDate] = useState('');
+  const [dispatchNote, setDispatchNote] = useState('');
+  const [dispatchSuccess, setDispatchSuccess] = useState(false);
+  const [reviewComment, setReviewComment] = useState('');
 
   const handleAiToggle = () => {
     setAiEnabled(!aiEnabled);
@@ -802,6 +812,224 @@ export default function TrainingAdminPanel() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 課程派發 */}
+      {activeTab === 'dispatch' && (
+        <div className="space-y-6">
+          {/* Assign course form */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Send size={18} className="text-blue-600" /> 派發課程給員工
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">選擇員工</label>
+                <select value={dispatchUserId} onChange={e => setDispatchUserId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  <option value="">-- 請選擇員工 --</option>
+                  {users.filter(u => u.role === 'employee').map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">選擇課程</label>
+                <select value={dispatchCourseId} onChange={e => setDispatchCourseId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  <option value="">-- 請選擇課程 --</option>
+                  {courses.filter(c => c.status === 'active').map(c => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">截止日期（選填）</label>
+                <input type="date" value={dispatchDueDate} onChange={e => setDispatchDueDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">備註說明（選填）</label>
+                <input type="text" value={dispatchNote} onChange={e => setDispatchNote(e.target.value)}
+                  placeholder="如：法定必修、部門專業培訓…"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (!dispatchUserId || !dispatchCourseId) return;
+                assignCourse(dispatchUserId, dispatchCourseId, dispatchDueDate || undefined, dispatchNote || undefined);
+                setDispatchUserId(''); setDispatchCourseId(''); setDispatchDueDate(''); setDispatchNote('');
+                setDispatchSuccess(true);
+                setTimeout(() => setDispatchSuccess(false), 3000);
+              }}
+              disabled={!dispatchUserId || !dispatchCourseId}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send size={15} /> 確認派發
+            </button>
+            {dispatchSuccess && <p className="mt-2 text-sm text-green-600 font-medium">✓ 課程派發成功，已通知員工！</p>}
+          </div>
+
+          {/* All assignments table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">目前派發清單（{assignments.length} 筆）</h2>
+            </div>
+            {assignments.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <Send size={32} className="mx-auto mb-3 opacity-30" />
+                <p>尚未派發任何課程</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">員工</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">課程</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">派發者</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">截止日</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">觀影進度</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">完成狀態</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {assignments.map(asgn => {
+                    const user = users.find(u => u.id === asgn.userId);
+                    const course = courses.find(c => c.id === asgn.courseId);
+                    const enr = enrollments.find(e => e.userId === asgn.userId && e.courseId === asgn.courseId);
+                    const isOverdue = asgn.dueDate && new Date(asgn.dueDate) < new Date() && !enr?.certificateIssued;
+                    return (
+                      <tr key={asgn.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                              {user?.avatar || user?.name?.[0]}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                              <p className="text-xs text-gray-400">{user?.department}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-800 max-w-[200px] truncate">{course?.title}</p>
+                          {asgn.note && <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">{asgn.note}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{asgn.assignedByName}</td>
+                        <td className="px-4 py-3">
+                          {asgn.dueDate ? (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isOverdue ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+                              {isOverdue ? '⚠ ' : ''}{asgn.dueDate}
+                            </span>
+                          ) : <span className="text-xs text-gray-400">無截止</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {enr ? (
+                            <div className="w-24">
+                              <div className="bg-gray-100 rounded-full h-2">
+                                <div className={`h-2 rounded-full ${enr.progressPercent >= 80 ? 'bg-green-500' : 'bg-blue-500'}`}
+                                  style={{ width: `${enr.progressPercent}%` }} />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">{Math.round(enr.progressPercent)}%</p>
+                            </div>
+                          ) : <span className="text-xs text-gray-400">未開始</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {enr?.certificateIssued ? (
+                            <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">✓ 已完成</span>
+                          ) : enr?.status === 'pending_review' ? (
+                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">審核中</span>
+                          ) : enr ? (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">進行中</span>
+                          ) : (
+                            <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full">未報名</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => revokeAssignment(asgn.id)}
+                            className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors">
+                            取消派發
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 雙重審核 */}
+      {activeTab === 'dual-review' && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+            <p className="font-semibold mb-1">雙重審核機制說明</p>
+            <p>課程完成後，需由「部門主管」及「人資管理員」各別審核通過後，系統才會自動核發結業證書。</p>
+          </div>
+          {(() => {
+            const pending = enrollments.filter(e => e.reportSubmitted && e.surveySubmitted && e.quizSubmitted && e.reviewStatus === 'pending');
+            if (pending.length === 0) {
+              return (
+                <div className="bg-white rounded-xl border border-gray-100 p-12 text-center text-gray-400">
+                  <CheckCircle size={32} className="mx-auto mb-3 opacity-30" />
+                  <p>目前沒有待審核的課程申請</p>
+                </div>
+              );
+            }
+            return pending.map(enr => {
+              const user = users.find(u => u.id === enr.userId);
+              const course = courses.find(c => c.id === enr.courseId);
+              const isManager = currentUser?.role === 'manager' || currentUser?.role === 'admin';
+              const isHR = currentUser?.role === 'admin';
+              return (
+                <div key={enr.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{course?.title}</h3>
+                      <p className="text-sm text-gray-500 mt-0.5">{user?.name} · {user?.department}</p>
+                      <p className="text-xs text-gray-400 mt-1">提交日：{enr.submittedAt || '-'} · 測驗：{enr.quizScore}分</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className={`text-xs px-2.5 py-1 rounded-full font-medium ${enr.managerApproved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        主管審核：{enr.managerApproved ? '✓ 已通過' : '待審核'}
+                      </div>
+                      <div className={`text-xs px-2.5 py-1 rounded-full font-medium ${enr.hrApproved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        人資審核：{enr.hrApproved ? '✓ 已通過' : '待審核'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    {isManager && !enr.managerApproved && (
+                      <button
+                        onClick={() => approveAsManager(enr.id)}
+                        className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      >
+                        ✓ 主管審核通過
+                      </button>
+                    )}
+                    {isHR && !enr.hrApproved && (
+                      <button
+                        onClick={() => approveAsHR(enr.id)}
+                        className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      >
+                        ✓ 人資審核通過
+                      </button>
+                    )}
+                    {(enr.managerApproved || enr.hrApproved) && (
+                      <div className="flex-1 py-2 bg-green-50 text-green-700 rounded-lg text-sm text-center font-medium border border-green-200">
+                        {enr.managerApproved && enr.hrApproved ? '✓ 雙重審核完成，證書已核發' : '部分審核完成，等待另一方確認...'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
     </div>

@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import {
-  Play,
-  Pause,
   Clock,
   User,
   MessageSquare,
@@ -16,6 +14,41 @@ import {
   BookOpen,
   Award,
 } from 'lucide-react';
+
+declare global {
+  interface Window {
+    YT: {
+      Player: new (elementId: string, config: YTConfig) => YTPlayer;
+      PlayerState: { ENDED: number; PLAYING: number; PAUSED: number; BUFFERING: number; CUED: number };
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+interface YTPlayer {
+  getCurrentTime(): number;
+  getDuration(): number;
+  playVideo(): void;
+  pauseVideo(): void;
+  destroy(): void;
+}
+interface YTConfig {
+  videoId: string;
+  width?: string | number;
+  height?: string | number;
+  playerVars?: Record<string, number | string>;
+  events?: {
+    onReady?: () => void;
+    onStateChange?: (event: { data: number }) => void;
+    onError?: (event: { data: number }) => void;
+  };
+}
+
+const CATEGORY_VIDEO_MAP: Record<string, string> = {
+  '行政職能課程': 'wWKbQIfBFcc',
+  '法令規範課程': 'kNNLe_hEXBM',
+  '核心提升課程': 'M7lc1UVf-VE',
+  '專業領域課程': 'VVxCuMVn5JE',
+};
 
 const tabList = [
   { id: 'content', label: '課程內容' },
@@ -45,8 +78,15 @@ export default function TrainingCourseDetail() {
   const [discussions, setDiscussions] = useState<ReturnType<typeof getCourseDiscussions>>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // YouTube player refs and state
+  const playerRef = useRef<YTPlayer | null>(null);
+  const [ytReady, setYtReady] = useState(false);
+  const [ytError, setYtError] = useState(false);
+
   const course = courses.find((c) => c.id === id);
   const enrollment = currentUser ? getEnrollmentForUser(currentUser.id, id || '') : null;
+
+  const videoId = course?.videoId || CATEGORY_VIDEO_MAP[course?.category || ''];
 
   // Sync state from enrollment on mount
   useEffect(() => {
@@ -63,13 +103,119 @@ export default function TrainingCourseDetail() {
     }
   }, [course, id]);
 
-  // Video progress interval
+  // Load YouTube IFrame API and initialize player
   useEffect(() => {
+    if (!course || !videoId) return;
+
+    const initPlayer = () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+      setYtReady(false);
+      setYtError(false);
+
+      playerRef.current = new window.YT.Player(`yt-player-${course.id}`, {
+        videoId,
+        width: '100%',
+        height: '100%',
+        playerVars: {
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+        },
+        events: {
+          onReady: () => {
+            setYtReady(true);
+          },
+          onStateChange: (event) => {
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              setIsPlaying(true);
+            } else {
+              setIsPlaying(false);
+              // Save progress on pause or end
+              if (playerRef.current) {
+                const currentTime = playerRef.current.getCurrentTime();
+                const duration = playerRef.current.getDuration();
+                if (duration > 0) {
+                  const pct = Math.min(100, (currentTime / duration) * 100);
+                  setProgress(pct);
+                  setWatchTime(Math.floor(currentTime));
+                  if (enrollment) {
+                    const isEnded = event.data === window.YT.PlayerState.ENDED;
+                    updateEnrollment(enrollment.id, {
+                      progressPercent: isEnded ? 100 : Math.round(pct),
+                      watchTimeMinutes: Math.floor(currentTime / 60),
+                      ...(isEnded ? { videoWatched: true } : {}),
+                    });
+                  }
+                }
+              }
+            }
+          },
+          onError: () => {
+            setYtError(true);
+          },
+        },
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      // Load the script if not already loading
+      if (!document.getElementById('yt-iframe-api-script')) {
+        const tag = document.createElement('script');
+        tag.id = 'yt-iframe-api-script';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+      }
+      window.onYouTubeIframeAPIReady = initPlayer;
+    }
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
+  }, [course?.id, videoId]);
+
+  // Real-time progress tracking via interval when YouTube player is playing
+  useEffect(() => {
+    if (isPlaying && ytReady && playerRef.current) {
+      intervalRef.current = setInterval(() => {
+        if (!playerRef.current) return;
+        const currentTime = playerRef.current.getCurrentTime();
+        const duration = playerRef.current.getDuration();
+        if (duration > 0) {
+          const pct = Math.min(100, (currentTime / duration) * 100);
+          setProgress(pct);
+          setWatchTime(Math.floor(currentTime));
+          if (enrollment && Math.floor(currentTime) % 30 === 0 && Math.floor(currentTime) > 0) {
+            updateEnrollment(enrollment.id, {
+              progressPercent: Math.round(pct),
+              watchTimeMinutes: Math.floor(currentTime / 60),
+            });
+          }
+        }
+      }, 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isPlaying, ytReady]);
+
+  // Fallback simulated progress interval (used only when no YouTube player)
+  useEffect(() => {
+    if (videoId) return; // YouTube player handles progress
     if (isPlaying) {
       const durationSec = (course?.duration || 60) * 60;
       intervalRef.current = setInterval(() => {
         setWatchTime((prevTime) => {
-          const newTime = prevTime + 1; // 1 real second = 1 video second
+          const newTime = prevTime + 1;
           const newProg = Math.min(100, (newTime / durationSec) * 100);
           setProgress(newProg);
           if (newTime >= durationSec) {
@@ -175,44 +321,58 @@ export default function TrainingCourseDetail() {
         <div className="lg:col-span-2 space-y-5">
           {/* Video Player */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className={`${thumbColor} relative aspect-video flex items-center justify-center overflow-hidden`}>
-              {/* Simulated video grid overlay */}
-              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-              {/* Playing scan-line animation */}
-              {isPlaying && (
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/40 animate-pulse" />
-              )}
-              {/* Progress overlay bar at top */}
-              <div className="absolute top-0 left-0 h-1 bg-white/30 transition-all duration-1000" style={{ width: `${progress}%` }} />
-              <span className="text-white/10 text-8xl font-black select-none absolute">{course.title[0]}</span>
-              {/* Center play button */}
-              <button
-                onClick={handlePlayPause}
-                className="relative z-10 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center transition-all hover:scale-110 border border-white/30"
-              >
-                {isPlaying ? (
-                  <Pause size={28} className="text-white" />
-                ) : (
-                  <Play size={28} className="text-white ml-1" />
-                )}
-              </button>
-              <div className="absolute top-3 right-3">
-                {isPlaying ? (
-                  <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                    播放中
-                  </span>
-                ) : (
-                  <span className="bg-black/50 text-white text-xs px-2.5 py-1 rounded-full">已暫停</span>
+            {videoId && !ytError ? (
+              <div className="relative aspect-video bg-black">
+                <div id={`yt-player-${course.id}`} className="w-full h-full" />
+                {!ytReady && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                    <div className="text-center text-white">
+                      <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3" />
+                      <p className="text-sm">載入影片中...</p>
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-mono">
-                <Clock size={12} />
-                {Math.floor(watchTime / 60)}:{String(watchTime % 60).padStart(2,'0')} / {Math.floor(course.duration / 60)}:{String(course.duration % 60).padStart(2,'0')}
+            ) : (
+              <div className={`${thumbColor} relative aspect-video flex items-center justify-center overflow-hidden`}>
+                {/* Simulated video grid overlay */}
+                <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                {/* Playing scan-line animation */}
+                {isPlaying && (
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/40 animate-pulse" />
+                )}
+                {/* Progress overlay bar at top */}
+                <div className="absolute top-0 left-0 h-1 bg-white/30 transition-all duration-1000" style={{ width: `${progress}%` }} />
+                <span className="text-white/10 text-8xl font-black select-none absolute">{course.title[0]}</span>
+                {/* Center play button */}
+                <button
+                  onClick={handlePlayPause}
+                  className="relative z-10 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center transition-all hover:scale-110 border border-white/30"
+                >
+                  {isPlaying ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white ml-1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  )}
+                </button>
+                <div className="absolute top-3 right-3">
+                  {isPlaying ? (
+                    <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                      播放中
+                    </span>
+                  ) : (
+                    <span className="bg-black/50 text-white text-xs px-2.5 py-1 rounded-full">已暫停</span>
+                  )}
+                </div>
+                <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-mono">
+                  <Clock size={12} />
+                  {Math.floor(watchTime / 60)}:{String(watchTime % 60).padStart(2,'0')} / {Math.floor(course.duration / 60)}:{String(course.duration % 60).padStart(2,'0')}
+                </div>
+                {/* Volume / quality indicator */}
+                <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">HD</div>
               </div>
-              {/* Volume / quality indicator */}
-              <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">HD</div>
-            </div>
+            )}
 
             {/* Progress bar */}
             <div className="px-4 py-3 border-b border-gray-100">

@@ -782,8 +782,8 @@ function AICareerAdviceSection() {
 // ── Main Page ────────────────────────────────────────────────────────────────────
 
 const SECTIONS = [
+  { id: 'goal', label: '🎯 目標設定（送審）', icon: Target },
   { id: 'ladder', label: '職涯路徑', icon: Map },
-  { id: 'goal', label: '目標設定', icon: Target },
   { id: 'rotation', label: '輪調評估', icon: ClipboardList },
   { id: 'ai', label: 'AI 建議', icon: BrainCircuit },
 ] as const;
@@ -792,7 +792,7 @@ type SectionId = typeof SECTIONS[number]['id'];
 
 export default function CareerPlanning() {
   const { currentUser } = useTrainingAuth();
-  const [activeSection, setActiveSection] = useState<SectionId>('ladder');
+  const [activeSection, setActiveSection] = useState<SectionId>('goal');
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

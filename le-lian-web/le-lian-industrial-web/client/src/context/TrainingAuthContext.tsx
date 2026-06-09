@@ -6,12 +6,14 @@ import {
   DISCUSSIONS,
   NOTIFICATIONS,
   AUDIT_LOGS,
+  ASSIGNMENTS,
   User,
   Course,
   Enrollment,
   Discussion,
   Notification,
   AuditLog,
+  CourseAssignment,
 } from '../data/trainingMockData';
 
 interface TrainingAuthContextValue {
@@ -22,6 +24,7 @@ interface TrainingAuthContextValue {
   discussions: Discussion[];
   notifications: Notification[];
   auditLogs: AuditLog[];
+  assignments: CourseAssignment[];
   login: (email: string) => User | null;
   logout: () => void;
   getEnrollmentForUser: (userId: string, courseId: string) => Enrollment | undefined;
@@ -33,17 +36,24 @@ interface TrainingAuthContextValue {
   checkAndSetPendingReview: (enrollmentId: string) => void;
   approveEnrollment: (enrollmentId: string, comment?: string) => void;
   rejectEnrollment: (enrollmentId: string, comment: string) => void;
+  approveAsManager: (enrollmentId: string, comment?: string) => void;
+  approveAsHR: (enrollmentId: string, comment?: string) => void;
   addDiscussion: (courseId: string, userId: string, userName: string, message: string) => void;
   addNotification: (userId: string, type: string, message: string) => void;
   markNotificationRead: (notificationId: string) => void;
   markAllNotificationsRead: (userId: string) => void;
   addCourse: (courseData: Partial<Course>) => Course;
+  updateCourse: (courseId: string, updates: Partial<Course>) => void;
   toggleCourseStatus: (courseId: string) => void;
   getPendingReviews: () => Enrollment[];
   getUserNotifications: (userId: string) => Notification[];
   getCourseDiscussions: (courseId: string) => Discussion[];
   setUserRole: (userId: string, role: User['role']) => void;
   addUser: (userData: Omit<User, 'id'>) => User;
+  assignCourse: (userId: string, courseId: string, dueDate?: string, note?: string) => CourseAssignment;
+  revokeAssignment: (assignmentId: string) => void;
+  getAssignmentsForUser: (userId: string) => CourseAssignment[];
+  getAssignmentsForCourse: (courseId: string) => CourseAssignment[];
 }
 
 const TrainingAuthContext = createContext<TrainingAuthContextValue | null>(null);
@@ -56,6 +66,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   const [discussions, setDiscussions] = useState<Discussion[]>(DISCUSSIONS);
   const [notifications, setNotifications] = useState<Notification[]>(NOTIFICATIONS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(AUDIT_LOGS);
+  const [assignments, setAssignments] = useState<CourseAssignment[]>(ASSIGNMENTS);
 
   const login = (email: string): User | null => {
     const user = USERS.find((u) => u.email === email);
@@ -152,12 +163,63 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
       certificateIssued: true,
       managerComment: comment || null,
       completedAt: new Date().toISOString().split('T')[0],
+      managerApproved: true,
+      hrApproved: true,
     });
     const enr = enrollments.find((e) => e.id === enrollmentId);
     if (enr) {
       addAuditLog(currentUser?.id || '', '審核通過', enr.courseId, `已核發結業證書${comment ? '，備註：' + comment : ''}`);
       addNotification(enr.userId, 'review_approved', `您的課程已通過審核，證書已核發！`);
     }
+  };
+
+  const approveAsManager = (enrollmentId: string, comment?: string) => {
+    const enr = enrollments.find((e) => e.id === enrollmentId);
+    if (!enr) return;
+    const now = new Date().toISOString().split('T')[0];
+    const updates: Partial<Enrollment> = {
+      managerApproved: true,
+      managerApprovedAt: now,
+      managerApprovedBy: currentUser?.id,
+      managerComment: comment || null,
+    };
+    // If HR already approved, issue certificate
+    if (enr.hrApproved) {
+      updates.status = 'completed';
+      updates.reviewStatus = 'approved';
+      updates.certificateIssued = true;
+      updates.completedAt = now;
+      addNotification(enr.userId, 'review_approved', `您的課程已通過主管及人資雙重審核，結業證書已核發！`);
+      addAuditLog(currentUser?.id || '', '主管審核通過（雙重審核完成）', enr.courseId, `已核發結業證書`);
+    } else {
+      addNotification(enr.userId, 'review_pending', `您的課程已通過主管審核，待人資確認後即可取得證書。`);
+      addAuditLog(currentUser?.id || '', '主管審核通過', enr.courseId, `等待人資審核`);
+    }
+    updateEnrollment(enrollmentId, updates);
+  };
+
+  const approveAsHR = (enrollmentId: string, comment?: string) => {
+    const enr = enrollments.find((e) => e.id === enrollmentId);
+    if (!enr) return;
+    const now = new Date().toISOString().split('T')[0];
+    const updates: Partial<Enrollment> = {
+      hrApproved: true,
+      hrApprovedAt: now,
+      hrApprovedBy: currentUser?.id,
+    };
+    // If manager already approved, issue certificate
+    if (enr.managerApproved) {
+      updates.status = 'completed';
+      updates.reviewStatus = 'approved';
+      updates.certificateIssued = true;
+      updates.completedAt = now;
+      addNotification(enr.userId, 'review_approved', `您的課程已通過主管及人資雙重審核，結業證書已核發！`);
+      addAuditLog(currentUser?.id || '', '人資審核通過（雙重審核完成）', enr.courseId, `已核發結業證書${comment ? '，備註：' + comment : ''}`);
+    } else {
+      addNotification(enr.userId, 'review_pending', `您的課程已通過人資確認，待主管審核後即可取得證書。`);
+      addAuditLog(currentUser?.id || '', '人資審核通過', enr.courseId, `等待主管審核`);
+    }
+    updateEnrollment(enrollmentId, updates);
   };
 
   const rejectEnrollment = (enrollmentId: string, comment: string) => {
@@ -222,6 +284,42 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     };
     setAuditLogs((prev) => [newLog, ...prev]);
   };
+
+  const updateCourse = (courseId: string, updates: Partial<Course>) => {
+    setCourses((prev) => prev.map((c) => (c.id === courseId ? { ...c, ...updates } : c)));
+  };
+
+  const assignCourse = (userId: string, courseId: string, dueDate?: string, note?: string): CourseAssignment => {
+    const existing = assignments.find((a) => a.userId === userId && a.courseId === courseId);
+    if (existing) return existing;
+    const newAssignment: CourseAssignment = {
+      id: `a${Date.now()}`,
+      userId,
+      courseId,
+      assignedBy: currentUser?.id || '',
+      assignedByName: currentUser?.name || '',
+      assignedAt: new Date().toISOString().split('T')[0],
+      dueDate,
+      note,
+    };
+    setAssignments((prev) => [...prev, newAssignment]);
+    const course = courses.find((c) => c.id === courseId);
+    const user = users.find((u) => u.id === userId);
+    addNotification(userId, 'new_course', `管理員已指派「${course?.title || ''}」課程給您，請於${dueDate || '規定日期'}前完成。`);
+    addAuditLog(currentUser?.id || '', '派發課程', courseId, `指派給 ${user?.name || userId}${dueDate ? '，截止日：' + dueDate : ''}`);
+    return newAssignment;
+  };
+
+  const revokeAssignment = (assignmentId: string) => {
+    const asgn = assignments.find((a) => a.id === assignmentId);
+    if (asgn) {
+      addAuditLog(currentUser?.id || '', '取消派發', asgn.courseId, `取消對 ${asgn.userId} 的派發`);
+    }
+    setAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
+  };
+
+  const getAssignmentsForUser = (userId: string) => assignments.filter((a) => a.userId === userId);
+  const getAssignmentsForCourse = (courseId: string) => assignments.filter((a) => a.courseId === courseId);
 
   const addCourse = (courseData: Partial<Course>): Course => {
     const newCourse: Course = {
@@ -288,6 +386,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         discussions,
         notifications,
         auditLogs,
+        assignments,
         login,
         logout,
         getEnrollmentForUser,
@@ -299,17 +398,24 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         checkAndSetPendingReview,
         approveEnrollment,
         rejectEnrollment,
+        approveAsManager,
+        approveAsHR,
         addDiscussion,
         addNotification,
         markNotificationRead,
         markAllNotificationsRead,
         addCourse,
+        updateCourse,
         toggleCourseStatus,
         getPendingReviews,
         getUserNotifications,
         getCourseDiscussions,
         setUserRole,
         addUser,
+        assignCourse,
+        revokeAssignment,
+        getAssignmentsForUser,
+        getAssignmentsForCourse,
       }}
     >
       {children}

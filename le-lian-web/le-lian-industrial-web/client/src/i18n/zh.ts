@@ -1,8 +1,11 @@
 const zh = {
   nav: {
-    dashboard: '儀表板', courses: '課程庫', myCourses: '我的訓練',
-    review: '審核管理', admin: '管理後台', annualPlan: '年度計劃',
-    competency: '職能分析', freeCourses: '免費課程', achievements: '成就獎勵', logout: '登出'
+    dashboard: '儀表板', courses: '課程庫', myCourses: '我的課程',
+    review: '審核面板', admin: '系統管理', annualPlan: '年度計劃',
+    competency: '職能分析', freeCourses: '免費課程', achievements: '成就獎勵', logout: '登出',
+    career: '職涯規劃', aiAssistant: 'AI 學習助理', notifications: '通知中心',
+    reports: '管理報表', feeAgreement: '費用同意書', dispatch: '課程派發',
+    currentUser: '目前登入',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },
   common: {

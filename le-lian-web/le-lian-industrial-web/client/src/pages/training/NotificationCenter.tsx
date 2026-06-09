@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock } from 'lucide-react';
+import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock, X, ChevronRight } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { COMPANY_ANNOUNCEMENTS } from '../../data/trainingMockData';
 
 type NotifType = 'deadline_reminder' | 'review_result' | 'new_course' | 'system';
 
@@ -120,6 +121,9 @@ export default function NotificationCenter() {
   const { currentUser } = useTrainingAuth();
   const [notifications, setNotifications] = useState<MockNotification[]>(INITIAL_NOTIFICATIONS);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [selectedNotif, setSelectedNotif] = useState<MockNotification | null>(null);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<typeof COMPANY_ANNOUNCEMENTS[0] | null>(null);
+  const [mainTab, setMainTab] = useState<'notifications' | 'announcements'>('notifications');
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.isRead).length, [notifications]);
 
@@ -170,91 +174,145 @@ export default function NotificationCenter() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Notifications list */}
+        {/* Notifications / Announcements main area */}
         <div className="xl:col-span-2 space-y-4">
-          {/* Filter tabs */}
-          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-wrap">
-            {TABS.map(({ id, label }) => {
-              const count = id === 'all'
-                ? notifications.filter((n) => !n.isRead).length
-                : notifications.filter((n) => n.type === id && !n.isRead).length;
-              return (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap px-2 ${
-                    activeTab === id
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {label}
-                  {count > 0 && (
-                    <span className="w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          {/* Main tab switcher */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setMainTab('notifications')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${mainTab === 'notifications' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              <Bell size={16} /> 通知中心 {unreadCount > 0 && <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
+            </button>
+            <button
+              onClick={() => setMainTab('announcements')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${mainTab === 'announcements' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              <Megaphone size={16} /> 公司公告
+              <span className="bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">{COMPANY_ANNOUNCEMENTS.length}</span>
+            </button>
           </div>
 
-          {/* Notification cards */}
-          <div className="space-y-3">
-            {filtered.length === 0 && (
-              <div className="bg-white rounded-xl border border-gray-100 p-12 text-center text-gray-400">
-                <Bell size={32} className="mx-auto mb-3 opacity-30" />
-                <p>此分類目前沒有通知</p>
+          {/* Notifications tab content */}
+          {mainTab === 'notifications' && (
+            <>
+              {/* Filter tabs */}
+              <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-wrap">
+                {TABS.map(({ id, label }) => {
+                  const count = id === 'all'
+                    ? notifications.filter((n) => !n.isRead).length
+                    : notifications.filter((n) => n.type === id && !n.isRead).length;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setActiveTab(id)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap px-2 ${
+                        activeTab === id
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {label}
+                      {count > 0 && (
+                        <span className="w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            )}
-            {filtered.map((notif) => (
-              <div
-                key={notif.id}
-                className={`bg-white rounded-xl border overflow-hidden transition-all ${
-                  notif.isRead ? 'border-gray-100 opacity-80' : 'border-gray-200 shadow-sm'
-                }`}
-              >
-                <div className="flex">
-                  {/* Colored stripe */}
-                  <div className={`w-1 shrink-0 ${typeStripe(notif)}`} />
 
-                  {/* Content */}
-                  <div className="flex-1 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <TypeIcon type={notif.type} title={notif.title} />
-                        <div className="min-w-0">
-                          <p className={`text-sm mb-1 ${notif.isRead ? 'font-normal text-gray-600' : 'font-semibold text-gray-900'}`}>
-                            {notif.title}
-                          </p>
-                          <p className="text-sm text-gray-600 leading-relaxed">{notif.message}</p>
-                          {notif.course && (
-                            <span className="inline-block mt-2 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-                              {notif.course}
-                            </span>
-                          )}
+              {/* Notification cards */}
+              <div className="space-y-3">
+                {filtered.length === 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 p-12 text-center text-gray-400">
+                    <Bell size={32} className="mx-auto mb-3 opacity-30" />
+                    <p>此分類目前沒有通知</p>
+                  </div>
+                )}
+                {filtered.map((notif) => (
+                  <div
+                    key={notif.id}
+                    onClick={() => { setSelectedNotif(notif); markAsRead(notif.id); }}
+                    className={`bg-white rounded-xl border overflow-hidden transition-all cursor-pointer hover:shadow-md ${
+                      notif.isRead ? 'border-gray-100 opacity-80' : 'border-gray-200 shadow-sm'
+                    }`}
+                  >
+                    <div className="flex">
+                      {/* Colored stripe */}
+                      <div className={`w-1 shrink-0 ${typeStripe(notif)}`} />
+
+                      {/* Content */}
+                      <div className="flex-1 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <TypeIcon type={notif.type} title={notif.title} />
+                            <div className="min-w-0">
+                              <p className={`text-sm mb-1 ${notif.isRead ? 'font-normal text-gray-600' : 'font-semibold text-gray-900'}`}>
+                                {notif.title}
+                              </p>
+                              <p className="text-sm text-gray-600 leading-relaxed">{notif.message}</p>
+                              {notif.course && (
+                                <span className="inline-block mt-2 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
+                                  {notif.course}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <span className="text-xs text-gray-400 whitespace-nowrap">{notif.time}</span>
+                            {!notif.isRead && (
+                              <span className="text-xs text-blue-600 font-medium whitespace-nowrap">未讀</span>
+                            )}
+                            {notif.isRead && (
+                              <span className="text-xs text-gray-300 font-medium">已讀</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className="text-xs text-gray-400 whitespace-nowrap">{notif.time}</span>
-                        {!notif.isRead && (
-                          <button
-                            onClick={() => markAsRead(notif.id)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
-                          >
-                            標為已讀
-                          </button>
-                        )}
-                        {notif.isRead && (
-                          <span className="text-xs text-gray-300 font-medium">已讀</span>
-                        )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Announcements tab content */}
+          {mainTab === 'announcements' && (
+            <div className="space-y-4">
+              {COMPANY_ANNOUNCEMENTS.map((ann) => (
+                <div
+                  key={ann.id}
+                  onClick={() => setSelectedAnnouncement(ann)}
+                  className={`bg-white rounded-xl border overflow-hidden cursor-pointer hover:shadow-md transition-all ${ann.pinned ? 'border-orange-200' : 'border-gray-100'}`}
+                >
+                  <div className="flex">
+                    <div className={`w-1 shrink-0 ${ann.important ? 'bg-orange-500' : 'bg-gray-300'}`} />
+                    <div className="flex-1 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {ann.pinned && <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">📌 置頂</span>}
+                            {ann.important && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">重要</span>}
+                            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{ann.category}</span>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900 mb-1">{ann.title}</p>
+                          <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{ann.content}</p>
+                        </div>
+                        <ChevronRight size={16} className="text-gray-300 shrink-0 mt-1" />
+                      </div>
+                      <div className="flex items-center gap-2 mt-3 text-xs text-gray-400">
+                        <span>{ann.publishedAt}</span>
+                        <span>·</span>
+                        <span>{ann.publishedBy}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Sidebar: Upcoming deadlines */}
@@ -316,6 +374,74 @@ export default function NotificationCenter() {
           </div>
         </div>
       </div>
+
+      {/* Notification detail modal */}
+      {selectedNotif && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedNotif(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <TypeIcon type={selectedNotif.type} title={selectedNotif.title} />
+                <h2 className="font-bold text-gray-900 text-sm">{selectedNotif.title}</h2>
+              </div>
+              <button onClick={() => setSelectedNotif(null)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-gray-700 leading-relaxed mb-4">{selectedNotif.message}</p>
+              {selectedNotif.course && (
+                <div className="bg-blue-50 rounded-xl p-3 mb-4">
+                  <p className="text-xs text-blue-600 font-medium">相關課程</p>
+                  <p className="text-sm text-blue-800 font-semibold mt-0.5">{selectedNotif.course}</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span className="flex items-center gap-1"><Clock size={12} />{selectedNotif.time}</span>
+                <span className={`px-2 py-0.5 rounded-full font-medium ${selectedNotif.isRead ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-600'}`}>
+                  {selectedNotif.isRead ? '已讀' : '未讀'}
+                </span>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100">
+              <button onClick={() => setSelectedNotif(null)} className="w-full py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Announcement detail modal */}
+      {selectedAnnouncement && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedAnnouncement(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 p-5 text-white">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    {selectedAnnouncement.pinned && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">📌 置頂</span>}
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{selectedAnnouncement.category}</span>
+                  </div>
+                  <h2 className="font-bold text-lg leading-snug">{selectedAnnouncement.title}</h2>
+                </div>
+                <button onClick={() => setSelectedAnnouncement(null)} className="p-1.5 hover:bg-white/20 rounded-lg">
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="text-orange-100 text-xs mt-2">{selectedAnnouncement.publishedAt} · {selectedAnnouncement.publishedBy}</p>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-gray-700 leading-relaxed">{selectedAnnouncement.content}</p>
+            </div>
+            <div className="p-4 border-t border-gray-100">
+              <button onClick={() => setSelectedAnnouncement(null)} className="w-full py-2 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600">
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

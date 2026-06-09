@@ -1,8 +1,11 @@
 const vi = {
   nav: {
-    dashboard: 'Bảng điều khiển', courses: 'Khóa học', myCourses: 'Đào tạo của tôi',
-    review: 'Xem xét', admin: 'Bảng quản trị', annualPlan: 'Kế hoạch năm',
-    competency: 'Phân tích năng lực', freeCourses: 'Khóa học miễn phí', achievements: 'Thành tích', logout: 'Đăng xuất'
+    dashboard: 'Bảng điều khiển', courses: 'Thư viện khóa học', myCourses: 'Khóa học của tôi',
+    review: 'Bảng xét duyệt', admin: 'Quản trị hệ thống', annualPlan: 'Kế hoạch năm',
+    competency: 'Phân tích năng lực', freeCourses: 'Khóa học miễn phí', achievements: 'Thành tích', logout: 'Đăng xuất',
+    career: 'Lập kế hoạch nghề nghiệp', aiAssistant: 'Trợ lý AI', notifications: 'Thông báo',
+    reports: 'Báo cáo', feeAgreement: 'Hợp đồng phí', dispatch: 'Phân công khóa học',
+    currentUser: 'Đăng nhập với tư cách',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },
   common: {

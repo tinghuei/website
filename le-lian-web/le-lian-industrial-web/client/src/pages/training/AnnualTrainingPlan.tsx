@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3 } from 'lucide-react';
+import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -395,6 +395,7 @@ function QuarterlyModal({ onClose, onConfirm }: QuarterlyModalProps) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AnnualTrainingPlan() {
+  const [courseTrack, setCourseTrack] = useState(() => [...COURSE_TRACK]);
   const [activeTab, setActiveTab] = useState(0);
   const [year, setYear] = useState('2026');
   const [department, setDepartment] = useState('製造課');
@@ -406,9 +407,9 @@ export default function AnnualTrainingPlan() {
   const tabs = ['年度計畫制定', '課程地圖', 'TTQS執行追蹤', '匯出報表'];
 
   const totalPlanned = rows.reduce((s, r) => s + r.hours, 0);
-  const totalActual = COURSE_TRACK.reduce((s, r) => s + r.actual, 0);
+  const totalActual = courseTrack.reduce((s, r) => s + r.actual, 0);
   const completionRate = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
-  const totalParticipants = COURSE_TRACK.reduce((s, r) => s + r.participants, 0);
+  const totalParticipants = courseTrack.reduce((s, r) => s + r.participants, 0);
 
   function handleAddRow() {
     const newId = Math.max(...rows.map((r) => r.id)) + 1;
@@ -659,13 +660,13 @@ export default function AnnualTrainingPlan() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['課程名稱', '計畫時數', '實際時數', '完成率', '參訓人數', '狀態'].map((h) => (
+                    {['課程名稱', '計畫時數', '實際時數', '完成率', '參訓人數', '狀態', ''].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {COURSE_TRACK.map((row) => (
+                  {courseTrack.map((row) => (
                     <tr key={row.name} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
                       <td className="px-4 py-3 text-center text-gray-600">{row.planned}h</td>
@@ -683,6 +684,15 @@ export default function AnnualTrainingPlan() {
                       </td>
                       <td className="px-4 py-3 text-center text-gray-600">{row.participants}</td>
                       <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => setCourseTrack(prev => prev.filter(r => r.name !== row.name))}
+                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="從追蹤清單中移除"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

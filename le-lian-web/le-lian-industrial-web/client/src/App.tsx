@@ -38,6 +38,7 @@ import ManagementReports from "./pages/training/ManagementReports";
 import FeeAgreement from "./pages/training/FeeAgreement";
 import NotificationCenter from "./pages/training/NotificationCenter";
 import AIAssistant from "./pages/training/AIAssistant";
+import PhysicalTraining from "./pages/training/PhysicalTraining";
 
 function Router() {
   return (
@@ -169,6 +170,13 @@ function Router() {
         {() => (
           <TrainingLayout>
             <NotificationCenter />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/physical-training"}>
+        {() => (
+          <TrainingLayout roles={['manager', 'admin', 'hr']}>
+            <PhysicalTraining />
           </TrainingLayout>
         )}
       </Route>

@@ -681,22 +681,21 @@ def _repair_json(raw):
 
 def _safe_json(raw):
     raw = raw.strip()
-    # 先嘗試直接解析
     try:
         return json.loads(raw)
     except Exception:
         pass
-    # 修復後再試
     try:
         fixed = _repair_json(raw)
         return json.loads(fixed)
     except Exception:
-        # 最後嘗試：用 ast.literal_eval（容錯單引號）
         try:
             import ast
             return ast.literal_eval(_repair_json(raw))
         except Exception:
-            raise ValueError(f"JSON 解析失敗，原始回應前200字：{raw[:200]}")
+            # 解析失敗：把原始文字當 jin_message 回傳，不拋錯
+            print(f"[_safe_json] 解析失敗，原始：{raw[:100]}")
+            return {"jin_message": raw[:200], "tasks": []}
 
 # ── 解析固定行程 ──────────────────────────────────────────────
 def call_parse_recurring(text):
@@ -989,7 +988,9 @@ def process_image(user_id, reply_token, message_id):
         do_notify(f"{_im['name']} 幫你整理好了！", f"緊急 {len(urgent)} 件，緩一緩 {len(later)} 件")
 
     except Exception as e:
-        line_push(user_id, f"看圖時出錯了：{e}\n請重新傳一次照片")
+        _im = get_member()
+        print(f"[process_image Error] {e}")
+        line_push(user_id, f"{_im['emoji']} 圖片辨識出了點問題，可以重新傳一次嗎？", quick_reply=MAIN_MENU)
         print(f"[Image Error] {e}")
 
 # ── 訊息處理 ──────────────────────────────────────────────────
@@ -1366,8 +1367,11 @@ def process_task(user_id, text):
         _nm = get_member()
         do_notify(f"{_nm['name']} 說！{_nm['emoji']}", msg)
     except Exception as e:
-        line_push(user_id, f"出錯了：{e}", quick_reply=MAIN_MENU)
+        _em = get_member()
         print(f"[process_task Error] {e}")
+        line_push(user_id,
+            f"{_em['emoji']} {_em['name']} 剛才沒聽清楚，可以再說一次嗎？",
+            quick_reply=MAIN_MENU)
 
 def _type_str(r):
     rtype = r.get("type", "monthly")
@@ -1418,7 +1422,9 @@ def process_recurring(user_id, text):
         line_push(user_id, "\n".join(lines), quick_reply=qr)
         do_notify(f"{_rm['name']} 記住了！📅", f"已記住 {len(new_items)} 個固定行程")
     except Exception as e:
-        line_push(user_id, f"記錄固定行程時出錯了：{e}\n請重新傳一次", quick_reply=MAIN_MENU)
+        _rm = get_member()
+        print(f"[process_recurring Error] {e}")
+        line_push(user_id, f"{_rm['emoji']} 剛才沒記清楚，可以再說一次固定行程嗎？", quick_reply=MAIN_MENU)
 
 # ── 固定行程排程觸發 ──────────────────────────────────────────
 def check_recurring():

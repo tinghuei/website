@@ -76,10 +76,18 @@ interface RecognizedDoc {
 // Simulate AI recognition for different file names / content
 function simulateRecognition(fileName: string): RecognizedDoc {
   let jobTitle: JobTitle = '工程師/課長';
-  if (/班長|技術員|operator|作業員|生產線/i.test(fileName))  jobTitle = '技術員/班長';
-  if (/組長|專員|specialist|助理|副|lead/i.test(fileName)) jobTitle = '助理專員/組長';
-  if (/副理|經理|manager|主任|協理|總監/i.test(fileName))    jobTitle = '副理/經理以上';
-  if (/課長|工程師|engineer|品保|品管|研發/i.test(fileName))  jobTitle = '工程師/課長';
+  // L1: 技術員/班長 — frontline operators and team leaders
+  if (/班長|技術員|操作員|作業員|生產線|焊接工|沖床工|塗裝工|組裝員|鑄造員|切削員|加工員|機台員|現場員工|衝壓員|品檢員|倉庫員|線上作業員|operator/i.test(fileName))
+    jobTitle = '技術員/班長';
+  // L2: 助理專員/組長 — specialists and group supervisors
+  if (/組長|助理專員|[^課]專員|助理工程師|採購員|倉管員|業務助理|人事助理|行政人員|接待員|人資助理|業務員|specialist|lead/i.test(fileName))
+    jobTitle = '助理專員/組長';
+  // L3: 工程師/課長 — engineers and section chiefs (overrides L2 if explicit)
+  if (/工程師|課長|品保課|品管課|製造課|研發課|設備課|廠務課|business.*eng|engineer|品保工程|製程工程|資訊工程|電氣工程|機械工程|IE工程|安全衛生工程/i.test(fileName))
+    jobTitle = '工程師/課長';
+  // L4: 副理/經理以上 — managers and above (highest priority)
+  if (/副理|副廠長|副總|經理|manager|協理|總監|廠長|部長|處長|總經理|主任委員/i.test(fileName))
+    jobTitle = '副理/經理以上';
 
   const base = ICAP_STANDARDS[jobTitle];
   const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
@@ -280,6 +288,7 @@ export default function CompetencyAnalysis() {
   const [docResult, setDocResult] = useState<RecognizedDoc | null>(null);
   const [docApplied, setDocApplied] = useState(false);
   const [customStandards, setCustomStandards] = useState<CompetencyScores | null>(null);
+  const [correctedJobTitle, setCorrectedJobTitle] = useState<JobTitle>('工程師/課長');
 
   const standards = customStandards ?? ICAP_STANDARDS[jobTitle];
 
@@ -321,7 +330,9 @@ export default function CompetencyAnalysis() {
         setDocStep(s);
         if (s === 4) {
           setTimeout(() => {
-            setDocResult(simulateRecognition(file.name));
+            const result = simulateRecognition(file.name);
+            setDocResult(result);
+            setCorrectedJobTitle(result.jobTitle);
             setDocProcessing(false);
           }, 600);
         }
@@ -331,8 +342,18 @@ export default function CompetencyAnalysis() {
 
   function handleApplyDoc() {
     if (!docResult) return;
-    setJobTitle(docResult.jobTitle);
-    setCustomStandards(docResult.competencies);
+    setJobTitle(correctedJobTitle);
+    // Recompute standards based on the confirmed (possibly corrected) job title
+    const base = ICAP_STANDARDS[correctedJobTitle];
+    const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
+    setCustomStandards({
+      technical:     vary(base.technical),
+      communication: vary(base.communication),
+      leadership:    vary(base.leadership),
+      problem:       vary(base.problem),
+      teamwork:      vary(base.teamwork),
+      safety:        vary(base.safety),
+    });
     setDocApplied(true);
   }
 
@@ -451,6 +472,33 @@ export default function CompetencyAnalysis() {
                 </div>
                 <p className="text-xs text-gray-500">{docResult.description}</p>
 
+                {/* Job title confirmation / correction */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-amber-800">確認職稱等級</span>
+                    {correctedJobTitle !== docResult.jobTitle && (
+                      <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">已修正</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-500">AI辨識：</span>
+                    <span className="text-xs font-semibold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">{docResult.jobTitle}</span>
+                    <ArrowRight size={12} className="text-gray-400" />
+                    <select
+                      value={correctedJobTitle}
+                      onChange={(e) => setCorrectedJobTitle(e.target.value as JobTitle)}
+                      className="text-xs border border-amber-300 rounded-lg px-2 py-1.5 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    >
+                      {(Object.keys(ICAP_STANDARDS) as JobTitle[]).map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    參考：操作員/班長 → 技術員/班長 ｜ 專員/組長 → 助理專員/組長 ｜ 工程師/課長 → 工程師/課長 ｜ 副理/經理 → 副理/經理以上
+                  </p>
+                </div>
+
                 {/* Extracted items */}
                 <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
                   {docResult.extractedItems.map((item, i) => (
@@ -492,7 +540,7 @@ export default function CompetencyAnalysis() {
                 ) : (
                   <div className="flex items-center gap-2 text-green-700 text-sm font-medium bg-green-50 rounded-lg px-3 py-2">
                     <CheckCircle size={16} />
-                    職能標準已更新！雷達圖基準值已套用「{docResult.jobTitle}」職能書數據
+                    職能標準已更新！雷達圖基準值已套用「{correctedJobTitle}」職能書數據
                   </div>
                 )}
               </div>

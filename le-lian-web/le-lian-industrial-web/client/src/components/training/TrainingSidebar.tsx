@@ -24,22 +24,22 @@ import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { Link, useLocation } from 'wouter';
 
 const navItems = [
-  { to: '/training/dashboard',          icon: LayoutDashboard, labelKey: 'nav.dashboard',    roles: ['employee', 'manager', 'admin'] },
-  { to: '/training/courses',            icon: BookOpen,        labelKey: 'nav.courses',       roles: ['employee', 'manager', 'admin'] },
+  { to: '/training/dashboard',          icon: LayoutDashboard, labelKey: 'nav.dashboard',    roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/courses',            icon: BookOpen,        labelKey: 'nav.courses',       roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/my-courses',         icon: GraduationCap,   labelKey: 'nav.myCourses',     roles: ['employee'] },
-  { to: '/training/competency',         icon: Target,          labelKey: 'nav.competency',    roles: ['employee', 'manager', 'admin'] },
+  { to: '/training/competency',         icon: Target,          labelKey: 'nav.competency',    roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/annual-plan',        icon: Calendar,        labelKey: 'nav.annualPlan',    roles: ['manager', 'admin', 'hr'] },
-  { to: '/training/free-courses',       icon: Globe,           labelKey: 'nav.freeCourses',   roles: ['employee', 'manager', 'admin'] },
-  { to: '/training/achievements',       icon: Trophy,          labelKey: 'nav.achievements',  roles: ['employee', 'manager', 'admin'] },
-  { to: '/training/career',             icon: Map,             labelKey: 'nav.career',        roles: ['employee', 'manager', 'admin'] },
-  { to: '/training/ai-assistant',       icon: MessageSquare,   labelKey: 'nav.aiAssistant',   roles: ['employee', 'manager', 'admin'] },
-  { to: '/training/notifications',      icon: Bell,            labelKey: 'nav.notifications', roles: ['employee', 'manager', 'admin'] },
-  { to: '/training/management-reports', icon: BarChart2,       labelKey: 'nav.reports',       roles: ['manager', 'admin'] },
+  { to: '/training/free-courses',       icon: Globe,           labelKey: 'nav.freeCourses',   roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/achievements',       icon: Trophy,          labelKey: 'nav.achievements',  roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/career',             icon: Map,             labelKey: 'nav.career',        roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/ai-assistant',       icon: MessageSquare,   labelKey: 'nav.aiAssistant',   roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/notifications',      icon: Bell,            labelKey: 'nav.notifications', roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/management-reports', icon: BarChart2,       labelKey: 'nav.reports',       roles: ['manager', 'admin', 'hr'] },
   { to: '/training/fee-agreement',      icon: FileText,        labelKey: 'nav.feeAgreement',      roles: ['manager', 'admin', 'hr'] },
   { to: '/training/physical-training',  icon: ClipboardList,   labelKey: 'nav.physicalTraining',  roles: ['manager', 'admin', 'hr'] },
   { to: '/training/instructor-roster',  icon: Users,           labelKey: 'nav.instructorRoster',  roles: ['manager', 'admin', 'hr'] },
   { to: '/training/performance-tracking', icon: TrendingUp,    labelKey: 'nav.performanceTracking', roles: ['employee', 'manager', 'admin', 'hr'] },
-  { to: '/training/review',             icon: ClipboardCheck,  labelKey: 'nav.review',            roles: ['manager', 'admin'] },
+  { to: '/training/review',             icon: ClipboardCheck,  labelKey: 'nav.review',            roles: ['manager', 'admin', 'hr'] },
   { to: '/training/admin',              icon: Settings,        labelKey: 'nav.admin',         roles: ['admin'] },
 ];
 

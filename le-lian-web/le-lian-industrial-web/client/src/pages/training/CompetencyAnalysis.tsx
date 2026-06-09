@@ -159,6 +159,85 @@ function simulateRecognition(fileName: string): RecognizedDoc {
   };
 }
 
+// ── Competency Gap Quiz Data ───────────────────────────────────────────────────
+interface GapQuizQuestion {
+  id: string;
+  dimension: keyof CompetencyScores;
+  question: string;
+  options: string[];
+  answerIndex: number;
+}
+
+const GAP_QUIZ_BANK: Record<JobTitle, GapQuizQuestion[]> = {
+  '技術員/班長': [
+    { id: 'tq1', dimension: 'technical', question: '執行作業前，應優先確認下列哪項？', options: ['確認作業速度最大化', '確認SOP標準作業程序及安全防護', '先完成作業再查閱SOP', '依個人習慣作業'], answerIndex: 1 },
+    { id: 'tq2', dimension: 'technical', question: '發現品質異常時，正確的處理步驟是？', options: ['繼續生產直到數量達標', '立即停機並通報班長/品保', '將不良品混入良品中', '等班次結束後再報告'], answerIndex: 1 },
+    { id: 'tq3', dimension: 'safety', question: '進入作業區前，下列哪項是必要的安全措施？', options: ['只有新人需要穿戴PPE', '視情況決定是否穿戴防護裝備', '依規定穿戴所有必要防護裝備（安全帽/護目鏡/耳塞）', '確認沒有主管在場再穿戴'], answerIndex: 2 },
+    { id: 'tq4', dimension: 'safety', question: '發現機台洩漏異常油液時，應如何處理？', options: ['繼續生產，下班後再報告', '立即停機、設置警示標誌並通報設備人員', '用抹布擦拭後繼續使用', '等油液增多再處理'], answerIndex: 1 },
+    { id: 'tq5', dimension: 'communication', question: '班次交接時，最重要的是？', options: ['快速交班，節省時間', '詳細說明異常狀況、生產進度及待處理事項', '只告知生產數量', '口頭隨意說明即可'], answerIndex: 1 },
+    { id: 'tq6', dimension: 'teamwork', question: '同事作業遇到困難時，你應該？', options: ['這是他的工作，不需介入', '只告知主管，不直接幫忙', '主動提供協助，並在完成後回報班長', '等他自己解決'], answerIndex: 2 },
+    { id: 'tq7', dimension: 'problem', question: '生產線突發停機，你的首要處置是？', options: ['等待主管指示，不需主動處置', '立即確認原因、評估影響並通報相關人員', '先紀錄停機時間再通報', '聯繫廠商直接修理'], answerIndex: 1 },
+    { id: 'tq8', dimension: 'leadership', question: '班長在帶領班組時，最重要的責任是？', options: ['只需監督員工不遲到', '確保生產目標、品質標準及人員安全同時達成', '只管生產數量', '等主管指示再行動'], answerIndex: 1 },
+  ],
+  '助理專員/組長': [
+    { id: 'aq1', dimension: 'technical', question: '稼動率（OEE）的計算包含下列哪三個要素？', options: ['品質率 × 效率 × 可用率', '品質 × 速度 × 成本', '人員出勤率 × 生產量 × 良品率', '計劃產出 × 實際產出 × 品質'], answerIndex: 0 },
+    { id: 'aq2', dimension: 'problem', question: 'QCC品管圈活動的PDCA中，「C」代表？', options: ['Create（創造）', 'Check（查核/確認效果）', 'Cost（成本）', 'Control（控制人員）'], answerIndex: 1 },
+    { id: 'aq3', dimension: 'leadership', question: '帶領組員完成改善提案時，組長應？', options: ['獨立完成，不需組員參與', '引導組員參與分析與對策提出，培養問題解決能力', '只有表現好的組員才參與', '由上級決定所有對策'], answerIndex: 1 },
+    { id: 'aq4', dimension: 'communication', question: '跨班異常交接時，必須填寫哪些資料？', options: ['只填當班姓名', '異常發生時間、位置、原因、已採取措施及後續追蹤', '只記錄生產數量', '口頭說明即可，不需書面記錄'], answerIndex: 1 },
+    { id: 'aq5', dimension: 'safety', question: '危險物品（化學品）使用前，必須查閱？', options: ['網路搜尋用途', '安全資料表（SDS/MSDS）並確認防護措施', '問同事如何使用', '按個人經驗處理'], answerIndex: 1 },
+    { id: 'aq6', dimension: 'teamwork', question: '遇到跨部門資源協調困難時，組長應？', options: ['放棄協調，報告無法完成', '透過主管或正式溝通管道協調，並尋求共識', '直接要求對方部門配合', '繞過對方，自行解決'], answerIndex: 1 },
+    { id: 'aq7', dimension: 'problem', question: '8D問題解決方法中，「D4」代表？', options: ['找到問題擁有者', '確認並驗證根本原因', '建立應急措施', '執行永久對策'], answerIndex: 1 },
+  ],
+  '工程師/課長': [
+    { id: 'eq1', dimension: 'technical', question: 'IATF 16949 中的APQP（先期產品品質規劃）包含幾個階段？', options: ['3個階段', '4個階段', '5個階段', '6個階段'], answerIndex: 2 },
+    { id: 'eq2', dimension: 'technical', question: 'FMEA（失效模式及效應分析）的RPN值計算公式為？', options: ['嚴重度 + 發生率 + 偵測度', '嚴重度 × 發生率 × 偵測度', '嚴重度 × 發生率 ÷ 偵測度', '（嚴重度 + 發生率）× 偵測度'], answerIndex: 1 },
+    { id: 'eq3', dimension: 'problem', question: '客訴處理的8D報告中，D8代表？', options: ['根本原因確認', '永久對策實施', '恭賀團隊並標準化預防再發', '應急措施確認'], answerIndex: 2 },
+    { id: 'eq4', dimension: 'leadership', question: '課長在進行年度績效考核時，應注意避免？', options: ['過於關注員工的缺點', '月暈效應（以單一突出表現影響整體評價）', '設定明確的SMART目標', '進行雙向溝通'], answerIndex: 1 },
+    { id: 'eq5', dimension: 'communication', question: '面對客戶提出的緊急設計變更需求，課長的標準處理流程是？', options: ['直接拒絕，維持現有設計', '評估可行性、確認成本影響、通過ECR程序正式變更', '口頭承諾後再通知工廠', '由業務全權處理，工程不需介入'], answerIndex: 1 },
+    { id: 'eq6', dimension: 'problem', question: 'SPC管制圖中，出現「連續9點在中心線同側」屬於？', options: ['正常波動，無需處理', '製程失控警訊（特殊原因變異），需立即調查', '表示製程能力提升', '只需記錄，不需行動'], answerIndex: 1 },
+    { id: 'eq7', dimension: 'safety', question: '工廠進行設備維修時，必須執行下列哪項安全程序？', options: ['確認主管授權後直接作業', '執行LOTO（鎖定/掛牌程序）確保能源隔離', '關閉電源開關即可', '設備商自行負責安全'], answerIndex: 1 },
+  ],
+  '副理/經理以上': [
+    { id: 'mq1', dimension: 'leadership', question: '推動組織變革時，領導者最重要的任務是？', options: ['強制執行，確保速度', '清楚溝通願景、取得關鍵人員支持、管理阻力並建立信任', '只需提出計畫，由下屬執行', '等待完美時機再推動'], answerIndex: 1 },
+    { id: 'mq2', dimension: 'technical', question: '損益表中，「毛利率」的計算公式為？', options: ['（淨利 ÷ 營收）× 100%', '（營收 - 銷貨成本）÷ 營收 × 100%', '（營收 - 所有費用）÷ 營收 × 100%', '（EBIT ÷ 總資產）× 100%'], answerIndex: 1 },
+    { id: 'mq3', dimension: 'communication', question: '在高層會議中進行策略提案，最有效的簡報結構為？', options: ['從詳細數據開始，逐步說明', '先提出結論與建議，再佐證數據與執行方案（金字塔原則）', '依照時間順序說明過程', '只提問題，不提解決方案'], answerIndex: 1 },
+    { id: 'mq4', dimension: 'problem', question: '面對多項高優先度問題，主管應如何分配資源？', options: ['依問題發生的先後順序處理', '依影響程度 × 緊急程度矩陣（艾森豪矩陣）排定優先順序', '全部同時處理', '只處理自己擅長的問題'], answerIndex: 1 },
+    { id: 'mq5', dimension: 'leadership', question: '人才培育的最佳實踐是？', options: ['僅提供外部訓練課程', 'OJT（在職訓練）+ 教練輔導 + 正式課程三者並行', '等員工主動要求再培訓', '只培育表現最好的員工'], answerIndex: 1 },
+    { id: 'mq6', dimension: 'communication', question: '勞動爭議發生時，主管應首先？', options: ['立即解僱以示立場', '了解事實、保持中立、諮詢人資法規，依法定程序處理', '完全交由HR處理，不需介入', '公開討論以警示其他員工'], answerIndex: 1 },
+    { id: 'mq7', dimension: 'problem', question: '公司面臨主要客戶訂單大幅縮減的危機，經理應？', options: ['等待情況自動恢復', '分析原因、緊急啟動多元客戶開發計畫、優化成本結構並加強現有客戶關係', '立即大量裁員降低成本', '只向上層反映，等待指示'], answerIndex: 1 },
+  ],
+};
+
+// Generate quiz from gap dimensions
+function generateGapQuiz(jobTitle: JobTitle, selfScores: CompetencyScores, standards: CompetencyScores): GapQuizQuestion[] {
+  // Sort dimensions by gap size (largest gap first)
+  const gapDims = DIMENSIONS
+    .map(d => ({ ...d, gap: standards[d.key] - selfScores[d.key] }))
+    .filter(d => d.gap > 0)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 4); // take top 4 gap dimensions
+
+  const bank = GAP_QUIZ_BANK[jobTitle] || GAP_QUIZ_BANK['工程師/課長'];
+  const questions: GapQuizQuestion[] = [];
+
+  gapDims.forEach(dim => {
+    const dimQs = bank.filter(q => q.dimension === dim.key);
+    if (dimQs.length > 0) {
+      // Pick 1-2 questions per gap dimension
+      questions.push(dimQs[0]);
+      if (dimQs.length > 1 && dim.gap > 15) questions.push(dimQs[1]);
+    }
+  });
+
+  // Fill up to 6 questions if needed
+  if (questions.length < 4) {
+    const extras = bank.filter(q => !questions.find(pq => pq.id === q.id));
+    questions.push(...extras.slice(0, 4 - questions.length));
+  }
+
+  return questions.slice(0, 8);
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function CompetencyAnalysis() {
   const { currentUser } = useTrainingAuth();
@@ -169,6 +248,28 @@ export default function CompetencyAnalysis() {
   const [targetDept, setTargetDept] = useState('品保部');
   const [fitScore, setFitScore] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+
+  // Competency gap quiz states
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<GapQuizQuestion[]>([]);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+
+  function startQuiz() {
+    const qs = generateGapQuiz(jobTitle, selfScores, standards);
+    setQuizQuestions(qs);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizStarted(true);
+  }
+
+  function submitQuiz() {
+    setQuizSubmitted(true);
+  }
+
+  const quizScore = quizSubmitted
+    ? Math.round((quizQuestions.filter(q => quizAnswers[q.id] === q.answerIndex).length / quizQuestions.length) * 100)
+    : 0;
 
   // Document upload states
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -509,6 +610,117 @@ export default function CompetencyAnalysis() {
             );
           })}
         </div>
+      </div>
+
+      {/* ── Competency Gap Quiz ── */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <h2 className="text-base font-semibold text-gray-800">📝 職能缺口測驗</h2>
+          {!quizStarted && (
+            <button
+              onClick={startQuiz}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"
+            >
+              <Sparkles size={15} /> 生成缺口測驗
+            </button>
+          )}
+          {quizStarted && !quizSubmitted && (
+            <button
+              onClick={() => { setQuizStarted(false); setQuizAnswers({}); setQuizSubmitted(false); }}
+              className="text-sm text-gray-400 hover:text-gray-600"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {!quizStarted && (
+          <div className="text-center py-8 text-gray-400">
+            <Target size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">根據您的職能落差，AI 自動生成針對性測驗題目</p>
+            <p className="text-xs mt-1">建議先完成自評後，再生成個人化測驗</p>
+          </div>
+        )}
+
+        {quizStarted && (
+          <div className="space-y-5">
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-purple-700">
+              <strong>職稱：{jobTitle}</strong> · 根據落差最大的職能向度自動生成 {quizQuestions.length} 道測驗題
+            </div>
+
+            {quizQuestions.map((q, qi) => {
+              const dimLabel = DIMENSIONS.find(d => d.key === q.dimension)?.label || q.dimension;
+              const answered = quizAnswers[q.id] !== undefined;
+              const isCorrect = quizSubmitted && quizAnswers[q.id] === q.answerIndex;
+              const isWrong = quizSubmitted && answered && quizAnswers[q.id] !== q.answerIndex;
+
+              return (
+                <div key={q.id} className={`rounded-xl border p-4 space-y-3 ${quizSubmitted ? (isCorrect ? 'bg-green-50 border-green-300' : isWrong ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200') : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs font-bold text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full shrink-0 mt-0.5">{dimLabel}</span>
+                    <p className="text-sm font-medium text-gray-800">Q{qi + 1}. {q.question}</p>
+                  </div>
+                  <div className="space-y-2">
+                    {q.options.map((opt, oi) => {
+                      const isSelected = quizAnswers[q.id] === oi;
+                      const isAnswer = q.answerIndex === oi;
+                      let cls = 'border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                      if (quizSubmitted) {
+                        if (isAnswer) cls = 'border-green-400 bg-green-100 text-green-800 font-semibold';
+                        else if (isSelected && !isAnswer) cls = 'border-red-400 bg-red-100 text-red-700';
+                        else cls = 'border-gray-200 bg-white text-gray-400';
+                      } else if (isSelected) {
+                        cls = 'border-purple-500 bg-purple-50 text-purple-900 font-medium';
+                      }
+                      return (
+                        <button
+                          key={oi}
+                          onClick={() => !quizSubmitted && setQuizAnswers(prev => ({ ...prev, [q.id]: oi }))}
+                          disabled={quizSubmitted}
+                          className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${cls}`}
+                        >
+                          {String.fromCharCode(65 + oi)}. {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {quizSubmitted && isWrong && (
+                    <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      ✅ 正確答案：{q.options[q.answerIndex]}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+
+            {!quizSubmitted ? (
+              <button
+                onClick={submitQuiz}
+                disabled={Object.keys(quizAnswers).length < quizQuestions.length}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold"
+              >
+                提交測驗（已作答 {Object.keys(quizAnswers).length}/{quizQuestions.length} 題）
+              </button>
+            ) : (
+              <div className={`rounded-xl border p-5 space-y-3 ${quizScore >= 70 ? 'bg-green-50 border-green-300' : quizScore >= 50 ? 'bg-yellow-50 border-yellow-300' : 'bg-red-50 border-red-300'}`}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-gray-800">測驗結果</h3>
+                  <span className={`text-2xl font-bold ${quizScore >= 70 ? 'text-green-700' : quizScore >= 50 ? 'text-yellow-700' : 'text-red-700'}`}>{quizScore}分</span>
+                </div>
+                <p className="text-sm text-gray-600">
+                  共 {quizQuestions.length} 題，答對 {quizQuestions.filter(q => quizAnswers[q.id] === q.answerIndex).length} 題。
+                  {quizScore >= 70 ? ' 職能知識掌握良好！' : quizScore >= 50 ? ' 建議加強落差較大的職能向度。' : ' 建議優先完成建議課程後再次測驗。'}
+                </p>
+                <button
+                  onClick={() => { setQuizStarted(false); setQuizAnswers({}); setQuizSubmitted(false); }}
+                  className="text-sm text-purple-600 hover:text-purple-700 font-medium underline"
+                >
+                  重新生成測驗
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Submit & manager comparison ── */}

@@ -514,7 +514,7 @@ def download_line_image(message_id):
     return data  # bytes
 
 # ── Groq API 共用函數 ─────────────────────────────────────────
-def _call_groq(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
+def _call_groq_raw(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
     data = json.dumps({
         "model": model,
         "messages": messages,
@@ -534,7 +534,10 @@ def _call_groq(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
     if "error" in body:
         raise Exception(f"Groq API 錯誤：{body['error'].get('message', str(body))}")
 
-    raw = body["choices"][0]["message"]["content"]
+    return body["choices"][0]["message"]["content"]
+
+def _call_groq(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
+    raw = _call_groq_raw(messages, model=model, max_tokens=max_tokens)
     return _safe_json(raw)
 
 def _build_time_refs():
@@ -588,7 +591,7 @@ def call_chat(text):
         {"role": "system", "content": prompt},
         {"role": "user",   "content": text},
     ]
-    return _call_groq(messages, max_tokens=300).strip()
+    return _call_groq_raw(messages, max_tokens=300).strip()
 
 # ── Groq API（圖片辨識）──────────────────────────────────────
 def call_claude_image(image_bytes):
@@ -1706,8 +1709,9 @@ def run_scheduler():
     # schedule.every().day.at("08:30").do(send_daily_checkin, "08:30", "morning",   "早安！")
     # schedule.every().day.at("13:30").do(send_daily_checkin, "13:30", "afternoon", "下午好！")
     # schedule.every().day.at("20:00").do(send_daily_checkin, "20:00", "evening",   "晚上好！")
-    # 啟動時先跑一次固定行程檢查
+    # 啟動時先跑一次固定行程檢查 + 提醒檢查（避免 Render 免費方案休眠後錯過提醒）
     threading.Thread(target=check_recurring, daemon=True).start()
+    threading.Thread(target=check_reminders, daemon=True).start()
     while True:
         schedule.run_pending()
         time.sleep(15)

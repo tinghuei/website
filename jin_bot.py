@@ -1525,26 +1525,34 @@ def check_recurring():
 # ── 排程提醒 ──────────────────────────────────────────────────
 def check_reminders():
     import random
-    tasks = load_tasks()
-    now = datetime.now()
-    updated = False
-    uid = load_user_id()
+    try:
+        tasks = load_tasks()
+        now = datetime.now()
+        updated = False
+        uid = load_user_id()
 
-    for t in tasks:
-        if t.get("status") != "pending": continue
-        if now >= datetime.strptime(t["remind_at"], "%Y-%m-%d %H:%M:%S"):
-            tpl_t, tpl_m = random.choice(get_remind_templates())
-            remind_msg = tpl_m.format(t=t["title"])
-            push_msg = f"{tpl_t}\n{remind_msg}\n\n📝 {t['detail']}"
-            do_notify_task(t["title"], remind_msg + f"\n{t['detail']}")
-            if uid:
-                line_push(uid, push_msg, quick_reply=_task_actions(t["title"]))
-            t["remind_at"] = (now + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-            t["remind_count"] = t.get("remind_count", 0) + 1
-            updated = True
-            print(f"[提醒] {t['title']}")
-    if updated:
-        save_tasks(tasks)
+        for t in tasks:
+            try:
+                if t.get("status") != "pending": continue
+                remind_at = t.get("remind_at")
+                if not remind_at: continue
+                if now >= datetime.strptime(remind_at, "%Y-%m-%d %H:%M:%S"):
+                    tpl_t, tpl_m = random.choice(get_remind_templates())
+                    remind_msg = tpl_m.format(t=t["title"])
+                    push_msg = f"{tpl_t}\n{remind_msg}\n\n📝 {t.get('detail','')}"
+                    do_notify_task(t["title"], remind_msg + f"\n{t.get('detail','')}")
+                    if uid:
+                        line_push(uid, push_msg, quick_reply=_task_actions(t["title"]))
+                    t["remind_at"] = (now + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+                    t["remind_count"] = t.get("remind_count", 0) + 1
+                    updated = True
+                    print(f"[提醒] {t['title']}")
+            except Exception as e:
+                print(f"[check_reminders] task error: {e}")
+        if updated:
+            save_tasks(tasks)
+    except Exception as e:
+        print(f"[check_reminders] error: {e}")
 
 DAILY_SLOTS = [
     ("08:30", "morning",   "早安！"),
@@ -1713,7 +1721,10 @@ def run_scheduler():
     threading.Thread(target=check_recurring, daemon=True).start()
     threading.Thread(target=check_reminders, daemon=True).start()
     while True:
-        schedule.run_pending()
+        try:
+            schedule.run_pending()
+        except Exception as e:
+            print(f"[run_scheduler] error: {e}")
         time.sleep(15)
 
 # ── Webhook 伺服器 ────────────────────────────────────────────

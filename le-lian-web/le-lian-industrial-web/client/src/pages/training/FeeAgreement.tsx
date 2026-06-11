@@ -1,12 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { FileText, Printer, Download, Save, Eye, EyeOff, Send, Archive, CheckCircle, PenLine, Upload, Trash2, X } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { ALL_DEPARTMENTS, getUnitManager, getHRStaff } from '../../data/orgChartData';
 
-const DEPARTMENTS = [
-  '總經理室', '品保課', '管理部', '總務課', '營業部', '業務課',
-  '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組',
-  '組三組', '沖床組', '塗裝組', '加工組', '財務部', '庶務組', '人資安全組',
-];
+const DEPARTMENTS = ALL_DEPARTMENTS;
 
 interface FeeForm {
   employeeName: string;
@@ -222,6 +219,8 @@ interface DocumentPreviewProps {
 
 function DocumentPreview({ form, totalFee, afterYrs, afterMons, signedInfo }: DocumentPreviewProps) {
   const { wan, qian, bai, shi, yuan } = feeToChineseWords(totalFee);
+  const deptManager = form.department ? getUnitManager(form.department) : null;
+  const hrStaff = getHRStaff();
 
   return (
     <div
@@ -350,10 +349,20 @@ function DocumentPreview({ form, totalFee, afterYrs, afterMons, signedInfo }: Do
             <div>
               <p className="font-semibold mb-1.5">申請單位課級主管簽名：</p>
               <div className="border-b border-gray-500 w-44 h-10" />
+              {deptManager && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  （依組織架構圖，{form.department} 主管：{deptManager.name} {deptManager.title}）
+                </p>
+              )}
             </div>
             <div>
               <p className="font-semibold mb-1.5">執行單位人資單位簽名：</p>
               <div className="border-b border-gray-500 w-44 h-10" />
+              {hrStaff.length > 0 && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  （人資安全組：{hrStaff.map(h => h.name).join('、')}）
+                </p>
+              )}
             </div>
           </div>
         </div>

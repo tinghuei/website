@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { ArrowLeft, BookOpen, Users, Zap, Target, BarChart3 } from "lucide-react";
+import { ArrowLeft, BookOpen, Users, Zap, Target } from "lucide-react";
 
 /**
  * Training Page - Talent Development & Training Programs
@@ -293,7 +293,7 @@ export default function Training() {
       {/* Competency Gap Analysis */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container max-w-5xl">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-lg border border-border p-8 shadow-sm">
               <div className="flex items-start gap-6">
                 <div className="bg-accent/10 rounded-lg p-4 flex-shrink-0">
@@ -307,25 +307,6 @@ export default function Training() {
                   <Link href="/detailed-competency-assessment">
                     <Button className="bg-accent hover:bg-accent/90 text-white">
                       開始分析
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg border border-border p-8 shadow-sm">
-              <div className="flex items-start gap-6">
-                <div className="bg-blue-100 rounded-lg p-4 flex-shrink-0">
-                  <BarChart3 className="w-8 h-8 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-primary mb-3">管理員儀表板</h3>
-                  <p className="text-foreground/80 mb-6">
-                    查看所有員工的職能評估結果，分析部門職能水平，導出評估報表，支持數據驅動的人才發展決策。
-                  </p>
-                  <Link href="/admin-dashboard">
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                      查看儀表板
                     </Button>
                   </Link>
                 </div>

@@ -23,9 +23,11 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  Building2,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
 import type { Course } from '../../data/trainingMockData';
+import OrgChart from './OrgChart';
 
 const ADMIN_TABS = [
   { id: 'courses', label: '課程管理', icon: BookOpen },
@@ -36,6 +38,7 @@ const ADMIN_TABS = [
   { id: 'dual-review', label: '雙重審核', icon: CheckCircle },
   { id: 'satisfaction', label: '滿意度分析', icon: BarChart3 },
   { id: 'routine', label: '例行課程管理', icon: ClipboardList },
+  { id: 'orgchart', label: '組織架構圖', icon: Building2 },
   { id: 'permissions', label: '權限管理', icon: Lock },
 ];
 
@@ -1413,6 +1416,9 @@ export default function TrainingAdminPanel() {
           )}
         </div>
       )}
+
+      {/* 組織架構圖 */}
+      {activeTab === 'orgchart' && <OrgChart />}
 
       {/* 權限管理 */}
       {activeTab === 'permissions' && (

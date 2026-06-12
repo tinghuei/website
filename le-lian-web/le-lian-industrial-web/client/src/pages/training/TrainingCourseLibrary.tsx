@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { Search, Clock, CheckCircle, BookOpen, ChevronRight, Sparkles, Plus, Edit3, X, Save } from 'lucide-react';
+import { Search, Clock, CheckCircle, BookOpen, ChevronRight, Sparkles, Plus, Edit3, X, Save, Upload, Trash2, Film } from 'lucide-react';
 import type { Course } from '../../data/trainingMockData';
+import { MAX_VIDEO_SIZE, saveCourseVideo, deleteCourseVideo } from '../../lib/videoStorage';
 
 const categoryColors: Record<string, string> = {
   '安全衛生': 'bg-red-100 text-red-700',
@@ -36,7 +37,7 @@ const CATEGORIES = ['行政職能課程', '法令規範課程', '職能發展課
 
 function EditCourseModal({ course, onSave, onClose }: {
   course: Partial<Course> & { id?: string };
-  onSave: (data: Partial<Course>) => void;
+  onSave: (data: Partial<Course>, videoFile: File | null, removeLocalVideo: boolean) => void;
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
@@ -49,6 +50,26 @@ function EditCourseModal({ course, onSave, onClose }: {
     passingScore: course.passingScore || 70,
     videoId: course.videoId || '',
   });
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [removeLocalVideo, setRemoveLocalVideo] = useState(false);
+  const [fileError, setFileError] = useState('');
+  const maxVideoMB = MAX_VIDEO_SIZE / 1024 / 1024;
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+      setFileError('請選擇影片格式的檔案');
+      return;
+    }
+    if (file.size > MAX_VIDEO_SIZE) {
+      setFileError(`檔案大小超過 ${maxVideoMB}MB 上限`);
+      return;
+    }
+    setFileError('');
+    setVideoFile(file);
+    setRemoveLocalVideo(false);
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -98,6 +119,42 @@ function EditCourseModal({ course, onSave, onClose }: {
             />
             <p className="text-xs text-gray-400 mt-1">設定後員工可在課程中觀看教學影片</p>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">上傳影片檔（選填）</label>
+            {course.localVideo && !removeLocalVideo && !videoFile && (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-2 text-sm">
+                <span className="flex items-center gap-1.5 text-green-700"><Film size={14} />已上傳本機影片檔</span>
+                <button type="button" onClick={() => setRemoveLocalVideo(true)} className="text-red-500 hover:text-red-600 flex items-center gap-1 text-xs">
+                  <Trash2 size={12} />移除
+                </button>
+              </div>
+            )}
+            {removeLocalVideo && (
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 text-xs text-amber-700">
+                <span>儲存後將移除已上傳的影片檔</span>
+                <button type="button" onClick={() => setRemoveLocalVideo(false)} className="text-blue-600 hover:text-blue-700">復原</button>
+              </div>
+            )}
+            {videoFile ? (
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2 text-sm">
+                <span className="flex items-center gap-1.5 text-blue-700 truncate min-w-0">
+                  <Film size={14} className="shrink-0" />
+                  <span className="truncate">{videoFile.name}（{(videoFile.size / 1024 / 1024).toFixed(1)}MB）</span>
+                </span>
+                <button type="button" onClick={() => setVideoFile(null)} className="text-gray-400 hover:text-gray-600 shrink-0 ml-2"><X size={14} /></button>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-500 cursor-pointer hover:border-blue-400 hover:text-blue-600 transition-colors">
+                <Upload size={15} />
+                選擇要上傳的影片檔（mp4 等格式）
+                <input type="file" accept="video/*" className="hidden" onChange={handleFileChange} />
+              </label>
+            )}
+            {fileError && <p className="text-xs text-red-500 mt-1">{fileError}</p>}
+            <p className="text-xs text-gray-400 mt-1">
+              影片檔將儲存在目前瀏覽器中（單檔上限 {maxVideoMB}MB），僅此裝置可播放、清除瀏覽器資料會遺失。若需所有人都能觀看，建議改用上方 YouTube 連結。若兩者皆設定，將優先播放已上傳的影片檔。
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="mandatory" checked={form.mandatory} onChange={e => setForm(f => ({ ...f, mandatory: e.target.checked }))} className="accent-blue-600" />
             <label htmlFor="mandatory" className="text-sm text-gray-700">設為必修課程</label>
@@ -105,7 +162,7 @@ function EditCourseModal({ course, onSave, onClose }: {
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700">取消</button>
             <button
-              onClick={() => { if (!form.title) return; onSave(form); }}
+              onClick={() => { if (!form.title) return; onSave(form, videoFile, removeLocalVideo); }}
               disabled={!form.title}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
             >
@@ -134,16 +191,26 @@ export default function TrainingCourseLibrary() {
     setTimeout(() => setToast(''), 3000);
   }
 
-  function handleSaveEdit(data: Partial<Course>) {
-    if (editingCourse) {
-      updateCourse(editingCourse.id, data);
-      setEditingCourse(null);
-      showToast('課程已更新');
+  async function handleSaveEdit(data: Partial<Course>, videoFile: File | null, removeLocalVideo: boolean) {
+    if (!editingCourse) return;
+    const updates: Partial<Course> = { ...data };
+    if (videoFile) {
+      await saveCourseVideo(editingCourse.id, videoFile);
+      updates.localVideo = true;
+    } else if (removeLocalVideo) {
+      await deleteCourseVideo(editingCourse.id);
+      updates.localVideo = false;
     }
+    updateCourse(editingCourse.id, updates);
+    setEditingCourse(null);
+    showToast('課程已更新');
   }
 
-  function handleAddCourse(data: Partial<Course>) {
-    addCourse({ ...data, status: 'active', quizQuestions: [] });
+  async function handleAddCourse(data: Partial<Course>, videoFile: File | null) {
+    const newCourse = addCourse({ ...data, status: 'active', quizQuestions: [], localVideo: !!videoFile });
+    if (videoFile) {
+      await saveCourseVideo(newCourse.id, videoFile);
+    }
     setAddingCourse(false);
     showToast('新課程已加入課程庫');
   }

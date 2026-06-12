@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { getCourseVideo } from '../../lib/videoStorage';
 import {
   Clock,
   User,
@@ -81,6 +82,33 @@ export default function TrainingCourseDetail() {
 
   const videoId = course?.videoId;
 
+  // Local uploaded video file (stored in browser IndexedDB)
+  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
+  const [localVideoLoading, setLocalVideoLoading] = useState(false);
+
+  useEffect(() => {
+    setLocalVideoUrl(null);
+    if (!course?.localVideo) {
+      setLocalVideoLoading(false);
+      return;
+    }
+    setLocalVideoLoading(true);
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    getCourseVideo(course.id).then((blob) => {
+      if (cancelled) return;
+      if (blob) {
+        objectUrl = URL.createObjectURL(blob);
+        setLocalVideoUrl(objectUrl);
+      }
+      setLocalVideoLoading(false);
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [course?.id, course?.localVideo]);
+
   // Sync state from enrollment on mount
   useEffect(() => {
     if (enrollment) {
@@ -98,7 +126,7 @@ export default function TrainingCourseDetail() {
 
   // Load YouTube IFrame API and initialize player
   useEffect(() => {
-    if (!course || !videoId) return;
+    if (!course || !videoId || course.localVideo) return;
 
     const initPlayer = () => {
       if (playerRef.current) {
@@ -201,9 +229,9 @@ export default function TrainingCourseDetail() {
     };
   }, [isPlaying, ytReady]);
 
-  // Fallback simulated progress interval (used only when no YouTube player)
+  // Fallback simulated progress interval (used only when no real video player)
   useEffect(() => {
-    if (videoId) return; // YouTube player handles progress
+    if (videoId || course?.localVideo) return; // real video player handles progress
     if (isPlaying) {
       const durationSec = (course?.duration || 60) * 60;
       intervalRef.current = setInterval(() => {
@@ -257,6 +285,40 @@ export default function TrainingCourseDetail() {
       return;
     }
     setIsPlaying((prev) => !prev);
+  };
+
+  // Native <video> element handlers for locally uploaded video files
+  const handleLocalVideoTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    if (!video.duration) return;
+    const pct = Math.min(100, (video.currentTime / video.duration) * 100);
+    setProgress(pct);
+    setWatchTime(Math.floor(video.currentTime));
+    if (enrollment && Math.floor(video.currentTime) % 10 === 0 && Math.floor(video.currentTime) > 0) {
+      updateEnrollment(enrollment.id, {
+        progressPercent: Math.round(pct),
+        watchTimeMinutes: Math.floor(video.currentTime / 60),
+      });
+    }
+  };
+
+  const handleLocalVideoPause = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    setIsPlaying(false);
+    const video = e.currentTarget;
+    if (!video.duration || !enrollment) return;
+    const pct = Math.min(100, (video.currentTime / video.duration) * 100);
+    updateEnrollment(enrollment.id, {
+      progressPercent: Math.round(pct),
+      watchTimeMinutes: Math.floor(video.currentTime / 60),
+    });
+  };
+
+  const handleLocalVideoEnded = () => {
+    setIsPlaying(false);
+    setProgress(100);
+    if (enrollment) {
+      updateEnrollment(enrollment.id, { progressPercent: 100, watchTimeMinutes: Math.floor(watchTime / 60), videoWatched: true });
+    }
   };
 
   const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -314,7 +376,26 @@ export default function TrainingCourseDetail() {
         <div className="lg:col-span-2 space-y-5">
           {/* Video Player */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            {videoId && !ytError ? (
+            {localVideoUrl ? (
+              <div className="relative aspect-video bg-black">
+                <video
+                  src={localVideoUrl}
+                  controls
+                  className="w-full h-full"
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={handleLocalVideoPause}
+                  onEnded={handleLocalVideoEnded}
+                  onTimeUpdate={handleLocalVideoTimeUpdate}
+                />
+              </div>
+            ) : localVideoLoading ? (
+              <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-sm">載入影片中...</p>
+                </div>
+              </div>
+            ) : videoId && !ytError ? (
               <div className="relative aspect-video bg-black">
                 <div id={`yt-player-${course.id}`} className="w-full h-full" />
                 {!ytReady && (

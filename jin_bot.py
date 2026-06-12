@@ -607,8 +607,116 @@ def call_claude_image(image_bytes):
     return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
 
 # ── 解析時間表達式 → 分鐘數 ──────────────────────────────────
+# ── 中文時間表達式本地解析（避免 AI 算錯時間）──────────────────
+_PERIOD_MAP = {
+    "凌晨": "am", "早上": "am", "上午": "am",
+    "中午": "noon", "下午": "pm", "晚上": "pm", "傍晚": "pm", "夜裡": "pm", "深夜": "pm",
+}
+_WEEKDAY_MAP = {"一": 0, "二": 1, "三": 2, "四": 3, "五": 4, "六": 5, "日": 6, "天": 6}
+
+def _parse_zh_datetime(expr, now):
+    """嘗試以規則直接解析中文時間表達式為 datetime，無法解析回傳 None"""
+    import re
+    from datetime import time as _time
+    expr = expr.strip()
+
+    # 純數字 / X分鐘後 / X小時後
+    m = re.fullmatch(r"(\d+)\s*分鐘?後?", expr)
+    if m:
+        return now + timedelta(minutes=int(m.group(1)))
+    m = re.fullmatch(r"(\d+)\s*小時後?", expr)
+    if m:
+        return now + timedelta(hours=int(m.group(1)))
+    m = re.fullmatch(r"(\d+)", expr)
+    if m:
+        return now + timedelta(minutes=int(m.group(1)))
+
+    # 絕對日期時間 2026-06-10 15:00
+    m = re.match(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})[\sT]*(\d{1,2}):(\d{2})", expr)
+    if m:
+        y, mo, d, h, mi = map(int, m.groups())
+        return datetime(y, mo, d, h, mi)
+
+    explicit_date = None
+    m = re.search(r"(\d{1,2})月(\d{1,2})[日號]", expr)
+    if m:
+        mo, d = int(m.group(1)), int(m.group(2))
+        cand = datetime(now.year, mo, d).date()
+        if cand < now.date():
+            cand = datetime(now.year + 1, mo, d).date()
+        explicit_date = cand
+
+    # 星期/下週X
+    if explicit_date is None:
+        wd_m = re.search(r"(下|這|本)?(?:週|星期|周)([一二三四五六日天])", expr)
+        if wd_m:
+            target_wd = _WEEKDAY_MAP[wd_m.group(2)]
+            days_ahead = (target_wd - now.weekday()) % 7
+            if wd_m.group(1) == "下":
+                days_ahead += 7
+            elif days_ahead == 0:
+                days_ahead = 7
+            explicit_date = (now + timedelta(days=days_ahead)).date()
+
+    explicit_today = False
+    day_offset = 0
+    if explicit_date is None:
+        if "大後天" in expr:
+            day_offset = 3
+        elif "後天" in expr:
+            day_offset = 2
+        elif "明天" in expr or "明日" in expr:
+            day_offset = 1
+        elif "今天" in expr or "今日" in expr:
+            day_offset = 0
+            explicit_today = True
+
+    # 時間段
+    period = None
+    for kw, p in _PERIOD_MAP.items():
+        if kw in expr:
+            period = p
+            break
+
+    hour, minute = None, 0
+    hm_m = re.search(r"(\d{1,2})[點:](\d{1,2})?分?", expr)
+    if hm_m:
+        hour = int(hm_m.group(1))
+        minute = int(hm_m.group(2)) if hm_m.group(2) else 0
+    elif period == "noon":
+        hour, minute = 12, 0
+
+    if hour is None:
+        return None  # 無法解析，交給 AI
+
+    if period == "pm" and hour < 12:
+        hour += 12
+    elif period == "am" and hour == 12:
+        hour = 0
+
+    if hour > 23 or minute > 59:
+        return None
+
+    if explicit_date is not None:
+        target_date = explicit_date
+    else:
+        target_date = (now + timedelta(days=day_offset)).date()
+        candidate = datetime.combine(target_date, _time(hour, minute))
+        if day_offset == 0 and not explicit_today and candidate <= now:
+            target_date = (now + timedelta(days=1)).date()
+
+    return datetime.combine(target_date, _time(hour, minute))
+
 def parse_time_expr(expr):
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = datetime.now()
+
+    local = _parse_zh_datetime(expr, now)
+    if local is not None:
+        mins = int((local - now).total_seconds() / 60)
+        if mins > 0:
+            return mins
+
+    now_str = now.strftime("%Y-%m-%d %H:%M")
     prompt = TIME_PARSE_PROMPT.format(now=now_str, expr=expr)
     messages = [{"role": "user", "content": prompt}]
     data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 20},
@@ -731,8 +839,11 @@ def add_tasks(new_tasks):
     tasks = load_tasks()
     now = datetime.now()
     for t in new_tasks:
-        t["remind_at"] = (now + timedelta(minutes=t["remind_in_minutes"])).strftime("%Y-%m-%d %H:%M:%S")
+        remind_at = now + timedelta(minutes=t["remind_in_minutes"])
+        t["remind_at"] = remind_at.strftime("%Y-%m-%d %H:%M:%S")
         t["created_at"] = now.strftime("%Y-%m-%d %H:%M:%S")
+        # 任務本身指定的時間若剛好在週六/週日，週末也要持續提醒
+        t["weekend_ok"] = remind_at.weekday() >= 5
         tasks.append(t)
     save_tasks(tasks)
 
@@ -1504,6 +1615,7 @@ def check_recurring():
                 "detail": r.get("detail", "") + notes_part,
                 "remind_at": remind_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "created_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "weekend_ok": remind_at.weekday() >= 5,
                 "status": "pending",
                 "from_recurring": True,
             }
@@ -1523,6 +1635,21 @@ def check_recurring():
             print(f"[固定行程] 建立提醒：{title}")
 
 # ── 排程提醒 ──────────────────────────────────────────────────
+def _next_reminder_time(now, weekend_ok):
+    """計算下一次提醒時間：
+    - 一般情況：30~60 分鐘後再提醒
+    - 若已過今天下午5點，順延到隔天早上8點後
+    - 順延後若落在週六/週日，且任務時間本身不是週末（weekend_ok=False），則繼續順延到週一
+    """
+    import random
+    if now.hour >= 17:
+        nxt = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+        if not weekend_ok:
+            while nxt.weekday() >= 5:
+                nxt += timedelta(days=1)
+        return nxt
+    return now + timedelta(minutes=random.randint(30, 60))
+
 def check_reminders():
     import random
     try:
@@ -1543,10 +1670,11 @@ def check_reminders():
                     do_notify_task(t["title"], remind_msg + f"\n{t.get('detail','')}")
                     if uid:
                         line_push(uid, push_msg, quick_reply=_task_actions(t["title"]))
-                    t["remind_at"] = (now + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+                    next_at = _next_reminder_time(now, t.get("weekend_ok", False))
+                    t["remind_at"] = next_at.strftime("%Y-%m-%d %H:%M:%S")
                     t["remind_count"] = t.get("remind_count", 0) + 1
                     updated = True
-                    print(f"[提醒] {t['title']}")
+                    print(f"[提醒] {t['title']} → 下次提醒 {t['remind_at']}")
             except Exception as e:
                 print(f"[check_reminders] task error: {e}")
         if updated:

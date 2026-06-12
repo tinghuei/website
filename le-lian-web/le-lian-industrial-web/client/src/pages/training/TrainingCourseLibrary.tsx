@@ -77,6 +77,7 @@ function EditCourseModal({ course, onSave, onClose }: {
   const maxPresentationMB = MAX_PRESENTATION_SIZE / 1024 / 1024;
 
   const [quizGenerating, setQuizGenerating] = useState(false);
+  const [quizNote, setQuizNote] = useState('');
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -112,6 +113,7 @@ function EditCourseModal({ course, onSave, onClose }: {
   }
 
   function handleAddQuestion() {
+    setQuizNote('');
     setForm(f => ({ ...f, quizQuestions: [...f.quizQuestions, emptyQuestion()] }));
   }
 
@@ -145,9 +147,14 @@ function EditCourseModal({ course, onSave, onClose }: {
   function handleGenerateQuiz() {
     if (quizGenerating) return;
     setQuizGenerating(true);
+    setQuizNote('');
     setTimeout(() => {
-      const drafts = generateDraftQuiz({ title: form.title || '本課程', category: form.category, description: form.description }, 5);
-      setForm(f => ({ ...f, quizQuestions: [...f.quizQuestions, ...drafts] }));
+      const drafts = generateDraftQuiz({ title: form.title || '本課程', category: form.category, description: form.description }, 5, form.quizQuestions);
+      if (drafts.length === 0) {
+        setQuizNote('目前題庫範本已全部加入，如需更多題目請點擊「新增題目」手動編寫。');
+      } else {
+        setForm(f => ({ ...f, quizQuestions: [...f.quizQuestions, ...drafts] }));
+      }
       setQuizGenerating(false);
     }, 1200);
   }
@@ -303,7 +310,12 @@ function EditCourseModal({ course, onSave, onClose }: {
             </div>
             {form.quizQuestions.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 mb-2">
-                <strong>提示：</strong>AI 自動生成之題目為草稿，請確認題目內容與正確答案後再儲存發布。
+                <strong>提示：</strong>AI 自動生成之題目僅依據課程類別、名稱與課程描述文字產生固定範本草稿，<strong>並未讀取影片或教材檔案內容</strong>，請務必依實際教學內容確認、修改題目與正確答案後再儲存發布。
+              </div>
+            )}
+            {quizNote && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700 mb-2">
+                {quizNote}
               </div>
             )}
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">

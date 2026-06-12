@@ -147,10 +147,18 @@ function buildDescriptionQuestion(course: { title: string; description?: string 
 
 /**
  * 依課程類別、標題與描述產生測驗題目草稿。
- * 注意：產生結果為 AI 草稿，請人工確認題目與正確答案是否合適後再發布。
+ * 注意：產生結果僅根據課程類別、名稱與「課程描述」文字組合而成的固定範本，
+ * 並未讀取影片或教材檔案內容；產生結果為 AI 草稿，請人工確認題目與正確答案是否合適後再發布。
+ *
+ * @param existing 已存在的題目，用於避免重複產生相同題目（題庫範本有限，重複呼叫時會略過已產生過的題目）
  */
-export function generateDraftQuiz(course: { title: string; category: string; description?: string }, count = 5): QuizQuestion[] {
+export function generateDraftQuiz(
+  course: { title: string; category: string; description?: string },
+  count = 5,
+  existing: QuizQuestion[] = []
+): QuizQuestion[] {
   const fill = (s: string) => s.replace(/\{title\}/g, course.title);
+  const existingTexts = new Set(existing.map((q) => q.question));
 
   const templates: QuizTemplate[] = [];
   const descQ = buildDescriptionQuestion(course);
@@ -158,7 +166,9 @@ export function generateDraftQuiz(course: { title: string; category: string; des
   templates.push(...(CATEGORY_QUIZ_BANK[course.category] || []));
   templates.push(...GENERIC_QUIZ_BANK);
 
-  return templates.slice(0, count).map((t, i) => ({
+  const freshTemplates = templates.filter((t) => !existingTexts.has(fill(t.question)));
+
+  return freshTemplates.slice(0, count).map((t, i) => ({
     id: `aiq${Date.now()}_${i}`,
     question: fill(t.question),
     options: [...t.options],

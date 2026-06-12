@@ -335,6 +335,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
       quizQuestions: courseData.quizQuestions || [],
       status: 'active',
       createdAt: new Date().toISOString().split('T')[0],
+      videoId: courseData.videoId,
     };
     setCourses((prev) => [...prev, newCourse]);
     addAuditLog(currentUser?.id || '', '新增課程', courseData.title || '', 'AI 自動生成課程內容及測驗題目');

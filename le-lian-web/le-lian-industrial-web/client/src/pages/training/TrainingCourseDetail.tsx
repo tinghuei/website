@@ -337,33 +337,36 @@ export default function TrainingCourseDetail() {
                 {/* Progress overlay bar at top */}
                 <div className="absolute top-0 left-0 h-1 bg-white/30 transition-all duration-1000" style={{ width: `${progress}%` }} />
                 <span className="text-white/10 text-8xl font-black select-none absolute">{course.title[0]}</span>
-                {/* Center play button */}
-                <button
-                  onClick={handlePlayPause}
-                  className="relative z-10 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center transition-all hover:scale-110 border border-white/30"
-                >
-                  {isPlaying ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white ml-1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  )}
-                </button>
+                {/* Center timer control */}
+                <div className="relative z-10 flex flex-col items-center gap-3 px-6 text-center">
+                  <button
+                    onClick={handlePlayPause}
+                    className="w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center transition-all hover:scale-110 border border-white/30"
+                  >
+                    {isPlaying ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white ml-1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    )}
+                  </button>
+                  <p className="text-white/85 text-xs max-w-xs leading-relaxed">
+                    本課程尚未提供線上影片，請點擊{isPlaying ? '暫停' : '開始'}進行學習時數計時，累計達 80% 即可提交心得與測驗
+                  </p>
+                </div>
                 <div className="absolute top-3 right-3">
                   {isPlaying ? (
-                    <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
+                    <span className="bg-blue-500 text-white text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                      播放中
+                      計時中
                     </span>
                   ) : (
-                    <span className="bg-black/50 text-white text-xs px-2.5 py-1 rounded-full">已暫停</span>
+                    <span className="bg-black/50 text-white text-xs px-2.5 py-1 rounded-full">已暫停計時</span>
                   )}
                 </div>
                 <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-mono">
                   <Clock size={12} />
-                  {Math.floor(watchTime / 60)}:{String(watchTime % 60).padStart(2,'0')} / {Math.floor(course.duration / 60)}:{String(course.duration % 60).padStart(2,'0')}
+                  已學習 {Math.floor(watchTime / 60)}:{String(watchTime % 60).padStart(2,'0')} / {Math.floor(course.duration / 60)}:{String(course.duration % 60).padStart(2,'0')}
                 </div>
-                {/* Volume / quality indicator */}
-                <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">HD</div>
               </div>
             )}
 

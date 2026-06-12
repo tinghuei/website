@@ -138,7 +138,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, enrollments, assignments, toggleCourseStatus, addCourse, currentUser, setUserRole, addUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR } = useTrainingAuth();
+  const { courses, users, auditLogs, enrollments, assignments, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, addUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -408,13 +408,15 @@ export default function TrainingAdminPanel() {
                         >
                           <Edit size={15} />
                         </button>
-                        <button
-                          onClick={() => setConfirmDelete(course.id)}
-                          className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-500"
-                          title="刪除"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {!course.videoId && !course.localVideo && (
+                          <button
+                            onClick={() => setConfirmDelete(course.id)}
+                            className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-500"
+                            title="刪除（僅限尚未上傳線上影片的課程）"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -438,7 +440,15 @@ export default function TrainingAdminPanel() {
                 <p className="text-gray-500 text-sm mb-4">此操作無法復原，確定要刪除此課程嗎？</p>
                 <div className="flex gap-3">
                   <button onClick={() => setConfirmDelete(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
-                  <button onClick={() => setConfirmDelete(null)} className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700">刪除</button>
+                  <button
+                    onClick={() => {
+                      if (confirmDelete) deleteCourse(confirmDelete);
+                      setConfirmDelete(null);
+                    }}
+                    className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700"
+                  >
+                    刪除
+                  </button>
                 </div>
               </div>
             </div>

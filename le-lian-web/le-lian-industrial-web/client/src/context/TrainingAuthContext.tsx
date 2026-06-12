@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import { deleteCourseVideo } from '../lib/videoStorage';
+import { deletePresentationFile } from '../lib/presentationStorage';
 import {
   USERS,
   COURSES,
@@ -45,6 +47,7 @@ interface TrainingAuthContextValue {
   addCourse: (courseData: Partial<Course>) => Course;
   updateCourse: (courseId: string, updates: Partial<Course>) => void;
   toggleCourseStatus: (courseId: string) => void;
+  deleteCourse: (courseId: string) => void;
   getPendingReviews: () => Enrollment[];
   getUserNotifications: (userId: string) => Notification[];
   getCourseDiscussions: (courseId: string) => Discussion[];
@@ -353,6 +356,16 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const deleteCourse = (courseId: string) => {
+    const course = courses.find((c) => c.id === courseId);
+    setCourses((prev) => prev.filter((c) => c.id !== courseId));
+    setEnrollments((prev) => prev.filter((e) => e.courseId !== courseId));
+    setAssignments((prev) => prev.filter((a) => a.courseId !== courseId));
+    deleteCourseVideo(courseId).catch(() => {});
+    deletePresentationFile(courseId).catch(() => {});
+    addAuditLog(currentUser?.id || '', '刪除課程', course?.title || courseId, '');
+  };
+
   const getPendingReviews = () => {
     return enrollments.filter(
       (e) => e.reportSubmitted && e.surveySubmitted && e.quizSubmitted && e.reviewStatus === 'pending'
@@ -411,6 +424,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         addCourse,
         updateCourse,
         toggleCourseStatus,
+        deleteCourse,
         getPendingReviews,
         getUserNotifications,
         getCourseDiscussions,

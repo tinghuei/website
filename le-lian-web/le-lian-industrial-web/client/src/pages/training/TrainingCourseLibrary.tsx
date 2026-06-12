@@ -366,7 +366,7 @@ function EditCourseModal({ course, onSave, onClose }: {
 }
 
 export default function TrainingCourseLibrary() {
-  const { courses, currentUser, getUserEnrollments, enrollInCourse, updateCourse, addCourse } = useTrainingAuth();
+  const { courses, currentUser, getUserEnrollments, enrollInCourse, updateCourse, addCourse, deleteCourse } = useTrainingAuth();
   const [, navigate] = useLocation();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('全部');
@@ -421,6 +421,12 @@ export default function TrainingCourseLibrary() {
     }
     setAddingCourse(false);
     showToast('新課程已加入課程庫');
+  }
+
+  function handleDeleteCourse(course: Course) {
+    if (!window.confirm(`確定要刪除「${course.title}」課程嗎？此操作無法復原。`)) return;
+    deleteCourse(course.id);
+    showToast('課程已刪除');
   }
 
   const enrollments = currentUser ? getUserEnrollments(currentUser.id) : [];
@@ -633,6 +639,15 @@ export default function TrainingCourseLibrary() {
                         title="編輯課程"
                       >
                         <Edit3 size={15} />
+                      </button>
+                    )}
+                    {canManage && !course.videoId && !course.localVideo && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course); }}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-gray-200 transition-colors"
+                        title="刪除課程（僅限尚未上傳線上影片的課程）"
+                      >
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </div>

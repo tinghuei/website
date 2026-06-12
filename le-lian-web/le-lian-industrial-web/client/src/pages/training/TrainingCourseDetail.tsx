@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { getCourseVideo } from '../../lib/videoStorage';
+import { getPresentationFile } from '../../lib/presentationStorage';
 import {
   Clock,
   User,
@@ -14,6 +15,8 @@ import {
   ChevronRight,
   BookOpen,
   Award,
+  FileText,
+  Download,
 } from 'lucide-react';
 
 declare global {
@@ -108,6 +111,27 @@ export default function TrainingCourseDetail() {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [course?.id, course?.localVideo]);
+
+  // Local uploaded presentation/教材 file (stored in browser IndexedDB)
+  const [presentationUrl, setPresentationUrl] = useState<string | null>(null);
+  const [presentationIsPdf, setPresentationIsPdf] = useState(false);
+
+  useEffect(() => {
+    setPresentationUrl(null);
+    if (!course?.localPresentation) return;
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    getPresentationFile(course.id).then((file) => {
+      if (cancelled || !file) return;
+      objectUrl = URL.createObjectURL(file);
+      setPresentationUrl(objectUrl);
+      setPresentationIsPdf(file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [course?.id, course?.localPresentation]);
 
   // Sync state from enrollment on mount
   useEffect(() => {
@@ -532,6 +556,33 @@ export default function TrainingCourseDetail() {
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-3">課程說明</h3>
                   <p className="text-gray-600 text-sm leading-relaxed mb-5">{course.description}</p>
+
+                  {course.localPresentation && (
+                    <div className="mb-5">
+                      <h3 className="font-semibold text-gray-900 mb-3">課程教材</h3>
+                      {presentationUrl ? (
+                        presentationIsPdf ? (
+                          <iframe src={presentationUrl} className="w-full h-[600px] rounded-lg border border-gray-200" title="課程教材" />
+                        ) : (
+                          <a
+                            href={presentationUrl}
+                            download={course.presentationName}
+                            className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 hover:bg-blue-100 transition-colors"
+                          >
+                            <FileText size={20} className="shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{course.presentationName}</p>
+                              <p className="text-xs text-blue-500">點擊下載並使用對應軟體開啟</p>
+                            </div>
+                            <Download size={16} className="shrink-0" />
+                          </a>
+                        )
+                      ) : (
+                        <div className="flex items-center justify-center p-8 bg-gray-50 rounded-xl text-gray-400 text-sm">載入教材中...</div>
+                      )}
+                    </div>
+                  )}
+
                   <h3 className="font-semibold text-gray-900 mb-3">課程內容大綱</h3>
                   <div className="space-y-2">
                     {['第一單元：課程介紹與學習目標', '第二單元：核心概念與理論基礎', '第三單元：實務操作與案例分析', '第四單元：常見問題與解決方法', '第五單元：總結與課後評估'].map((item, idx) => (

@@ -336,6 +336,9 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
       status: 'active',
       createdAt: new Date().toISOString().split('T')[0],
       videoId: courseData.videoId,
+      localVideo: courseData.localVideo,
+      localPresentation: courseData.localPresentation,
+      presentationName: courseData.presentationName,
     };
     setCourses((prev) => [...prev, newCourse]);
     addAuditLog(currentUser?.id || '', '新增課程', courseData.title || '', 'AI 自動生成課程內容及測驗題目');

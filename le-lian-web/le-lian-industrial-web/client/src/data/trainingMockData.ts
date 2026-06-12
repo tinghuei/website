@@ -32,6 +32,8 @@ export interface Course {
   quizQuestions: QuizQuestion[];
   videoId?: string; // YouTube video ID (可由管理員在後台設定)
   localVideo?: boolean; // 是否已上傳本機影片檔（儲存於目前瀏覽器的 IndexedDB）
+  localPresentation?: boolean; // 是否已上傳課程簡報/教材檔（儲存於目前瀏覽器的 IndexedDB）
+  presentationName?: string; // 簡報/教材檔案名稱
 }
 
 export interface CourseAssignment {

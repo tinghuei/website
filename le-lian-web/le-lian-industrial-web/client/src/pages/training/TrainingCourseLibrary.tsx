@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { Search, Clock, CheckCircle, BookOpen, ChevronRight, Sparkles, Plus, Edit3, X, Save, Upload, Trash2, Film } from 'lucide-react';
-import type { Course } from '../../data/trainingMockData';
+import { Search, Clock, CheckCircle, BookOpen, ChevronRight, Sparkles, Plus, Edit3, X, Save, Upload, Trash2, Film, FileText, RefreshCw } from 'lucide-react';
+import type { Course, QuizQuestion } from '../../data/trainingMockData';
 import { MAX_VIDEO_SIZE, saveCourseVideo, deleteCourseVideo } from '../../lib/videoStorage';
+import { MAX_PRESENTATION_SIZE, savePresentationFile, deletePresentationFile } from '../../lib/presentationStorage';
+import { generateDraftQuiz } from '../../lib/quizGenerator';
 
 const categoryColors: Record<string, string> = {
   '安全衛生': 'bg-red-100 text-red-700',
@@ -35,9 +37,22 @@ const RECENTLY_ADDED_DAYS = 30;
 
 const CATEGORIES = ['行政職能課程', '法令規範課程', '職能發展課程', '管理發展課程', '生產管理', '品質管理', '安全衛生', '職場技能'];
 
+export interface SaveFiles {
+  videoFile: File | null;
+  removeLocalVideo: boolean;
+  presentationFile: File | null;
+  removePresentation: boolean;
+}
+
+const PRESENTATION_EXTENSIONS = ['.pdf', '.ppt', '.pptx', '.doc', '.docx'];
+
+function emptyQuestion(): QuizQuestion {
+  return { id: `q${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, question: '', options: ['', '', '', ''], answerIndex: 0 };
+}
+
 function EditCourseModal({ course, onSave, onClose }: {
   course: Partial<Course> & { id?: string };
-  onSave: (data: Partial<Course>, videoFile: File | null, removeLocalVideo: boolean) => void;
+  onSave: (data: Partial<Course>, files: SaveFiles) => void;
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
@@ -49,11 +64,19 @@ function EditCourseModal({ course, onSave, onClose }: {
     mandatory: course.mandatory || false,
     passingScore: course.passingScore || 70,
     videoId: course.videoId || '',
+    quizQuestions: course.quizQuestions || [],
   });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [removeLocalVideo, setRemoveLocalVideo] = useState(false);
   const [fileError, setFileError] = useState('');
   const maxVideoMB = MAX_VIDEO_SIZE / 1024 / 1024;
+
+  const [presentationFile, setPresentationFile] = useState<File | null>(null);
+  const [removePresentation, setRemovePresentation] = useState(false);
+  const [presentationError, setPresentationError] = useState('');
+  const maxPresentationMB = MAX_PRESENTATION_SIZE / 1024 / 1024;
+
+  const [quizGenerating, setQuizGenerating] = useState(false);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -69,6 +92,64 @@ function EditCourseModal({ course, onSave, onClose }: {
     setFileError('');
     setVideoFile(file);
     setRemoveLocalVideo(false);
+  }
+
+  function handlePresentationFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    if (!PRESENTATION_EXTENSIONS.includes(ext)) {
+      setPresentationError('請選擇 PDF、PPT、PPTX、DOC 或 DOCX 格式的檔案');
+      return;
+    }
+    if (file.size > MAX_PRESENTATION_SIZE) {
+      setPresentationError(`檔案大小超過 ${maxPresentationMB}MB 上限`);
+      return;
+    }
+    setPresentationError('');
+    setPresentationFile(file);
+    setRemovePresentation(false);
+  }
+
+  function handleAddQuestion() {
+    setForm(f => ({ ...f, quizQuestions: [...f.quizQuestions, emptyQuestion()] }));
+  }
+
+  function handleRemoveQuestion(qIndex: number) {
+    setForm(f => ({ ...f, quizQuestions: f.quizQuestions.filter((_, i) => i !== qIndex) }));
+  }
+
+  function handleQuestionTextChange(qIndex: number, text: string) {
+    setForm(f => ({
+      ...f,
+      quizQuestions: f.quizQuestions.map((q, i) => (i === qIndex ? { ...q, question: text } : q)),
+    }));
+  }
+
+  function handleOptionChange(qIndex: number, oIndex: number, text: string) {
+    setForm(f => ({
+      ...f,
+      quizQuestions: f.quizQuestions.map((q, i) =>
+        i === qIndex ? { ...q, options: q.options.map((o, j) => (j === oIndex ? text : o)) } : q
+      ),
+    }));
+  }
+
+  function handleAnswerIndexChange(qIndex: number, oIndex: number) {
+    setForm(f => ({
+      ...f,
+      quizQuestions: f.quizQuestions.map((q, i) => (i === qIndex ? { ...q, answerIndex: oIndex } : q)),
+    }));
+  }
+
+  function handleGenerateQuiz() {
+    if (quizGenerating) return;
+    setQuizGenerating(true);
+    setTimeout(() => {
+      const drafts = generateDraftQuiz({ title: form.title || '本課程', category: form.category, description: form.description }, 5);
+      setForm(f => ({ ...f, quizQuestions: [...f.quizQuestions, ...drafts] }));
+      setQuizGenerating(false);
+    }, 1200);
   }
 
   return (
@@ -155,14 +236,123 @@ function EditCourseModal({ course, onSave, onClose }: {
               影片檔將儲存在目前瀏覽器中（單檔上限 {maxVideoMB}MB），僅此裝置可播放、清除瀏覽器資料會遺失。若需所有人都能觀看，建議改用上方 YouTube 連結。若兩者皆設定，將優先播放已上傳的影片檔。
             </p>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">上傳課程簡報/教材（選填）</label>
+            {course.localPresentation && !removePresentation && !presentationFile && (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-2 text-sm">
+                <span className="flex items-center gap-1.5 text-green-700 truncate min-w-0">
+                  <FileText size={14} className="shrink-0" />
+                  <span className="truncate">已上傳：{course.presentationName || '課程教材'}</span>
+                </span>
+                <button type="button" onClick={() => setRemovePresentation(true)} className="text-red-500 hover:text-red-600 flex items-center gap-1 text-xs shrink-0 ml-2">
+                  <Trash2 size={12} />移除
+                </button>
+              </div>
+            )}
+            {removePresentation && (
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 text-xs text-amber-700">
+                <span>儲存後將移除已上傳的課程教材</span>
+                <button type="button" onClick={() => setRemovePresentation(false)} className="text-blue-600 hover:text-blue-700">復原</button>
+              </div>
+            )}
+            {presentationFile ? (
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2 text-sm">
+                <span className="flex items-center gap-1.5 text-blue-700 truncate min-w-0">
+                  <FileText size={14} className="shrink-0" />
+                  <span className="truncate">{presentationFile.name}（{(presentationFile.size / 1024 / 1024).toFixed(1)}MB）</span>
+                </span>
+                <button type="button" onClick={() => setPresentationFile(null)} className="text-gray-400 hover:text-gray-600 shrink-0 ml-2"><X size={14} /></button>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-500 cursor-pointer hover:border-blue-400 hover:text-blue-600 transition-colors">
+                <Upload size={15} />
+                選擇要上傳的簡報/文件（PDF、PPT、PPTX、DOC、DOCX）
+                <input type="file" accept=".pdf,.ppt,.pptx,.doc,.docx" className="hidden" onChange={handlePresentationFileChange} />
+              </label>
+            )}
+            {presentationError && <p className="text-xs text-red-500 mt-1">{presentationError}</p>}
+            <p className="text-xs text-gray-400 mt-1">
+              教材檔將儲存在目前瀏覽器中（單檔上限 {maxPresentationMB}MB）。PDF 可直接於課程內容頁瀏覽，其他格式提供下載觀看。
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="mandatory" checked={form.mandatory} onChange={e => setForm(f => ({ ...f, mandatory: e.target.checked }))} className="accent-blue-600" />
             <label htmlFor="mandatory" className="text-sm text-gray-700">設為必修課程</label>
           </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+              <label className="block text-xs font-medium text-gray-600">測驗題目（{form.quizQuestions.length} 題）</label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateQuiz}
+                  disabled={quizGenerating}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+                >
+                  {quizGenerating ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                  {quizGenerating ? 'AI 生成中...' : 'AI 自動生成測驗'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddQuestion}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
+                >
+                  <Plus size={11} />新增題目
+                </button>
+              </div>
+            </div>
+            {form.quizQuestions.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 mb-2">
+                <strong>提示：</strong>AI 自動生成之題目為草稿，請確認題目內容與正確答案後再儲存發布。
+              </div>
+            )}
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {form.quizQuestions.map((q, qi) => (
+                <div key={q.id} className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50/50">
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs font-semibold text-gray-400 mt-2 shrink-0">Q{qi + 1}</span>
+                    <textarea
+                      value={q.question}
+                      onChange={e => handleQuestionTextChange(qi, e.target.value)}
+                      rows={2}
+                      placeholder="輸入題目內容"
+                      className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
+                    />
+                    <button type="button" onClick={() => handleRemoveQuestion(qi)} className="text-gray-400 hover:text-red-500 shrink-0 mt-1.5"><X size={14} /></button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5 pl-6">
+                    {q.options.map((opt, oi) => (
+                      <label key={oi} className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`answer-${q.id}`}
+                          checked={q.answerIndex === oi}
+                          onChange={() => handleAnswerIndexChange(qi, oi)}
+                          className="accent-green-600 shrink-0"
+                          title="設為正確答案"
+                        />
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={e => handleOptionChange(qi, oi, e.target.value)}
+                          placeholder={`選項 ${oi + 1}`}
+                          className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-gray-400 pl-6">點選圓圈以設定正確答案</p>
+                </div>
+              ))}
+              {form.quizQuestions.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-4">尚無測驗題目，可點擊「AI 自動生成測驗」或「新增題目」</p>
+              )}
+            </div>
+          </div>
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700">取消</button>
             <button
-              onClick={() => { if (!form.title) return; onSave(form, videoFile, removeLocalVideo); }}
+              onClick={() => { if (!form.title) return; onSave(form, { videoFile, removeLocalVideo, presentationFile, removePresentation }); }}
               disabled={!form.title}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
             >
@@ -191,25 +381,43 @@ export default function TrainingCourseLibrary() {
     setTimeout(() => setToast(''), 3000);
   }
 
-  async function handleSaveEdit(data: Partial<Course>, videoFile: File | null, removeLocalVideo: boolean) {
+  async function handleSaveEdit(data: Partial<Course>, files: SaveFiles) {
     if (!editingCourse) return;
     const updates: Partial<Course> = { ...data };
-    if (videoFile) {
-      await saveCourseVideo(editingCourse.id, videoFile);
+    if (files.videoFile) {
+      await saveCourseVideo(editingCourse.id, files.videoFile);
       updates.localVideo = true;
-    } else if (removeLocalVideo) {
+    } else if (files.removeLocalVideo) {
       await deleteCourseVideo(editingCourse.id);
       updates.localVideo = false;
+    }
+    if (files.presentationFile) {
+      await savePresentationFile(editingCourse.id, files.presentationFile);
+      updates.localPresentation = true;
+      updates.presentationName = files.presentationFile.name;
+    } else if (files.removePresentation) {
+      await deletePresentationFile(editingCourse.id);
+      updates.localPresentation = false;
+      updates.presentationName = undefined;
     }
     updateCourse(editingCourse.id, updates);
     setEditingCourse(null);
     showToast('課程已更新');
   }
 
-  async function handleAddCourse(data: Partial<Course>, videoFile: File | null) {
-    const newCourse = addCourse({ ...data, status: 'active', quizQuestions: [], localVideo: !!videoFile });
-    if (videoFile) {
-      await saveCourseVideo(newCourse.id, videoFile);
+  async function handleAddCourse(data: Partial<Course>, files: SaveFiles) {
+    const newCourse = addCourse({
+      ...data,
+      status: 'active',
+      localVideo: !!files.videoFile,
+      localPresentation: !!files.presentationFile,
+      presentationName: files.presentationFile?.name,
+    });
+    if (files.videoFile) {
+      await saveCourseVideo(newCourse.id, files.videoFile);
+    }
+    if (files.presentationFile) {
+      await savePresentationFile(newCourse.id, files.presentationFile);
     }
     setAddingCourse(false);
     showToast('新課程已加入課程庫');

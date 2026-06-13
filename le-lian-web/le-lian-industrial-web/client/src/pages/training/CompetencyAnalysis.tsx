@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import {
   RadarChart,
   Radar,
@@ -11,251 +11,222 @@ import {
 } from 'recharts';
 import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCategory } from '../../data/competencyFramework';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-interface CompetencyScores {
-  technical: number;
-  communication: number;
-  leadership: number;
-  problem: number;
-  teamwork: number;
-  safety: number;
+// 職能分數以「職能類別 id」為鍵（例如 cm-1, cm-2...），各職位的類別數量與名稱皆不同（約 2～6 項）
+type CompetencyScores = Record<string, number>;
+
+interface DimensionMeta {
+  id: string;
+  label: string;
+  course: string;
 }
 
-type JobTitle = '技術員/班長' | '助理專員/組長' | '工程師/課長' | '副理/經理以上';
+// ── 職位／部門資料（依共用職能框架取得，共 38 個職位） ───────────────────────────
+const POSITION_NAMES = Object.keys(DETAILED_COMPETENCY_FRAMEWORK);
 
-// ── iCAP Standards ─────────────────────────────────────────────────────────────
-const ICAP_STANDARDS: Record<JobTitle, CompetencyScores> = {
-  '技術員/班長':    { technical: 65, communication: 55, leadership: 45, problem: 60, teamwork: 70, safety: 85 },
-  '助理專員/組長':  { technical: 70, communication: 65, leadership: 55, problem: 65, teamwork: 70, safety: 80 },
-  '工程師/課長':    { technical: 80, communication: 72, leadership: 68, problem: 75, teamwork: 75, safety: 78 },
-  '副理/經理以上':  { technical: 72, communication: 82, leadership: 88, problem: 82, teamwork: 80, safety: 72 },
-};
+const POSITIONS_BY_DEPT: Record<string, string[]> = {};
+POSITION_NAMES.forEach((name) => {
+  const dept = DETAILED_COMPETENCY_FRAMEWORK[name].category;
+  (POSITIONS_BY_DEPT[dept] ??= []).push(name);
+});
+const DEPARTMENTS = Object.keys(POSITIONS_BY_DEPT);
 
-// Mock manager assessment
-const MANAGER_ASSESSMENT: CompetencyScores = {
-  technical: 72, communication: 68, leadership: 55, problem: 70, teamwork: 75, safety: 80,
-};
+// 依職能類別名稱，對應建議進修的課程分類（與課程庫課程分類一致）
+function recommendCourseCategory(categoryName: string): string {
+  if (/安全|衛生|危害|防護/.test(categoryName)) return '安全衛生';
+  if (/品質|品檢/.test(categoryName)) return '品質管理';
+  if (/生產|製程|機械設備操作|物料|倉庫|物流|採購|計畫與協調|生產計畫/.test(categoryName)) return '生產管理';
+  if (/領導與管理|領導與管理能力|成本控制|人力資源|行政管理/.test(categoryName)) return '管理發展課程';
+  if (/溝通|協調|客戶|業務|銷售|市場/.test(categoryName)) return '職場技能';
+  if (/技術|創新|研發|文檔|設備管理|廠房|改善/.test(categoryName)) return '職能發展課程';
+  if (/庶務|清潔|文件管理|行政協助|行政執行/.test(categoryName)) return '行政職能課程';
+  return '職能發展課程';
+}
 
-// Dimension metadata
-const DIMENSIONS: { key: keyof CompetencyScores; label: string; course: string }[] = [
-  { key: 'technical',      label: '專業技能',   course: '衝壓成型技術進階' },
-  { key: 'communication',  label: '溝通協作',   course: '職場溝通與跨部門協作' },
-  { key: 'leadership',     label: '領導管理',   course: '基層主管管理能力提升' },
-  { key: 'problem',        label: '問題解決',   course: '品質問題分析與改善' },
-  { key: 'teamwork',       label: '團隊合作',   course: '5S推行與現場管理實務' },
-  { key: 'safety',         label: '安全意識',   course: '職業安全衛生法規研習' },
-];
-
-// Random initial self-scores in 50-85 range
+// ── 分數計算工具 ─────────────────────────────────────────────────────────────────
 function randomScore(min = 50, max = 85) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const INITIAL_SCORES: CompetencyScores = {
-  technical:     randomScore(),
-  communication: randomScore(),
-  leadership:    randomScore(),
-  problem:       randomScore(),
-  teamwork:      randomScore(),
-  safety:        randomScore(),
-};
+function buildInitialScores(position: PositionData): CompetencyScores {
+  const scores: CompetencyScores = {};
+  position.competencies.forEach((c) => { scores[c.id] = randomScore(); });
+  return scores;
+}
 
-// ── Target departments for rotation analysis ───────────────────────────────────
-const TARGET_DEPARTMENTS = ['品保課', '製造課', '研發課', '業務課', '人資安全組', '財務部', '廠務部', '總務課'];
+// 依職位「要求等級」（0-5）換算為 0-100 的職能標準分數
+function buildStandardScores(position: PositionData): CompetencyScores {
+  const target = Math.min(100, position.requiredLevel * 20);
+  const scores: CompetencyScores = {};
+  position.competencies.forEach((c) => { scores[c.id] = target; });
+  return scores;
+}
 
-// ── AI-recognized result type ──────────────────────────────────────────────────
+// 模擬主管評估分數（於標準值附近隨機波動）
+function buildManagerScores(position: PositionData): CompetencyScores {
+  const target = Math.min(100, position.requiredLevel * 20);
+  const scores: CompetencyScores = {};
+  position.competencies.forEach((c) => {
+    scores[c.id] = Math.min(100, Math.max(30, target + Math.round((Math.random() - 0.4) * 20)));
+  });
+  return scores;
+}
+
+function getDimensions(position: PositionData): DimensionMeta[] {
+  return position.competencies.map((c) => ({
+    id: c.id,
+    label: c.category,
+    course: recommendCourseCategory(c.category),
+  }));
+}
+
+// ── AI 辨識結果型別 ────────────────────────────────────────────────────────────
 interface RecognizedDoc {
   fileName: string;
-  jobTitle: JobTitle;
+  positionName: string;
   competencies: CompetencyScores;
   description: string;
   extractedItems: string[];
 }
 
-// Simulate AI recognition for different file names / content
-function simulateRecognition(fileName: string): RecognizedDoc {
-  let jobTitle: JobTitle = '工程師/課長';
-  // L1: 技術員/班長 — frontline operators and team leaders
-  if (/班長|技術員|操作員|作業員|生產線|焊接工|沖床工|塗裝工|組裝員|鑄造員|切削員|加工員|機台員|現場員工|衝壓員|品檢員|倉庫員|線上作業員|operator/i.test(fileName))
-    jobTitle = '技術員/班長';
-  // L2: 助理專員/組長 — specialists and group supervisors
-  if (/組長|助理專員|[^課]專員|助理工程師|採購員|倉管員|業務助理|人事助理|行政人員|接待員|人資助理|業務員|specialist|lead/i.test(fileName))
-    jobTitle = '助理專員/組長';
-  // L3: 工程師/課長 — engineers and section chiefs (overrides L2 if explicit)
-  if (/工程師|課長|品保課|品管課|製造課|研發課|設備課|廠務課|business.*eng|engineer|品保工程|製程工程|資訊工程|電氣工程|機械工程|IE工程|安全衛生工程/i.test(fileName))
-    jobTitle = '工程師/課長';
-  // L4: 副理/經理以上 — managers and above (highest priority)
-  if (/副理|副廠長|副總|經理|manager|協理|總監|廠長|部長|處長|總經理|主任委員/i.test(fileName))
-    jobTitle = '副理/經理以上';
+// 依檔名長度由長到短比對職位名稱，避免「組長」誤判蓋掉「副組長」等較長的職位名稱
+const POSITION_NAMES_BY_LENGTH = [...POSITION_NAMES].sort((a, b) => b.length - a.length);
 
-  const base = ICAP_STANDARDS[jobTitle];
+// 常見職稱關鍵字 → 對應職位（當檔名未直接包含完整職位名稱時的備援對應）
+const POSITION_ALIASES: Record<string, string> = {
+  '操作員': '技術員',
+  '作業員': '技術員',
+  '現場員工': '技術員',
+  '線上作業員': '技術員',
+  '經理': '廠務經理',
+  '副理': '廠務副理',
+  '工程師': '設備工程師',
+  '課長': '製造課長',
+  '副課長': '製造副課長',
+  '專員': '業務專員',
+  '助理': '總務助理',
+  '秘書': '總經理室秘書',
+};
+
+function detectPosition(fileName: string): string {
+  for (const name of POSITION_NAMES_BY_LENGTH) {
+    if (fileName.includes(name)) return name;
+  }
+  for (const [kw, name] of Object.entries(POSITION_ALIASES)) {
+    if (fileName.includes(kw)) return name;
+  }
+  return '技術員';
+}
+
+// 模擬 AI 職能書辨識結果
+function simulateRecognition(fileName: string): RecognizedDoc {
+  const positionName = detectPosition(fileName);
+  const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
+  const base = buildStandardScores(position);
   const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
 
-  // Extract department context from filename
-  const deptMap: Record<string, string> = {
-    '品保|品管|QA|QC|IATF|ISO': '品保課',
-    '製造|生產|沖床|焊接|塗裝|加工': '製造課',
-    '研發|設計|RD|模具': '研發課',
-    '業務|銷售|客服|營業': '業務課',
-    '人資|HR|人事|招募': '人資安全組',
-    '財務|會計|成本|採購': '財務部',
-    '廠務|設備|維修|TPM': '廠務部',
-  };
-  let dept = '管理部';
-  for (const [pattern, deptName] of Object.entries(deptMap)) {
-    if (new RegExp(pattern, 'i').test(fileName)) { dept = deptName; break; }
-  }
-
-  // Derive key responsibilities from job title
-  const responsibilityMap: Record<JobTitle, string[]> = {
-    '技術員/班長': [
-      '依 SOP 執行生產作業，確保製程品質與產出數量',
-      '執行5S整理整頓，維持工作現場安全衛生',
-      '異常狀況即時通報，配合品保課進行首件確認',
-      '協助新進人員現場作業訓練與指導',
-    ],
-    '助理專員/組長': [
-      '帶領班組達成日/月生產目標，協調人機料法環',
-      '主導現場改善提案（IE/QCC），降低製程損耗',
-      '執行跨班交接、問題追蹤與異常處理回報',
-      '協助課長推行教育訓練計畫，擔任內部講師',
-    ],
-    '工程師/課長': [
-      '負責課別目標管理、預算規劃與績效考核',
-      '主導製程標準化、SOP建立及技術文件維護',
-      '跨部門溝通協調（品保/研發/業務），處理客訴與改善',
-      '規劃部屬職能發展，提報年度訓練需求',
-    ],
-    '副理/經理以上': [
-      '制定部門策略目標，確保與公司整體方向一致',
-      '統籌跨部門資源整合，推動組織效能提升',
-      '對外代表公司與客戶、供應商進行高層談判',
-      '建立人才梯隊，實施接班人計畫與績效管理制度',
-    ],
-  };
-
-  const skills: Record<JobTitle, string[]> = {
-    '技術員/班長':   ['機械操作技能', '品質基礎知識(外觀/尺寸檢驗)', '職業安全衛生法規(6小時)'],
-    '助理專員/組長': ['生產管理基礎(效率/稼動率)', '問題分析與解決(QCC/8D)', '勞動法令基礎'],
-    '工程師/課長':   ['ISO 9001/IATF 16949品質系統', '專案管理(PDCA/FMEA)', '財務報表解讀與成本分析'],
-    '副理/經理以上': ['策略規劃與組織管理', '財務管控與預算管理', '法律風險與勞動關係'],
-  };
+  const competencies: CompetencyScores = {};
+  position.competencies.forEach((c) => { competencies[c.id] = vary(base[c.id]); });
 
   return {
     fileName,
-    jobTitle,
-    competencies: {
-      technical:     vary(base.technical),
-      communication: vary(base.communication),
-      leadership:    vary(base.leadership),
-      problem:       vary(base.problem),
-      teamwork:      vary(base.teamwork),
-      safety:        vary(base.safety),
-    },
-    description: `AI 已成功辨識「${fileName}」為【${jobTitle}】職級工作說明書，適用部門：${dept}。已依 iCAP 職能基準自動對應各職能向度標準分數，並提取主要工作職責與必要技能。`,
+    positionName,
+    competencies,
+    description: `AI 已成功辨識「${fileName}」為【${positionName}】（${position.category}・${position.level}）工作說明書，並已依職能基準框架自動對應該職位的 ${position.competencies.length} 項職能向度標準分數。`,
     extractedItems: [
-      `📋 職稱等級：${jobTitle}`,
-      `🏢 適用部門：${dept}`,
-      `📌 主要職責：${responsibilityMap[jobTitle][0]}`,
-      `📌 工作項目：${responsibilityMap[jobTitle][1]}`,
-      `🎯 必要技能：${skills[jobTitle][0]}`,
-      `🎯 進階技能：${skills[jobTitle][1]}`,
-      `⚖️ 法規遵循：${skills[jobTitle][2]}`,
-      `📊 TTQS對應：計劃(Plan)—訓練需求評估 / 設計(Design)—職能課程規劃`,
+      `📋 職位：${positionName}（${position.category}）`,
+      `🏷️ 職級：${position.level}（要求等級 ${position.requiredLevel}/5）`,
+      ...position.competencies.map((c) => `📌 ${c.category}：${c.items.map((i) => i.name).join('、')}`),
     ],
   };
 }
 
-// ── Competency Gap Quiz Data ───────────────────────────────────────────────────
+// ── 職能缺口測驗 ───────────────────────────────────────────────────────────────
 interface GapQuizQuestion {
   id: string;
-  dimension: keyof CompetencyScores;
+  dimensionId: string;
+  dimensionLabel: string;
   question: string;
   options: string[];
   answerIndex: number;
 }
 
-const GAP_QUIZ_BANK: Record<JobTitle, GapQuizQuestion[]> = {
-  '技術員/班長': [
-    { id: 'tq1', dimension: 'technical', question: '執行作業前，應優先確認下列哪項？', options: ['確認作業速度最大化', '確認SOP標準作業程序及安全防護', '先完成作業再查閱SOP', '依個人習慣作業'], answerIndex: 1 },
-    { id: 'tq2', dimension: 'technical', question: '發現品質異常時，正確的處理步驟是？', options: ['繼續生產直到數量達標', '立即停機並通報班長/品保', '將不良品混入良品中', '等班次結束後再報告'], answerIndex: 1 },
-    { id: 'tq3', dimension: 'safety', question: '進入作業區前，下列哪項是必要的安全措施？', options: ['只有新人需要穿戴PPE', '視情況決定是否穿戴防護裝備', '依規定穿戴所有必要防護裝備（安全帽/護目鏡/耳塞）', '確認沒有主管在場再穿戴'], answerIndex: 2 },
-    { id: 'tq4', dimension: 'safety', question: '發現機台洩漏異常油液時，應如何處理？', options: ['繼續生產，下班後再報告', '立即停機、設置警示標誌並通報設備人員', '用抹布擦拭後繼續使用', '等油液增多再處理'], answerIndex: 1 },
-    { id: 'tq5', dimension: 'communication', question: '班次交接時，最重要的是？', options: ['快速交班，節省時間', '詳細說明異常狀況、生產進度及待處理事項', '只告知生產數量', '口頭隨意說明即可'], answerIndex: 1 },
-    { id: 'tq6', dimension: 'teamwork', question: '同事作業遇到困難時，你應該？', options: ['這是他的工作，不需介入', '只告知主管，不直接幫忙', '主動提供協助，並在完成後回報班長', '等他自己解決'], answerIndex: 2 },
-    { id: 'tq7', dimension: 'problem', question: '生產線突發停機，你的首要處置是？', options: ['等待主管指示，不需主動處置', '立即確認原因、評估影響並通報相關人員', '先紀錄停機時間再通報', '聯繫廠商直接修理'], answerIndex: 1 },
-    { id: 'tq8', dimension: 'leadership', question: '班長在帶領班組時，最重要的責任是？', options: ['只需監督員工不遲到', '確保生產目標、品質標準及人員安全同時達成', '只管生產數量', '等主管指示再行動'], answerIndex: 1 },
-  ],
-  '助理專員/組長': [
-    { id: 'aq1', dimension: 'technical', question: '稼動率（OEE）的計算包含下列哪三個要素？', options: ['品質率 × 效率 × 可用率', '品質 × 速度 × 成本', '人員出勤率 × 生產量 × 良品率', '計劃產出 × 實際產出 × 品質'], answerIndex: 0 },
-    { id: 'aq2', dimension: 'problem', question: 'QCC品管圈活動的PDCA中，「C」代表？', options: ['Create（創造）', 'Check（查核/確認效果）', 'Cost（成本）', 'Control（控制人員）'], answerIndex: 1 },
-    { id: 'aq3', dimension: 'leadership', question: '帶領組員完成改善提案時，組長應？', options: ['獨立完成，不需組員參與', '引導組員參與分析與對策提出，培養問題解決能力', '只有表現好的組員才參與', '由上級決定所有對策'], answerIndex: 1 },
-    { id: 'aq4', dimension: 'communication', question: '跨班異常交接時，必須填寫哪些資料？', options: ['只填當班姓名', '異常發生時間、位置、原因、已採取措施及後續追蹤', '只記錄生產數量', '口頭說明即可，不需書面記錄'], answerIndex: 1 },
-    { id: 'aq5', dimension: 'safety', question: '危險物品（化學品）使用前，必須查閱？', options: ['網路搜尋用途', '安全資料表（SDS/MSDS）並確認防護措施', '問同事如何使用', '按個人經驗處理'], answerIndex: 1 },
-    { id: 'aq6', dimension: 'teamwork', question: '遇到跨部門資源協調困難時，組長應？', options: ['放棄協調，報告無法完成', '透過主管或正式溝通管道協調，並尋求共識', '直接要求對方部門配合', '繞過對方，自行解決'], answerIndex: 1 },
-    { id: 'aq7', dimension: 'problem', question: '8D問題解決方法中，「D4」代表？', options: ['找到問題擁有者', '確認並驗證根本原因', '建立應急措施', '執行永久對策'], answerIndex: 1 },
-  ],
-  '工程師/課長': [
-    { id: 'eq1', dimension: 'technical', question: 'IATF 16949 中的APQP（先期產品品質規劃）包含幾個階段？', options: ['3個階段', '4個階段', '5個階段', '6個階段'], answerIndex: 2 },
-    { id: 'eq2', dimension: 'technical', question: 'FMEA（失效模式及效應分析）的RPN值計算公式為？', options: ['嚴重度 + 發生率 + 偵測度', '嚴重度 × 發生率 × 偵測度', '嚴重度 × 發生率 ÷ 偵測度', '（嚴重度 + 發生率）× 偵測度'], answerIndex: 1 },
-    { id: 'eq3', dimension: 'problem', question: '客訴處理的8D報告中，D8代表？', options: ['根本原因確認', '永久對策實施', '恭賀團隊並標準化預防再發', '應急措施確認'], answerIndex: 2 },
-    { id: 'eq4', dimension: 'leadership', question: '課長在進行年度績效考核時，應注意避免？', options: ['過於關注員工的缺點', '月暈效應（以單一突出表現影響整體評價）', '設定明確的SMART目標', '進行雙向溝通'], answerIndex: 1 },
-    { id: 'eq5', dimension: 'communication', question: '面對客戶提出的緊急設計變更需求，課長的標準處理流程是？', options: ['直接拒絕，維持現有設計', '評估可行性、確認成本影響、通過ECR程序正式變更', '口頭承諾後再通知工廠', '由業務全權處理，工程不需介入'], answerIndex: 1 },
-    { id: 'eq6', dimension: 'problem', question: 'SPC管制圖中，出現「連續9點在中心線同側」屬於？', options: ['正常波動，無需處理', '製程失控警訊（特殊原因變異），需立即調查', '表示製程能力提升', '只需記錄，不需行動'], answerIndex: 1 },
-    { id: 'eq7', dimension: 'safety', question: '工廠進行設備維修時，必須執行下列哪項安全程序？', options: ['確認主管授權後直接作業', '執行LOTO（鎖定/掛牌程序）確保能源隔離', '關閉電源開關即可', '設備商自行負責安全'], answerIndex: 1 },
-  ],
-  '副理/經理以上': [
-    { id: 'mq1', dimension: 'leadership', question: '推動組織變革時，領導者最重要的任務是？', options: ['強制執行，確保速度', '清楚溝通願景、取得關鍵人員支持、管理阻力並建立信任', '只需提出計畫，由下屬執行', '等待完美時機再推動'], answerIndex: 1 },
-    { id: 'mq2', dimension: 'technical', question: '損益表中，「毛利率」的計算公式為？', options: ['（淨利 ÷ 營收）× 100%', '（營收 - 銷貨成本）÷ 營收 × 100%', '（營收 - 所有費用）÷ 營收 × 100%', '（EBIT ÷ 總資產）× 100%'], answerIndex: 1 },
-    { id: 'mq3', dimension: 'communication', question: '在高層會議中進行策略提案，最有效的簡報結構為？', options: ['從詳細數據開始，逐步說明', '先提出結論與建議，再佐證數據與執行方案（金字塔原則）', '依照時間順序說明過程', '只提問題，不提解決方案'], answerIndex: 1 },
-    { id: 'mq4', dimension: 'problem', question: '面對多項高優先度問題，主管應如何分配資源？', options: ['依問題發生的先後順序處理', '依影響程度 × 緊急程度矩陣（艾森豪矩陣）排定優先順序', '全部同時處理', '只處理自己擅長的問題'], answerIndex: 1 },
-    { id: 'mq5', dimension: 'leadership', question: '人才培育的最佳實踐是？', options: ['僅提供外部訓練課程', 'OJT（在職訓練）+ 教練輔導 + 正式課程三者並行', '等員工主動要求再培訓', '只培育表現最好的員工'], answerIndex: 1 },
-    { id: 'mq6', dimension: 'communication', question: '勞動爭議發生時，主管應首先？', options: ['立即解僱以示立場', '了解事實、保持中立、諮詢人資法規，依法定程序處理', '完全交由HR處理，不需介入', '公開討論以警示其他員工'], answerIndex: 1 },
-    { id: 'mq7', dimension: 'problem', question: '公司面臨主要客戶訂單大幅縮減的危機，經理應？', options: ['等待情況自動恢復', '分析原因、緊急啟動多元客戶開發計畫、優化成本結構並加強現有客戶關係', '立即大量裁員降低成本', '只向上層反映，等待指示'], answerIndex: 1 },
-  ],
-};
+// 所有職位的職能項目（含所屬類別），作為測驗選項的干擾項來源
+const ITEM_POOL: { categoryName: string; name: string; description: string }[] = Object.values(DETAILED_COMPETENCY_FRAMEWORK).flatMap((p) =>
+  p.competencies.flatMap((c) => c.items.map((i) => ({ categoryName: c.category, name: i.name, description: i.description })))
+);
 
-// Generate quiz from gap dimensions
-function generateGapQuiz(jobTitle: JobTitle, selfScores: CompetencyScores, standards: CompetencyScores): GapQuizQuestion[] {
-  // Sort dimensions by gap size (largest gap first)
-  const gapDims = DIMENSIONS
-    .map(d => ({ ...d, gap: standards[d.key] - selfScores[d.key] }))
-    .filter(d => d.gap > 0)
-    .sort((a, b) => b.gap - a.gap)
-    .slice(0, 4); // take top 4 gap dimensions
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
-  const bank = GAP_QUIZ_BANK[jobTitle] || GAP_QUIZ_BANK['工程師/課長'];
-  const questions: GapQuizQuestion[] = [];
+// 依職能類別自動生成測驗題：以該類別職能項目的說明為正解，干擾項取自其他類別的職能項目說明
+function buildCategoryQuestions(category: CompetencyCategory): GapQuizQuestion[] {
+  const ownNames = new Set(category.items.map((i) => i.name));
+  const distractorPool = ITEM_POOL.filter((i) => i.categoryName !== category.category && !ownNames.has(i.name));
 
-  gapDims.forEach(dim => {
-    const dimQs = bank.filter(q => q.dimension === dim.key);
-    if (dimQs.length > 0) {
-      // Pick 1-2 questions per gap dimension
-      questions.push(dimQs[0]);
-      if (dimQs.length > 1 && dim.gap > 15) questions.push(dimQs[1]);
-    }
+  return category.items.map((item, idx) => {
+    const distractors = shuffle(distractorPool.filter((d) => d.description !== item.description)).slice(0, 3);
+    const optionItems = shuffle([
+      { text: item.description, correct: true },
+      ...distractors.map((d) => ({ text: d.description, correct: false })),
+    ]);
+    return {
+      id: `${category.id}-${idx}`,
+      dimensionId: category.id,
+      dimensionLabel: category.category,
+      question: `關於「${category.category}」職能中的「${item.name}」，其主要工作內容說明為下列何者？`,
+      options: optionItems.map((o) => o.text),
+      answerIndex: optionItems.findIndex((o) => o.correct),
+    };
+  });
+}
+
+// 依職能落差，從落差最大的職能向度自動生成測驗題
+function generateGapQuiz(position: PositionData, selfScores: CompetencyScores, standards: CompetencyScores): GapQuizQuestion[] {
+  const ranked = [...position.competencies].sort((a, b) => {
+    const gapA = (standards[a.id] ?? 0) - (selfScores[a.id] ?? 0);
+    const gapB = (standards[b.id] ?? 0) - (selfScores[b.id] ?? 0);
+    return gapB - gapA;
   });
 
-  // Fill up to 6 questions if needed
-  if (questions.length < 4) {
-    const extras = bank.filter(q => !questions.find(pq => pq.id === q.id));
-    questions.push(...extras.slice(0, 4 - questions.length));
+  const questions: GapQuizQuestion[] = [];
+  for (const category of ranked) {
+    const gap = (standards[category.id] ?? 0) - (selfScores[category.id] ?? 0);
+    const qs = buildCategoryQuestions(category);
+    const take = gap > 15 ? Math.min(2, qs.length) : Math.min(1, qs.length);
+    questions.push(...qs.slice(0, take));
+    if (questions.length >= 8) break;
+    if (questions.length >= 4 && gap <= 0) break;
   }
-
   return questions.slice(0, 8);
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function CompetencyAnalysis() {
   const { currentUser } = useTrainingAuth();
-  const [jobTitle, setJobTitle] = useState<JobTitle>('工程師/課長');
-  const [selfScores, setSelfScores] = useState<CompetencyScores>({ ...INITIAL_SCORES });
+
+  const [positionName, setPositionName] = useState<string>(POSITION_NAMES[0]);
+  const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
+  const dimensions = useMemo(() => getDimensions(position), [positionName]);
+
+  const [selfScores, setSelfScores] = useState<CompetencyScores>(() => buildInitialScores(position));
+  const [managerScores, setManagerScores] = useState<CompetencyScores>(() => buildManagerScores(position));
   const [submitted, setSubmitted] = useState(false);
   const [showManager, setShowManager] = useState(false);
-  const [targetDept, setTargetDept] = useState('品保部');
+  const [targetDept, setTargetDept] = useState(DEPARTMENTS[0]);
   const [fitScore, setFitScore] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [customStandards, setCustomStandards] = useState<CompetencyScores | null>(null);
+
+  const standards = customStandards ?? buildStandardScores(position);
 
   // Competency gap quiz states
   const [quizStarted, setQuizStarted] = useState(false);
@@ -263,8 +234,24 @@ export default function CompetencyAnalysis() {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
 
+  // 切換職位：重置自評、主管評估、提交狀態與測驗，避免沿用舊職位的職能維度
+  function handlePositionChange(name: string) {
+    const next = DETAILED_COMPETENCY_FRAMEWORK[name];
+    setPositionName(name);
+    setSelfScores(buildInitialScores(next));
+    setManagerScores(buildManagerScores(next));
+    setCustomStandards(null);
+    setSubmitted(false);
+    setShowManager(false);
+    setFitScore(null);
+    setQuizStarted(false);
+    setQuizQuestions([]);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+  }
+
   function startQuiz() {
-    const qs = generateGapQuiz(jobTitle, selfScores, standards);
+    const qs = generateGapQuiz(position, selfScores, standards);
     setQuizQuestions(qs);
     setQuizAnswers({});
     setQuizSubmitted(false);
@@ -276,7 +263,7 @@ export default function CompetencyAnalysis() {
   }
 
   const quizScore = quizSubmitted
-    ? Math.round((quizQuestions.filter(q => quizAnswers[q.id] === q.answerIndex).length / quizQuestions.length) * 100)
+    ? Math.round((quizQuestions.filter((q) => quizAnswers[q.id] === q.answerIndex).length / quizQuestions.length) * 100)
     : 0;
 
   // Document upload states
@@ -287,27 +274,24 @@ export default function CompetencyAnalysis() {
   const [docStep, setDocStep] = useState(0);
   const [docResult, setDocResult] = useState<RecognizedDoc | null>(null);
   const [docApplied, setDocApplied] = useState(false);
-  const [customStandards, setCustomStandards] = useState<CompetencyScores | null>(null);
-  const [correctedJobTitle, setCorrectedJobTitle] = useState<JobTitle>('工程師/課長');
-
-  const standards = customStandards ?? ICAP_STANDARDS[jobTitle];
+  const [correctedPositionName, setCorrectedPositionName] = useState<string>(POSITION_NAMES[0]);
 
   // Build radar data
-  const radarData = DIMENSIONS.map(({ key, label }) => ({
+  const radarData = dimensions.map(({ id, label }) => ({
     dimension: label,
-    自評:   selfScores[key],
-    標準:   standards[key],
-    ...(showManager ? { 主管評估: MANAGER_ASSESSMENT[key] } : {}),
+    自評: selfScores[id] ?? 0,
+    標準: standards[id] ?? 0,
+    ...(showManager ? { 主管評估: managerScores[id] ?? 0 } : {}),
   }));
 
   // Gap analysis helpers
   function getGapColor(gap: number) {
-    if (gap <= 0)  return 'bg-green-100 border-green-300 text-green-800';
+    if (gap <= 0) return 'bg-green-100 border-green-300 text-green-800';
     if (gap <= 15) return 'bg-yellow-100 border-yellow-300 text-yellow-800';
     return 'bg-red-100 border-red-300 text-red-800';
   }
   function getGapIcon(gap: number) {
-    if (gap <= 0)  return <CheckCircle size={16} className="text-green-600" />;
+    if (gap <= 0) return <CheckCircle size={16} className="text-green-600" />;
     if (gap <= 15) return <AlertCircle size={16} className="text-yellow-600" />;
     return <XCircle size={16} className="text-red-600" />;
   }
@@ -332,7 +316,7 @@ export default function CompetencyAnalysis() {
           setTimeout(() => {
             const result = simulateRecognition(file.name);
             setDocResult(result);
-            setCorrectedJobTitle(result.jobTitle);
+            setCorrectedPositionName(result.positionName);
             setDocProcessing(false);
           }, 600);
         }
@@ -342,18 +326,14 @@ export default function CompetencyAnalysis() {
 
   function handleApplyDoc() {
     if (!docResult) return;
-    setJobTitle(correctedJobTitle);
-    // Recompute standards based on the confirmed (possibly corrected) job title
-    const base = ICAP_STANDARDS[correctedJobTitle];
+    const next = DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName];
+    const base = buildStandardScores(next);
     const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
-    setCustomStandards({
-      technical:     vary(base.technical),
-      communication: vary(base.communication),
-      leadership:    vary(base.leadership),
-      problem:       vary(base.problem),
-      teamwork:      vary(base.teamwork),
-      safety:        vary(base.safety),
-    });
+    const custom: CompetencyScores = {};
+    next.competencies.forEach((c) => { custom[c.id] = vary(base[c.id]); });
+
+    handlePositionChange(correctedPositionName);
+    setCustomStandards(custom);
     setDocApplied(true);
   }
 
@@ -371,9 +351,10 @@ export default function CompetencyAnalysis() {
     setFitScore(null);
     setTimeout(() => {
       // Compute a mock fit score based on average gap from standard
-      const totalGap = DIMENSIONS.reduce((sum, { key }) => sum + Math.abs(standards[key] - selfScores[key]), 0);
-      const avgGap = totalGap / DIMENSIONS.length;
-      const score = Math.max(40, Math.round(100 - avgGap * 0.8 + Math.random() * 10 - 5));
+      const totalGap = dimensions.reduce((sum, { id }) => sum + Math.abs((standards[id] ?? 0) - (selfScores[id] ?? 0)), 0);
+      const avgGap = totalGap / dimensions.length;
+      const deptBonus = targetDept === position.category ? 10 : 0;
+      const score = Math.max(40, Math.min(100, Math.round(100 - avgGap * 0.8 + deptBonus + Math.random() * 10 - 5)));
       setFitScore(score);
       setAnalyzing(false);
     }, 1200);
@@ -387,6 +368,9 @@ export default function CompetencyAnalysis() {
         <h1 className="text-2xl font-bold text-gray-900">職能落差分析</h1>
         <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold border border-purple-200">
           iCAP 職能基準
+        </span>
+        <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold border border-blue-200">
+          {position.category}・{positionName}（{position.level}）
         </span>
         {currentUser && (
           <span className="ml-auto text-sm text-gray-500">
@@ -448,9 +432,9 @@ export default function CompetencyAnalysis() {
                 </div>
                 {[
                   '讀取文件內容',
-                  '辨識職稱等級',
+                  '辨識職位與部門',
                   '提取各職能向度要求分數',
-                  '對應 iCAP 職能基準框架',
+                  '對應職能基準框架',
                 ].map((label, i) => (
                   <div key={i} className={`flex items-center gap-2 text-xs py-1 transition-opacity ${docStep > i ? 'opacity-100' : 'opacity-30'}`}>
                     {docStep > i
@@ -472,30 +456,36 @@ export default function CompetencyAnalysis() {
                 </div>
                 <p className="text-xs text-gray-500">{docResult.description}</p>
 
-                {/* Job title confirmation / correction */}
+                {/* Position confirmation / correction */}
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-amber-800">確認職稱等級</span>
-                    {correctedJobTitle !== docResult.jobTitle && (
+                    <span className="text-xs font-bold text-amber-800">確認職位</span>
+                    {correctedPositionName !== docResult.positionName && (
                       <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">已修正</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-gray-500">AI辨識：</span>
-                    <span className="text-xs font-semibold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">{docResult.jobTitle}</span>
+                    <span className="text-xs font-semibold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
+                      {docResult.positionName}（{DETAILED_COMPETENCY_FRAMEWORK[docResult.positionName].category}）
+                    </span>
                     <ArrowRight size={12} className="text-gray-400" />
                     <select
-                      value={correctedJobTitle}
-                      onChange={(e) => setCorrectedJobTitle(e.target.value as JobTitle)}
+                      value={correctedPositionName}
+                      onChange={(e) => setCorrectedPositionName(e.target.value)}
                       className="text-xs border border-amber-300 rounded-lg px-2 py-1.5 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400"
                     >
-                      {(Object.keys(ICAP_STANDARDS) as JobTitle[]).map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                      {DEPARTMENTS.map((dept) => (
+                        <optgroup key={dept} label={dept}>
+                          {POSITIONS_BY_DEPT[dept].map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </div>
                   <p className="text-xs text-amber-700 leading-relaxed">
-                    參考：操作員/班長 → 技術員/班長 ｜ 專員/組長 → 助理專員/組長 ｜ 工程師/課長 → 工程師/課長 ｜ 副理/經理 → 副理/經理以上
+                    若 AI 辨識的職位與實際職稱不符，可於上方下拉選單手動修正部門與職位。
                   </p>
                 </div>
 
@@ -511,13 +501,13 @@ export default function CompetencyAnalysis() {
 
                 {/* Competency values preview */}
                 <div className="grid grid-cols-3 gap-2">
-                  {DIMENSIONS.map(({ key, label }) => {
-                    const extracted = docResult.competencies[key];
-                    const original = ICAP_STANDARDS[docResult.jobTitle][key];
+                  {DETAILED_COMPETENCY_FRAMEWORK[docResult.positionName].competencies.map((c) => {
+                    const extracted = docResult.competencies[c.id] ?? 0;
+                    const original = Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[docResult.positionName].requiredLevel * 20);
                     const diff = extracted - original;
                     return (
-                      <div key={key} className="bg-blue-50 rounded-lg p-2 text-center">
-                        <p className="text-xs text-gray-500 mb-1">{label}</p>
+                      <div key={c.id} className="bg-blue-50 rounded-lg p-2 text-center">
+                        <p className="text-xs text-gray-500 mb-1">{c.category}</p>
                         <p className="text-base font-bold text-blue-700">{extracted}</p>
                         {diff !== 0 && (
                           <p className={`text-xs font-medium ${diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
@@ -540,7 +530,7 @@ export default function CompetencyAnalysis() {
                 ) : (
                   <div className="flex items-center gap-2 text-green-700 text-sm font-medium bg-green-50 rounded-lg px-3 py-2">
                     <CheckCircle size={16} />
-                    職能標準已更新！雷達圖基準值已套用「{correctedJobTitle}」職能書數據
+                    職能標準已更新！分析對象與雷達圖基準值已套用「{correctedPositionName}」職能書數據
                   </div>
                 )}
               </div>
@@ -549,21 +539,37 @@ export default function CompetencyAnalysis() {
         )}
       </div>
 
-      {/* ── Job title selector ── */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">職稱等級：</label>
+      {/* ── Department / position selector ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">部門：</label>
         <div className="relative">
           <select
-            value={jobTitle}
-            onChange={(e) => setJobTitle(e.target.value as JobTitle)}
+            value={position.category}
+            onChange={(e) => handlePositionChange(POSITIONS_BY_DEPT[e.target.value][0])}
             className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {(Object.keys(ICAP_STANDARDS) as JobTitle[]).map((t) => (
-              <option key={t} value={t}>{t}</option>
+            {DEPARTMENTS.map((dept) => (
+              <option key={dept} value={dept}>{dept}</option>
             ))}
           </select>
           <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
+
+        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">職位：</label>
+        <div className="relative">
+          <select
+            value={positionName}
+            onChange={(e) => handlePositionChange(e.target.value)}
+            className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {POSITIONS_BY_DEPT[position.category].map((name) => (
+              <option key={name} value={name}>{name}（{DETAILED_COMPETENCY_FRAMEWORK[name].level}）</option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+
+        <span className="text-xs text-gray-400">本職位共 {dimensions.length} 項職能向度，要求等級 {position.requiredLevel}/5</span>
       </div>
 
       {/* ── Main two-column section ── */}
@@ -573,25 +579,25 @@ export default function CompetencyAnalysis() {
           <h2 className="text-base font-semibold text-gray-800 border-b border-gray-100 pb-3">
             📝 員工自評
           </h2>
-          {DIMENSIONS.map(({ key, label }) => (
-            <div key={key} className="space-y-1.5">
+          {dimensions.map(({ id, label }) => (
+            <div key={id} className="space-y-1.5">
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">{label}</span>
-                <span className="font-bold text-blue-600 tabular-nums">{selfScores[key]}</span>
+                <span className="font-bold text-blue-600 tabular-nums">{selfScores[id] ?? 0}</span>
               </div>
               <input
                 type="range"
                 min={0}
                 max={100}
-                value={selfScores[key]}
+                value={selfScores[id] ?? 0}
                 onChange={(e) =>
-                  setSelfScores((prev) => ({ ...prev, [key]: Number(e.target.value) }))
+                  setSelfScores((prev) => ({ ...prev, [id]: Number(e.target.value) }))
                 }
                 className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-600"
               />
               <div className="flex justify-between text-xs text-gray-400">
                 <span>0</span>
-                <span className="text-gray-500">職能標準：{standards[key]}</span>
+                <span className="text-gray-500">職能標準：{standards[id] ?? 0}</span>
                 <span>100</span>
               </div>
             </div>
@@ -632,11 +638,11 @@ export default function CompetencyAnalysis() {
           🔍 各維度落差分析
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {DIMENSIONS.map(({ key, label, course }) => {
-            const gap = standards[key] - selfScores[key];
+          {dimensions.map(({ id, label, course }) => {
+            const gap = (standards[id] ?? 0) - (selfScores[id] ?? 0);
             return (
               <div
-                key={key}
+                key={id}
                 className={`rounded-xl border p-3 space-y-2 ${getGapColor(gap)}`}
               >
                 <div className="flex items-center gap-1.5">
@@ -693,11 +699,10 @@ export default function CompetencyAnalysis() {
         {quizStarted && (
           <div className="space-y-5">
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-purple-700">
-              <strong>職稱：{jobTitle}</strong> · 根據落差最大的職能向度自動生成 {quizQuestions.length} 道測驗題
+              <strong>職位：{positionName}</strong> · 根據落差最大的職能向度自動生成 {quizQuestions.length} 道測驗題
             </div>
 
             {quizQuestions.map((q, qi) => {
-              const dimLabel = DIMENSIONS.find(d => d.key === q.dimension)?.label || q.dimension;
               const answered = quizAnswers[q.id] !== undefined;
               const isCorrect = quizSubmitted && quizAnswers[q.id] === q.answerIndex;
               const isWrong = quizSubmitted && answered && quizAnswers[q.id] !== q.answerIndex;
@@ -705,7 +710,7 @@ export default function CompetencyAnalysis() {
               return (
                 <div key={q.id} className={`rounded-xl border p-4 space-y-3 ${quizSubmitted ? (isCorrect ? 'bg-green-50 border-green-300' : isWrong ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200') : 'bg-gray-50 border-gray-200'}`}>
                   <div className="flex items-start gap-2">
-                    <span className="text-xs font-bold text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full shrink-0 mt-0.5">{dimLabel}</span>
+                    <span className="text-xs font-bold text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full shrink-0 mt-0.5">{q.dimensionLabel}</span>
                     <p className="text-sm font-medium text-gray-800">Q{qi + 1}. {q.question}</p>
                   </div>
                   <div className="space-y-2">
@@ -805,14 +810,14 @@ export default function CompetencyAnalysis() {
                 </tr>
               </thead>
               <tbody>
-                {DIMENSIONS.map(({ key, label }) => {
-                  const diff = selfScores[key] - MANAGER_ASSESSMENT[key];
+                {dimensions.map(({ id, label }) => {
+                  const diff = (selfScores[id] ?? 0) - (managerScores[id] ?? 0);
                   return (
-                    <tr key={key} className="hover:bg-gray-50 transition-colors">
+                    <tr key={id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2 font-medium border border-gray-200">{label}</td>
-                      <td className="px-3 py-2 text-center tabular-nums border border-gray-200 text-blue-700 font-semibold">{selfScores[key]}</td>
-                      <td className="px-3 py-2 text-center tabular-nums border border-gray-200 text-green-700 font-semibold">{MANAGER_ASSESSMENT[key]}</td>
-                      <td className="px-3 py-2 text-center tabular-nums border border-gray-200 text-red-700 font-semibold">{standards[key]}</td>
+                      <td className="px-3 py-2 text-center tabular-nums border border-gray-200 text-blue-700 font-semibold">{selfScores[id] ?? 0}</td>
+                      <td className="px-3 py-2 text-center tabular-nums border border-gray-200 text-green-700 font-semibold">{managerScores[id] ?? 0}</td>
+                      <td className="px-3 py-2 text-center tabular-nums border border-gray-200 text-red-700 font-semibold">{standards[id] ?? 0}</td>
                       <td className={`px-3 py-2 text-center tabular-nums border border-gray-200 font-semibold ${diff > 0 ? 'text-yellow-600' : diff < 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {diff > 0 ? `+${diff}` : diff}
                       </td>
@@ -834,7 +839,7 @@ export default function CompetencyAnalysis() {
                 onChange={(e) => { setTargetDept(e.target.value); setFitScore(null); }}
                 className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {TARGET_DEPARTMENTS.map((d) => (
+                {DEPARTMENTS.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>

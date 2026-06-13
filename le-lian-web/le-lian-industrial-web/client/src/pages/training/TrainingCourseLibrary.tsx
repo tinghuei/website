@@ -4,8 +4,9 @@ import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { Search, Clock, CheckCircle, BookOpen, ChevronRight, Sparkles, Plus, Edit3, X, Save, Upload, Trash2, Film, FileText, RefreshCw } from 'lucide-react';
 import type { Course, QuizQuestion } from '../../data/trainingMockData';
 import { MAX_VIDEO_SIZE, saveCourseVideo, deleteCourseVideo } from '../../lib/videoStorage';
-import { MAX_PRESENTATION_SIZE, savePresentationFile, deletePresentationFile } from '../../lib/presentationStorage';
-import { generateDraftQuiz } from '../../lib/quizGenerator';
+import { MAX_PRESENTATION_SIZE, savePresentationFile, deletePresentationFile, getPresentationFile } from '../../lib/presentationStorage';
+import { generateDraftQuiz, generateContentQuiz } from '../../lib/quizGenerator';
+import { extractPdfText } from '../../lib/pdfTextExtractor';
 
 const categoryColors: Record<string, string> = {
   '安全衛生': 'bg-red-100 text-red-700',
@@ -144,19 +145,47 @@ function EditCourseModal({ course, onSave, onClose }: {
     }));
   }
 
-  function handleGenerateQuiz() {
+  async function handleGenerateQuiz() {
     if (quizGenerating) return;
     setQuizGenerating(true);
     setQuizNote('');
-    setTimeout(() => {
-      const drafts = generateDraftQuiz({ title: form.title || '本課程', category: form.category, description: form.description }, 5, form.quizQuestions);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // 優先使用本次新選擇的 PDF 教材檔，否則嘗試讀取課程已上傳的教材檔（PDF）
+      let pdfFile: File | null = null;
+      const isPdf = (f: File) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+      if (presentationFile && isPdf(presentationFile)) {
+        pdfFile = presentationFile;
+      } else if (course.id && course.localPresentation && !removePresentation) {
+        const stored = await getPresentationFile(course.id);
+        if (stored && isPdf(stored)) pdfFile = stored;
+      }
+
+      const materialText = pdfFile ? await extractPdfText(pdfFile) : '';
+      const courseInfo = { title: form.title || '本課程', category: form.category, description: form.description };
+      const targetCount = Math.min(15, Math.max(5, 20 - form.quizQuestions.length));
+
+      const contentDrafts = materialText
+        ? generateContentQuiz(courseInfo, materialText, Math.ceil(targetCount / 2), form.quizQuestions)
+        : [];
+      const templateDrafts = generateDraftQuiz(courseInfo, targetCount - contentDrafts.length, [...form.quizQuestions, ...contentDrafts]);
+      const drafts = [...contentDrafts, ...templateDrafts];
+
       if (drafts.length === 0) {
         setQuizNote('目前題庫範本已全部加入，如需更多題目請點擊「新增題目」手動編寫。');
       } else {
         setForm(f => ({ ...f, quizQuestions: [...f.quizQuestions, ...drafts] }));
+        setQuizNote(
+          contentDrafts.length > 0
+            ? `已新增 ${drafts.length} 題草稿（其中 ${contentDrafts.length} 題依教材 PDF 內容產生），請逐題確認內容與正確答案後再發布。`
+            : `已新增 ${drafts.length} 題草稿，請逐題確認內容與正確答案後再發布。`
+        );
       }
+    } finally {
       setQuizGenerating(false);
-    }, 1200);
+    }
   }
 
   return (
@@ -310,7 +339,7 @@ function EditCourseModal({ course, onSave, onClose }: {
             </div>
             {form.quizQuestions.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 mb-2">
-                <strong>提示：</strong>AI 自動生成之題目僅依據課程類別、名稱與課程描述文字產生固定範本草稿，<strong>並未讀取影片或教材檔案內容</strong>，請務必依實際教學內容確認、修改題目與正確答案後再儲存發布。
+                <strong>提示：</strong>AI 自動生成之題目為草稿，部分依課程類別、名稱與課程描述文字產生固定範本題，若課程已上傳 PDF 教材，會額外擷取教材文字內容產生對應題目；<strong>仍未讀取影片內容</strong>，請務必依實際教學內容確認、修改題目與正確答案後再儲存發布。
               </div>
             )}
             {quizNote && (

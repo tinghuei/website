@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2 } from 'lucide-react';
+import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { loadRecords, loadRoutine, TTQS_PHASES } from '../../lib/physicalTrainingStorage';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface PlanRow {
@@ -285,6 +287,16 @@ function CellStatusDot(status: CellStatus) {
   return 'bg-gray-300';
 }
 
+function routineStatusLabel(status: string): { label: string; color: string } {
+  const map: Record<string, { label: string; color: string }> = {
+    draft: { label: '草稿', color: 'bg-gray-100 text-gray-600' },
+    submitted: { label: '待審核', color: 'bg-yellow-100 text-yellow-700' },
+    approved: { label: '人資核可', color: 'bg-blue-100 text-blue-700' },
+    completed: { label: '已完成', color: 'bg-green-100 text-green-700' },
+  };
+  return map[status] || { label: status, color: 'bg-gray-100 text-gray-600' };
+}
+
 // ── Quarterly Modal ────────────────────────────────────────────────────────────
 const QUARTERLY_COURSES = [
   '防災研習--消防演練',
@@ -393,8 +405,56 @@ function QuarterlyModal({ onClose, onConfirm }: QuarterlyModalProps) {
   );
 }
 
+// ── 歷年成效查詢：年度送審簽核資料 ────────────────────────────────────────────
+export interface AnnualSignoff {
+  hrSubmittedAt: string | null;
+  vpApproved: boolean;
+  vpApprovedAt: string | null;
+  vpComment: string;
+  gmApproved: boolean;
+  gmApprovedAt: string | null;
+  gmComment: string;
+}
+
+const SIGNOFF_LS_KEY = 'annual_review_signoff_v1';
+
+const EMPTY_SIGNOFF: AnnualSignoff = {
+  hrSubmittedAt: null, vpApproved: false, vpApprovedAt: null, vpComment: '',
+  gmApproved: false, gmApprovedAt: null, gmComment: '',
+};
+
+function getInitialSignoffs(): Record<string, AnnualSignoff> {
+  return {
+    '2024': {
+      hrSubmittedAt: '2024-10-03',
+      vpApproved: true, vpApprovedAt: '2024-10-10', vpComment: '同意，請持續關注實體訓練滿意度與測驗及格率。',
+      gmApproved: true, gmApprovedAt: '2024-10-17', gmComment: '核准，整體成效良好，請依計畫持續執行。',
+    },
+    '2025': {
+      hrSubmittedAt: '2025-10-06',
+      vpApproved: true, vpApprovedAt: '2025-10-13', vpComment: '同意，線上課程完訓率與測驗及格率均達標。',
+      gmApproved: true, gmApprovedAt: '2025-10-21', gmComment: '核准，請持續推動數位學習並追蹤後續成效。',
+    },
+    '2026': { ...EMPTY_SIGNOFF },
+  };
+}
+
+function loadSignoffs(): Record<string, AnnualSignoff> {
+  try {
+    const raw = localStorage.getItem(SIGNOFF_LS_KEY);
+    return raw ? JSON.parse(raw) : getInitialSignoffs();
+  } catch { return getInitialSignoffs(); }
+}
+
+function saveSignoffs(data: Record<string, AnnualSignoff>) {
+  localStorage.setItem(SIGNOFF_LS_KEY, JSON.stringify(data));
+}
+
+const HISTORY_YEAR_OPTIONS = ['2024', '2025', '2026', '2027'];
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AnnualTrainingPlan() {
+  const { courses, enrollments } = useTrainingAuth();
   const [courseTrack, setCourseTrack] = useState(() => [...COURSE_TRACK]);
   const [activeTab, setActiveTab] = useState(0);
   const [year, setYear] = useState('2026');
@@ -404,12 +464,102 @@ export default function AnnualTrainingPlan() {
   const [savedMsg, setSavedMsg] = useState('');
   const [showQuarterlyModal, setShowQuarterlyModal] = useState(false);
 
-  const tabs = ['年度計畫制定', '課程地圖', 'TTQS執行追蹤', '匯出報表'];
+  // ── 歷年成效查詢 ──
+  const [physicalRecords] = useState(() => loadRecords());
+  const [routineCourses] = useState(() => loadRoutine());
+  const [historyYear, setHistoryYear] = useState('2026');
+  const [signoffs, setSignoffs] = useState<Record<string, AnnualSignoff>>(() => loadSignoffs());
+
+  useEffect(() => {
+    saveSignoffs(signoffs);
+  }, [signoffs]);
+
+  const tabs = ['年度計畫制定', '課程地圖', 'TTQS執行追蹤', '匯出報表', '歷年成效查詢'];
 
   const totalPlanned = rows.reduce((s, r) => s + r.hours, 0);
   const totalActual = courseTrack.reduce((s, r) => s + r.actual, 0);
   const completionRate = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
   const totalParticipants = courseTrack.reduce((s, r) => s + r.participants, 0);
+
+  // ── 歷年成效查詢：依年度篩選線上課程／實體訓練／例行課程成效 ──
+  const yearOnlineCourses = useMemo(() => {
+    return courses
+      .map((c) => {
+        const yearEnrs = enrollments.filter((e) => e.courseId === c.id && (e.enrolledAt || '').startsWith(historyYear));
+        if (yearEnrs.length === 0) return null;
+        const surveyEnrs = yearEnrs.filter((e) => e.surveyData?.overall);
+        const quizEnrs = yearEnrs.filter((e) => e.quizScore !== null);
+        const completedCount = yearEnrs.filter((e) => e.status === 'completed').length;
+        const avgSat = surveyEnrs.length
+          ? surveyEnrs.reduce((s, e) => s + Number(e.surveyData?.overall || 0), 0) / surveyEnrs.length
+          : null;
+        const avgQuiz = quizEnrs.length
+          ? quizEnrs.reduce((s, e) => s + (e.quizScore || 0), 0) / quizEnrs.length
+          : null;
+        const passCount = quizEnrs.filter((e) => (e.quizScore || 0) >= c.passingScore).length;
+        const passRate = quizEnrs.length ? (passCount / quizEnrs.length) * 100 : null;
+        return {
+          id: c.id, title: c.title, category: c.category,
+          enrolledCount: yearEnrs.length, completedCount, avgSat, avgQuiz, passRate,
+        };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null);
+  }, [courses, enrollments, historyYear]);
+
+  const yearPhysicalRecords = useMemo(
+    () => physicalRecords.filter((r) => r.date.startsWith(historyYear)),
+    [physicalRecords, historyYear],
+  );
+
+  const yearRoutineCourses = useMemo(
+    () => routineCourses.filter((rc) => rc.date.startsWith(historyYear)),
+    [routineCourses, historyYear],
+  );
+
+  const yearCombinedStats = useMemo(() => {
+    const satValues: number[] = [];
+    const quizValues: number[] = [];
+    const passValues: number[] = [];
+    yearOnlineCourses.forEach((c) => {
+      if (c.avgSat !== null) satValues.push(c.avgSat);
+      if (c.avgQuiz !== null) quizValues.push(c.avgQuiz);
+      if (c.passRate !== null) passValues.push(c.passRate);
+    });
+    yearPhysicalRecords.forEach((r) => {
+      if (r.satisfactionScore !== undefined && r.satisfactionScore !== null) satValues.push(r.satisfactionScore);
+      if (r.quizAvgScore !== undefined && r.quizAvgScore !== null) quizValues.push(r.quizAvgScore);
+      if (r.quizPassRate !== undefined && r.quizPassRate !== null) passValues.push(r.quizPassRate);
+    });
+    const avg = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null);
+    return {
+      avgSat: avg(satValues),
+      avgQuiz: avg(quizValues),
+      avgPassRate: avg(passValues),
+    };
+  }, [yearOnlineCourses, yearPhysicalRecords]);
+
+  const currentSignoff = signoffs[historyYear] || EMPTY_SIGNOFF;
+  const isCurrentRealYear = historyYear === String(new Date().getFullYear());
+  const isOctoberOrLater = new Date().getMonth() >= 9; // getMonth() 為 0-indexed，9 = 10月
+
+  function updateSignoff(updates: Partial<AnnualSignoff>) {
+    setSignoffs((prev) => ({
+      ...prev,
+      [historyYear]: { ...(prev[historyYear] || EMPTY_SIGNOFF), ...updates },
+    }));
+  }
+
+  function handleHrSubmit() {
+    updateSignoff({ hrSubmittedAt: new Date().toISOString().split('T')[0] });
+  }
+
+  function handleVpApprove() {
+    updateSignoff({ vpApproved: true, vpApprovedAt: new Date().toISOString().split('T')[0] });
+  }
+
+  function handleGmApprove() {
+    updateSignoff({ gmApproved: true, gmApprovedAt: new Date().toISOString().split('T')[0] });
+  }
 
   function handleAddRow() {
     const newId = Math.max(...rows.map((r) => r.id)) + 1;
@@ -750,6 +900,279 @@ export default function AnnualTrainingPlan() {
           </div>
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
             <strong>注意：</strong>匯出的 Excel 文件符合勞動部 TTQS 及 iCAP 職能發展平台規格，可直接用於評核申請。
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab 5: 歷年成效查詢 ── */}
+      {activeTab === 4 && (
+        <div className="space-y-5">
+          {/* Year selector */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Search size={16} className="text-gray-400" />
+                <label className="text-sm font-medium text-gray-700">查詢年度：</label>
+                <select
+                  value={historyYear}
+                  onChange={(e) => setHistoryYear(e.target.value)}
+                  className="pl-3 pr-8 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {HISTORY_YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}年</option>)}
+                </select>
+              </div>
+              <p className="text-xs text-gray-400 flex-1 min-w-[240px]">
+                查詢該年度所有線上課程、實體教育訓練記錄及例行課程的成效與結果（含滿意度調查、測驗成績、完訓狀況）。
+              </p>
+            </div>
+          </div>
+
+          {/* KPI summary */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { label: '線上課程（有報名）', value: yearOnlineCourses.length, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { label: '實體訓練場次', value: yearPhysicalRecords.length, color: 'text-green-600', bg: 'bg-green-50' },
+              { label: '例行課程場次', value: yearRoutineCourses.length, color: 'text-purple-600', bg: 'bg-purple-50' },
+              { label: '綜合平均滿意度', value: yearCombinedStats.avgSat !== null ? `${yearCombinedStats.avgSat.toFixed(1)} / 5` : '—', color: 'text-amber-600', bg: 'bg-amber-50' },
+              { label: '綜合平均測驗分數', value: yearCombinedStats.avgQuiz !== null ? yearCombinedStats.avgQuiz.toFixed(1) : '—', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+              { label: '綜合測驗及格率', value: yearCombinedStats.avgPassRate !== null ? `${yearCombinedStats.avgPassRate.toFixed(0)}%` : '—', color: 'text-orange-600', bg: 'bg-orange-50' },
+            ].map((stat) => (
+              <div key={stat.label} className={`${stat.bg} rounded-2xl border border-transparent p-4 text-center`}>
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+                <div className="text-xs text-gray-600 mt-1">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Online courses table */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+              <Star size={16} className="text-blue-500" />
+              <h2 className="text-base font-semibold text-gray-800">{historyYear}年 線上課程成效</h2>
+            </div>
+            {yearOnlineCourses.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">查無 {historyYear} 年度線上課程報名紀錄</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['課程名稱', '類別', '報名人次', '完訓人次', '平均滿意度', '平均測驗分數', '及格率'].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {yearOnlineCourses.map((c) => (
+                      <tr key={c.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-900 min-w-[160px]">{c.title}</td>
+                        <td className="px-4 py-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{c.category}</span></td>
+                        <td className="px-4 py-3 text-center text-gray-600">{c.enrolledCount}</td>
+                        <td className="px-4 py-3 text-center text-gray-600">{c.completedCount}</td>
+                        <td className="px-4 py-3 text-center">
+                          {c.avgSat !== null ? <span className="font-semibold text-blue-600">{c.avgSat.toFixed(1)} ★</span> : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-600">{c.avgQuiz !== null ? c.avgQuiz.toFixed(0) : <span className="text-gray-300">—</span>}</td>
+                        <td className="px-4 py-3 text-center">
+                          {c.passRate !== null ? <span className={`font-semibold ${c.passRate >= 70 ? 'text-green-600' : 'text-red-500'}`}>{c.passRate.toFixed(0)}%</span> : <span className="text-gray-300">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Physical training table */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+              <Award size={16} className="text-green-500" />
+              <h2 className="text-base font-semibold text-gray-800">{historyYear}年 實體教育訓練成效</h2>
+            </div>
+            {yearPhysicalRecords.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">查無 {historyYear} 年度實體教育訓練記錄</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['課程名稱', '日期', '訓練類型', 'TTQS面向', '時數', '參與人數', '平均滿意度', '平均測驗分數', '及格率', '訓練成效說明'].map((h) => (
+                        <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {yearPhysicalRecords.map((r) => {
+                      const phase = TTQS_PHASES.find((p) => p.value === r.ttqsPhase);
+                      return (
+                        <tr key={r.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2.5 font-medium text-gray-900 min-w-[160px]">{r.courseName}</td>
+                          <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.date}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`px-2 py-0.5 rounded text-xs ${r.trainingType === '外訓' ? 'bg-purple-50 text-purple-700' : 'bg-green-50 text-green-700'}`}>{r.trainingType}</span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {phase && <span className={`px-2 py-0.5 rounded text-xs border ${phase.color}`}>{phase.label}</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-center text-gray-600">{r.hours}h</td>
+                          <td className="px-3 py-2.5 text-center text-gray-600">{r.participants}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            {r.satisfactionScore != null ? <span className="font-semibold text-blue-600">{r.satisfactionScore.toFixed(1)} ★</span> : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-center text-gray-600">{r.quizAvgScore != null ? r.quizAvgScore.toFixed(0) : <span className="text-gray-300">—</span>}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            {r.quizPassRate != null ? <span className={`font-semibold ${r.quizPassRate >= 70 ? 'text-green-600' : 'text-red-500'}`}>{r.quizPassRate.toFixed(0)}%</span> : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-xs text-gray-500 min-w-[200px]">{r.outcome}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Routine courses table */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+              <Grid3X3 size={16} className="text-purple-500" />
+              <h2 className="text-base font-semibold text-gray-800">{historyYear}年 例行課程成效</h2>
+            </div>
+            {yearRoutineCourses.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">查無 {historyYear} 年度例行課程記錄</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['課程名稱', '日期', '講師', '部門', '時數', '學員人數', '狀態'].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {yearRoutineCourses.map((rc) => {
+                      const s = routineStatusLabel(rc.status);
+                      return (
+                        <tr key={rc.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900 min-w-[160px]">{rc.courseName}</td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{rc.date}</td>
+                          <td className="px-4 py-3 text-gray-600">{rc.instructor}</td>
+                          <td className="px-4 py-3 text-gray-600">{rc.department}</td>
+                          <td className="px-4 py-3 text-center text-gray-600">{rc.hours}h</td>
+                          <td className="px-4 py-3 text-center text-gray-600">{rc.participants.length}</td>
+                          <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${s.color}`}>{s.label}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Annual sign-off workflow */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={18} className="text-blue-600" />
+              <h2 className="text-base font-semibold text-gray-800">{historyYear} 年度教育訓練成效送審簽核</h2>
+            </div>
+
+            {isCurrentRealYear && (
+              isOctoberOrLater ? (
+                !currentSignoff.hrSubmittedAt ? (
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl text-sm text-orange-700">
+                    <strong>提醒：</strong>已進入 10 月，依規定應彙整 {historyYear} 年度教育訓練成效，送審副總、總經理檢閱並簽核。
+                  </div>
+                ) : (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
+                    已於 {currentSignoff.hrSubmittedAt} 完成 {historyYear} 年度成效彙整送審。
+                  </div>
+                )
+              ) : (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500">
+                  依規定，每年 10 月應將當年度教育訓練成效彙整送審副總、總經理檢閱並簽核；目前尚未到送審月份。
+                </div>
+              )
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Step 1: HR submit */}
+              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">1. 人資彙整送審</span>
+                  {currentSignoff.hrSubmittedAt ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
+                </div>
+                {currentSignoff.hrSubmittedAt ? (
+                  <p className="text-xs text-gray-500">已送審日期：{currentSignoff.hrSubmittedAt}</p>
+                ) : (
+                  <button onClick={handleHrSubmit} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors">
+                    彙整並送審 {historyYear} 年度成效
+                  </button>
+                )}
+              </div>
+
+              {/* Step 2: VP approve */}
+              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">2. 副總審核</span>
+                  {currentSignoff.vpApproved ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
+                </div>
+                {currentSignoff.vpApproved ? (
+                  <p className="text-xs text-gray-500">核准日期：{currentSignoff.vpApprovedAt}</p>
+                ) : (
+                  <button
+                    onClick={handleVpApprove}
+                    disabled={!currentSignoff.hrSubmittedAt}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    副總核准
+                  </button>
+                )}
+                <textarea
+                  value={currentSignoff.vpComment}
+                  onChange={(e) => updateSignoff({ vpComment: e.target.value })}
+                  placeholder="副總審核意見..."
+                  rows={2}
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                />
+              </div>
+
+              {/* Step 3: GM approve */}
+              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">3. 總經理核准</span>
+                  {currentSignoff.gmApproved ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
+                </div>
+                {currentSignoff.gmApproved ? (
+                  <p className="text-xs text-gray-500">核准日期：{currentSignoff.gmApprovedAt}</p>
+                ) : (
+                  <button
+                    onClick={handleGmApprove}
+                    disabled={!currentSignoff.vpApproved}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    總經理核准
+                  </button>
+                )}
+                <textarea
+                  value={currentSignoff.gmComment}
+                  onChange={(e) => updateSignoff({ gmComment: e.target.value })}
+                  placeholder="總經理核准意見..."
+                  rows={2}
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                />
+              </div>
+            </div>
+
+            {currentSignoff.gmApproved && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 flex items-center gap-2">
+                <CheckCircle size={16} />
+                {historyYear} 年度教育訓練成效已完成副總與總經理核准簽核。
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,47 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
-import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-interface PhysicalRecord {
-  id: string;
-  courseName: string;
-  trainingType: '內訓' | '外訓';
-  date: string;
-  hours: number;
-  venue: string;
-  instructor: string;
-  department: string;
-  participants: number;
-  ttqsPhase: 'Plan' | 'Design' | 'Do' | 'Review' | 'Action';
-  outcome: string;
-  evidence: string;
-  status: '待審核' | '已審核' | '已存檔';
-  photos?: string[];
-}
-
-interface RoutineCourse {
-  id: string;
-  courseName: string;
-  instructor: string;
-  date: string;
-  hours: number;
-  department: string;
-  participants: string[];
-  outline: string;
-  status: 'draft' | 'submitted' | 'approved' | 'completed';
-  submittedBy: string;
-  photos?: string[];
-}
-
-const TTQS_PHASES = [
-  { value: 'Plan',   label: '計劃 (Plan)',   color: 'bg-blue-100 text-blue-700 border-blue-300' },
-  { value: 'Design', label: '設計 (Design)', color: 'bg-purple-100 text-purple-700 border-purple-300' },
-  { value: 'Do',     label: '執行 (Do)',     color: 'bg-green-100 text-green-700 border-green-300' },
-  { value: 'Review', label: '查核 (Review)', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
-  { value: 'Action', label: '改善 (Action)', color: 'bg-orange-100 text-orange-700 border-orange-300' },
-] as const;
+import {
+  type PhysicalRecord, type RoutineCourse, TTQS_PHASES,
+  loadRecords, saveRecords, loadRoutine, saveRoutine,
+} from '../../lib/physicalTrainingStorage';
 
 const DEPARTMENTS = [
   '總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課',
@@ -55,75 +20,6 @@ const SAMPLE_COURSE_NAMES = [
   '文件管理與記錄控制', '企業全流程認識ERP管理需求', '沖壓作業安全與品質管理',
   '焊接技術與安全操作', 'AI超能主管班：從溝通到帶人決策全方位',
 ];
-
-const LS_KEY = 'physical_training_records_v1';
-const LS_ROUTINE_KEY = 'routine_courses_v1';
-
-function loadRecords(): PhysicalRecord[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : getInitialRecords();
-  } catch { return getInitialRecords(); }
-}
-
-function saveRecords(records: PhysicalRecord[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(records));
-}
-
-function loadRoutine(): RoutineCourse[] {
-  try {
-    const raw = localStorage.getItem(LS_ROUTINE_KEY);
-    return raw ? JSON.parse(raw) : getInitialRoutine();
-  } catch { return getInitialRoutine(); }
-}
-
-function saveRoutine(list: RoutineCourse[]) {
-  localStorage.setItem(LS_ROUTINE_KEY, JSON.stringify(list));
-}
-
-function getInitialRecords(): PhysicalRecord[] {
-  return [
-    {
-      id: 'pt1', courseName: '防災研習--消防演練', trainingType: '內訓',
-      date: '2026-01-15', hours: 2, venue: '廠區集合廣場', instructor: '消防隊員 / 陳安全',
-      department: '全體員工', participants: 118,
-      ttqsPhase: 'Do', outcome: '全體員工完成演練，緊急疏散時間縮短至3分鐘以內',
-      evidence: '簽到表、現場照片、演練記錄表', status: '已審核', photos: [],
-    },
-    {
-      id: 'pt2', courseName: '性別平等教育', trainingType: '外訓',
-      date: '2026-01-22', hours: 3, venue: '會議室A', instructor: '外部講師',
-      department: '全體員工', participants: 120,
-      ttqsPhase: 'Do', outcome: '員工對性騷擾防治及申訴程序瞭解度提升',
-      evidence: '簽到表、測驗成績單、滿意度調查表', status: '已審核', photos: [],
-    },
-    {
-      id: 'pt3', courseName: '一般安全衛生教育訓練', trainingType: '外訓',
-      date: '2026-01-28', hours: 6, venue: '會議室B', instructor: '勞動部認可訓練機構',
-      department: '全體員工', participants: 120,
-      ttqsPhase: 'Do', outcome: '達成法定6小時安衛訓練要求，測驗平均通過率92%',
-      evidence: '簽到表、測驗成績單、結訓證書、機構訓練合格文件', status: '已審核', photos: [],
-    },
-  ];
-}
-
-function getInitialRoutine(): RoutineCourse[] {
-  return [
-    {
-      id: 'rc1', courseName: '新進員工職前訓練', instructor: '人資安全組',
-      date: '2026-01-08', hours: 8, department: '全體員工',
-      participants: ['王小明', '陳美玲'], outline: '公司規定、安全衛生、基本作業流程介紹',
-      status: 'completed', submittedBy: '人資安全組', photos: [],
-    },
-    {
-      id: 'rc2', courseName: '品質管理基礎訓練', instructor: '品保課 張品管',
-      date: '2026-02-10', hours: 3, department: '品保課',
-      participants: ['陳小芳', '林志偉', '黃品質'],
-      outline: '品質管理基本概念、ISO 9001要求、不合格品處理',
-      status: 'approved', submittedBy: '張品管', photos: [],
-    },
-  ];
-}
 
 const EMPTY_FORM: Omit<PhysicalRecord, 'id' | 'photos'> = {
   courseName: '', trainingType: '內訓', date: '', hours: 3, venue: '', instructor: '',
@@ -225,7 +121,7 @@ export default function PhysicalTraining() {
   const { enrollments, courses, users } = useTrainingAuth();
   const [records, setRecords] = useState<PhysicalRecord[]>(() => loadRecords());
   const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>(() => loadRoutine());
-  const [activeTab, setActiveTab] = useState<'list' | 'add' | 'participants' | 'routine' | 'ttqs'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'add' | 'participants' | 'routine' | 'ttqs' | 'analysis'>('list');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<PhysicalRecord, 'id' | 'photos'>>({ ...EMPTY_FORM });
   const [formPhotos, setFormPhotos] = useState<string[]>([]);
@@ -304,6 +200,75 @@ export default function PhysicalTraining() {
     ? enrollments.filter(e => e.courseId === matchingCourse.id)
     : [];
 
+  // ── 滿意度與測驗分析：線上課程（Kirkpatrick L1 / L2） ──
+  const onlineCourseAnalysis = useMemo(() => {
+    return courses.map(c => {
+      const ces = enrollments.filter(e => e.courseId === c.id);
+      const surveyEnrs = ces.filter(e => e.surveyData?.overall);
+      const quizEnrs = ces.filter(e => e.quizScore !== null);
+      const avgSatisfaction = surveyEnrs.length
+        ? surveyEnrs.reduce((s, e) => s + Number(e.surveyData?.overall || 0), 0) / surveyEnrs.length
+        : null;
+      const avgQuiz = quizEnrs.length
+        ? quizEnrs.reduce((s, e) => s + (e.quizScore || 0), 0) / quizEnrs.length
+        : null;
+      const passCount = quizEnrs.filter(e => (e.quizScore || 0) >= c.passingScore).length;
+      const passRate = quizEnrs.length ? (passCount / quizEnrs.length) * 100 : null;
+      return {
+        id: c.id, title: c.title, category: c.category,
+        enrolledCount: ces.length, surveyCount: surveyEnrs.length, quizCount: quizEnrs.length,
+        avgSatisfaction, avgQuiz, passRate,
+      };
+    });
+  }, [courses, enrollments]);
+
+  const onlineSatChartData = useMemo(() => onlineCourseAnalysis
+    .filter(d => d.avgSatisfaction !== null)
+    .map(d => ({ name: d.title.length > 8 ? d.title.slice(0, 8) + '…' : d.title, 滿意度: parseFloat((d.avgSatisfaction as number).toFixed(1)) })),
+  [onlineCourseAnalysis]);
+
+  const onlineQuizChartData = useMemo(() => onlineCourseAnalysis
+    .filter(d => d.avgQuiz !== null)
+    .map(d => ({
+      name: d.title.length > 8 ? d.title.slice(0, 8) + '…' : d.title,
+      平均分數: Math.round(d.avgQuiz as number),
+      及格率: d.passRate !== null ? Math.round(d.passRate) : 0,
+    })),
+  [onlineCourseAnalysis]);
+
+  const overallOnlineSat = (() => {
+    const all = enrollments.filter(e => e.surveyData?.overall);
+    return all.length ? all.reduce((s, e) => s + Number(e.surveyData?.overall || 0), 0) / all.length : null;
+  })();
+  const overallOnlineQuiz = (() => {
+    const all = enrollments.filter(e => e.quizScore !== null);
+    return all.length ? all.reduce((s, e) => s + (e.quizScore || 0), 0) / all.length : null;
+  })();
+  const overallOnlinePassRate = (() => {
+    const all = enrollments.filter(e => e.quizScore !== null);
+    if (!all.length) return null;
+    const passCount = all.filter(e => {
+      const c = courses.find(c => c.id === e.courseId);
+      return c && (e.quizScore || 0) >= c.passingScore;
+    }).length;
+    return (passCount / all.length) * 100;
+  })();
+  const onlineCoursesWithSurvey = onlineCourseAnalysis.filter(d => d.surveyCount > 0).length;
+  const onlineCoursesWithQuiz = onlineCourseAnalysis.filter(d => d.quizCount > 0).length;
+
+  // ── 滿意度與測驗分析：實體訓練記錄 ──
+  const physicalWithSat = records.filter(r => r.satisfactionScore !== undefined && r.satisfactionScore !== null);
+  const physicalWithQuiz = records.filter(r => r.quizAvgScore !== undefined && r.quizAvgScore !== null);
+  const avgPhysicalSat = physicalWithSat.length
+    ? physicalWithSat.reduce((s, r) => s + (r.satisfactionScore || 0), 0) / physicalWithSat.length
+    : null;
+  const avgPhysicalQuiz = physicalWithQuiz.length
+    ? physicalWithQuiz.reduce((s, r) => s + (r.quizAvgScore || 0), 0) / physicalWithQuiz.length
+    : null;
+  const avgPhysicalPassRate = physicalWithQuiz.length
+    ? physicalWithQuiz.reduce((s, r) => s + (r.quizPassRate || 0), 0) / physicalWithQuiz.length
+    : null;
+
   const ROUTINE_STATUS_LABELS: Record<RoutineCourse['status'], { label: string; color: string }> = {
     draft: { label: '草稿', color: 'bg-gray-100 text-gray-600' },
     submitted: { label: '待審核', color: 'bg-yellow-100 text-yellow-700' },
@@ -344,6 +309,7 @@ export default function PhysicalTraining() {
           ['participants', '參訓人員分析'],
           ['routine', '例行課程'],
           ['ttqs', 'TTQS統計'],
+          ['analysis', '滿意度與測驗分析'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -529,6 +495,41 @@ export default function PhysicalTraining() {
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1.5">佐證文件清單（TTQS稽核用）</label>
               <textarea value={form.evidence} onChange={e => setForm(f => ({ ...f, evidence: e.target.value }))} rows={2} placeholder="e.g. 簽到表、測驗成績單、結訓證書、滿意度調查表、現場照片" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
+            </div>
+
+            {/* 滿意度與測驗成效（選填） */}
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="md:col-span-3 text-xs font-semibold text-gray-600 -mb-1">滿意度與測驗成效（選填，用於「滿意度與測驗分析」統計）</div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">平均滿意度（1-5）</label>
+                <input
+                  type="number" min="0" max="5" step="0.1"
+                  value={form.satisfactionScore ?? ''}
+                  onChange={e => setForm(f => ({ ...f, satisfactionScore: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                  placeholder="例如 4.5"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">平均測驗分數（0-100）</label>
+                <input
+                  type="number" min="0" max="100" step="1"
+                  value={form.quizAvgScore ?? ''}
+                  onChange={e => setForm(f => ({ ...f, quizAvgScore: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                  placeholder="例如 85"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">測驗及格率（%）</label>
+                <input
+                  type="number" min="0" max="100" step="1"
+                  value={form.quizPassRate ?? ''}
+                  onChange={e => setForm(f => ({ ...f, quizPassRate: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                  placeholder="例如 92"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              </div>
             </div>
 
             {/* Photo Upload */}
@@ -939,6 +940,159 @@ export default function PhysicalTraining() {
                   <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${item.done ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{item.done ? '✓ 符合' : '待完善'}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 滿意度與測驗分析 ── */}
+      {activeTab === 'analysis' && (
+        <div className="space-y-5">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm text-indigo-800">
+            <p className="font-semibold mb-1 flex items-center gap-2"><TrendingUp size={16} />滿意度與測驗成效綜合分析</p>
+            <p>整合「實體教育訓練記錄」與「線上課程」之滿意度問卷（Kirkpatrick L1）及測驗成績（L2）資料，協助掌握整體訓練成效。</p>
+          </div>
+
+          {/* Overview KPI cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label: '線上課程平均滿意度', value: overallOnlineSat !== null ? `${overallOnlineSat.toFixed(1)} ★` : '—', sub: '/ 5.0 分', color: 'text-blue-600', bg: 'bg-blue-50' },
+              { label: '線上課程平均測驗分數', value: overallOnlineQuiz !== null ? overallOnlineQuiz.toFixed(0) : '—', sub: '/ 100 分', color: 'text-purple-600', bg: 'bg-purple-50' },
+              { label: '線上課程測驗及格率', value: overallOnlinePassRate !== null ? `${overallOnlinePassRate.toFixed(0)}%` : '—', sub: `${onlineCoursesWithQuiz}/${courses.length} 門課程有資料`, color: 'text-green-600', bg: 'bg-green-50' },
+              { label: '實體訓練平均滿意度', value: avgPhysicalSat !== null ? `${avgPhysicalSat.toFixed(1)} ★` : '—', sub: '/ 5.0 分', color: 'text-orange-600', bg: 'bg-orange-50' },
+              { label: '實體訓練平均測驗分數', value: avgPhysicalQuiz !== null ? avgPhysicalQuiz.toFixed(0) : '—', sub: '/ 100 分', color: 'text-pink-600', bg: 'bg-pink-50' },
+              { label: '實體訓練測驗及格率', value: avgPhysicalPassRate !== null ? `${avgPhysicalPassRate.toFixed(0)}%` : '—', sub: `${physicalWithQuiz.length}/${records.length} 筆有資料`, color: 'text-teal-600', bg: 'bg-teal-50' },
+            ].map(s => (
+              <div key={s.label} className={`${s.bg} rounded-2xl p-4 text-center`}>
+                <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                <div className="text-xs text-gray-500 mt-1">{s.sub}</div>
+                <div className="text-xs text-gray-600 mt-1 font-medium">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 線上課程 L1 滿意度 */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1 flex items-center gap-2"><Star size={16} className="text-blue-500" />線上課程滿意度分析（L1 反應層）</h2>
+            <p className="text-xs text-gray-400 mb-4">已收集問卷之課程，共 {onlineCoursesWithSurvey}/{courses.length} 門課程</p>
+            {onlineSatChartData.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 text-sm">尚無線上課程滿意度問卷資料</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(220, onlineSatChartData.length * 32)}>
+                <BarChart data={onlineSatChartData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" domain={[0, 5]} />
+                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="滿意度" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* 線上課程 L2 測驗成效 */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1 flex items-center gap-2"><Award size={16} className="text-purple-500" />線上課程測驗成效分析（L2 學習層）</h2>
+            <p className="text-xs text-gray-400 mb-4">已有測驗成績之課程，共 {onlineCoursesWithQuiz}/{courses.length} 門課程</p>
+            {onlineQuizChartData.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 text-sm">尚無線上課程測驗成績資料</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(220, onlineQuizChartData.length * 32)}>
+                <BarChart data={onlineQuizChartData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} />
+                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="平均分數" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="及格率" fill="#a855f7" radius={[0, 4, 4, 0]} fillOpacity={0.5} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* 全部線上課程明細表 */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+              <h3 className="font-semibold text-gray-800">全部線上課程滿意度與測驗明細（共 {courses.length} 門）</h3>
+            </div>
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
+                  <tr>
+                    {['課程名稱', '類別', '報名人數', '問卷回覆', '平均滿意度', '測驗人數', '平均分數', '及格率'].map(h => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {onlineCourseAnalysis.map(d => (
+                    <tr key={d.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium text-gray-900 min-w-[160px]">{d.title}</td>
+                      <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{d.category}</td>
+                      <td className="px-3 py-2 text-center text-gray-600">{d.enrolledCount}</td>
+                      <td className="px-3 py-2 text-center text-gray-600">{d.surveyCount}</td>
+                      <td className="px-3 py-2 text-center">
+                        {d.avgSatisfaction !== null ? <span className="font-semibold text-blue-600">{d.avgSatisfaction.toFixed(1)} ★</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-center text-gray-600">{d.quizCount}</td>
+                      <td className="px-3 py-2 text-center">
+                        {d.avgQuiz !== null ? <span className="font-semibold text-purple-600">{d.avgQuiz.toFixed(0)}</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {d.passRate !== null ? <span className={`font-semibold ${d.passRate >= 70 ? 'text-green-600' : 'text-red-500'}`}>{d.passRate.toFixed(0)}%</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 實體訓練滿意度與測驗成效 */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-semibold text-gray-800">實體訓練滿意度與測驗成效（共 {records.length} 筆）</h3>
+              <span className="text-xs text-gray-400">已填寫滿意度 {physicalWithSat.length} 筆 · 已填寫測驗成效 {physicalWithQuiz.length} 筆</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    {['課程名稱', '日期', '訓練類型', '平均滿意度', '平均測驗分數', '及格率', '操作'].map(h => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {records.length === 0 ? (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">尚無實體訓練記錄</td></tr>
+                  ) : records.map(r => (
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium text-gray-900 min-w-[160px]">{r.courseName}</td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.date}</td>
+                      <td className="px-3 py-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${r.trainingType === '外訓' ? 'bg-purple-50 text-purple-700' : 'bg-green-50 text-green-700'}`}>{r.trainingType}</span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {r.satisfactionScore != null ? <span className="font-semibold text-orange-600">{r.satisfactionScore.toFixed(1)} ★</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {r.quizAvgScore != null ? <span className="font-semibold text-pink-600">{r.quizAvgScore.toFixed(0)}</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {r.quizPassRate != null ? <span className={`font-semibold ${r.quizPassRate >= 70 ? 'text-green-600' : 'text-red-500'}`}>{r.quizPassRate.toFixed(0)}%</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button onClick={() => handleEdit(r)} className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded-lg font-medium">補充資料</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-5 py-3 bg-amber-50 border-t border-amber-100 text-xs text-amber-700">
+              <strong>提示：</strong>實體訓練的滿意度問卷與測驗成績統計後，可於「編輯記錄」中填入平均滿意度、平均測驗分數與及格率，即可納入上方總覽分析。
             </div>
           </div>
         </div>

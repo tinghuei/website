@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock, X, ChevronRight, Plus, Users, Eye } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock, X, ChevronRight, Plus, Users, Eye, ArrowRight } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { COMPANY_ANNOUNCEMENTS } from '../../data/trainingMockData';
 
@@ -32,6 +33,8 @@ const UPCOMING_DEADLINES = [
   { date: '07/31', course: '智慧製造導入實務', daysLeft: 63, urgent: false },
   { date: '08/31', course: 'iCAP職能評估實務', daysLeft: 94, urgent: false },
 ];
+
+type DeadlineItem = typeof UPCOMING_DEADLINES[number];
 
 type FilterTab = 'all' | NotifType;
 
@@ -98,11 +101,13 @@ function TypeIcon({ type, title }: { type: NotifType; title: string }) {
 }
 
 export default function NotificationCenter() {
-  const { currentUser } = useTrainingAuth();
+  const { currentUser, courses } = useTrainingAuth();
+  const [, navigate] = useLocation();
   const [notifications, setNotifications] = useState<MockNotification[]>(INITIAL_NOTIFICATIONS);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [selectedNotif, setSelectedNotif] = useState<MockNotification | null>(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementLocal | null>(null);
+  const [selectedDeadline, setSelectedDeadline] = useState<DeadlineItem | null>(null);
   const [mainTab, setMainTab] = useState<'notifications' | 'announcements'>('notifications');
 
   const [announcements, setAnnouncements] = useState<AnnouncementLocal[]>(() =>
@@ -175,6 +180,20 @@ export default function NotificationCenter() {
 
   const hasConfirmed = (ann: AnnouncementLocal) =>
     currentUser ? ann.readBy.includes(currentUser.id) : false;
+
+  // 行事曆項目對應的線上課程（標題雙向包含比對）
+  const findCourseForDeadline = (courseName: string) =>
+    courses.find(c => c.title.includes(courseName) || courseName.includes(c.title));
+
+  const handleDeadlineClick = (item: DeadlineItem) => {
+    setSelectedDeadline(item);
+  };
+
+  const handleGoToDeadlineCourse = (item: DeadlineItem) => {
+    const matched = findCourseForDeadline(item.course);
+    setSelectedDeadline(null);
+    navigate(matched ? `/training/courses/${matched.id}` : '/training/courses');
+  };
 
   const targetAudienceBadge = (ann: AnnouncementLocal) => {
     if (ann.targetAudience === '全體員工') return <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">全體員工</span>;
@@ -400,20 +419,31 @@ export default function NotificationCenter() {
               <h2 className="font-semibold text-white">截止日期行事曆</h2>
             </div>
             <div className="p-4 space-y-3">
-              {UPCOMING_DEADLINES.map(({ date, course, daysLeft, urgent }) => (
-                <div key={date} className={`flex items-start gap-3 p-3 rounded-lg ${urgent ? 'bg-red-50 border border-red-100' : 'bg-gray-50'}`}>
-                  <div className={`text-center shrink-0 w-12 rounded-lg py-1 ${urgent ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                    <p className="text-[10px] font-medium">{date.split('/')[0]}月</p>
-                    <p className="text-base font-bold leading-none">{date.split('/')[1]}</p>
+              {UPCOMING_DEADLINES.map((item) => {
+                const { date, course, daysLeft, urgent } = item;
+                return (
+                  <div
+                    key={date}
+                    onClick={() => handleDeadlineClick(item)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleDeadlineClick(item); }}
+                    className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors hover:shadow-sm ${urgent ? 'bg-red-50 border border-red-100 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'}`}
+                  >
+                    <div className={`text-center shrink-0 w-12 rounded-lg py-1 ${urgent ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                      <p className="text-[10px] font-medium">{date.split('/')[0]}月</p>
+                      <p className="text-base font-bold leading-none">{date.split('/')[1]}</p>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-medium truncate ${urgent ? 'text-red-800' : 'text-gray-700'}`}>{course}</p>
+                      <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ${daysLeft <= 7 ? 'bg-red-100 text-red-600' : daysLeft <= 30 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {daysLeft <= 7 ? `緊急！剩 ${daysLeft} 天` : `剩 ${daysLeft} 天`}
+                      </span>
+                    </div>
+                    <ChevronRight size={14} className="text-gray-300 shrink-0 mt-1" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-medium truncate ${urgent ? 'text-red-800' : 'text-gray-700'}`}>{course}</p>
-                    <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ${daysLeft <= 7 ? 'bg-red-100 text-red-600' : daysLeft <= 30 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {daysLeft <= 7 ? `緊急！剩 ${daysLeft} 天` : `剩 ${daysLeft} 天`}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -468,6 +498,57 @@ export default function NotificationCenter() {
           </div>
         </div>
       )}
+
+      {/* Deadline calendar detail modal */}
+      {selectedDeadline && (() => {
+        const matched = findCourseForDeadline(selectedDeadline.course);
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedDeadline(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className={`p-5 text-white ${selectedDeadline.urgent ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-gray-600 to-gray-500'}`}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs opacity-80 mb-1">截止日期</p>
+                    <h2 className="font-bold text-lg leading-snug">{selectedDeadline.date}（2026年）</h2>
+                  </div>
+                  <button onClick={() => setSelectedDeadline(null)} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={18} /></button>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">課程名稱</p>
+                  <p className="text-base font-semibold text-gray-900">{selectedDeadline.course}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${selectedDeadline.daysLeft <= 7 ? 'bg-red-100 text-red-600' : selectedDeadline.daysLeft <= 30 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {selectedDeadline.daysLeft <= 7 ? `緊急！剩 ${selectedDeadline.daysLeft} 天` : `剩 ${selectedDeadline.daysLeft} 天`}
+                  </span>
+                  {selectedDeadline.urgent && <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-red-50 text-red-500 border border-red-200">優先處理</span>}
+                </div>
+                {matched ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                    <p className="text-xs text-blue-600 font-medium">已找到對應線上課程</p>
+                    <p className="text-sm text-blue-800 font-semibold mt-0.5">{matched.title}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-500">
+                    尚未找到完全對應的線上課程，可至課程庫搜尋相關課程或聯繫人資安全組確認訓練安排。
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-gray-100 flex gap-3">
+                <button onClick={() => setSelectedDeadline(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">關閉</button>
+                <button
+                  onClick={() => handleGoToDeadlineCourse(selectedDeadline)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold"
+                >
+                  {matched ? '前往課程' : '前往課程庫搜尋'} <ArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Announcement detail modal */}
       {selectedAnnouncement && (

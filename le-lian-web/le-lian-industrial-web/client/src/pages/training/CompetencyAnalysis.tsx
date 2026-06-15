@@ -108,7 +108,7 @@ function getEffectivePosition(name: string, overridesMap: Record<string, Positio
 // 依檔名長度由長到短比對職位名稱，避免「組長」誤判蓋掉「副組長」等較長的職位名稱
 const POSITION_NAMES_BY_LENGTH = [...POSITION_NAMES].sort((a, b) => b.length - a.length);
 
-// 常見職稱關鍵字 → 對應職位（當檔名未直接包含完整職位名稱時的備援對應）
+// 常見職稱關鍵字 → 對應職位（當檔名/職位欄未直接包含完整職位名稱、且無法依部門比對時的最終備援）
 const POSITION_ALIASES: Record<string, string> = {
   '操作員': '技術員',
   '作業員': '技術員',
@@ -123,6 +123,64 @@ const POSITION_ALIASES: Record<string, string> = {
   '助理': '總務助理',
   '秘書': '總經理室秘書',
 };
+
+// 工作說明書「所屬單位」常見填寫方式 → 對應職能框架部門類別（POSITIONS_BY_DEPT 的鍵）。
+// 用於將「所屬單位」與「職位」勾選欄組合比對到該部門下最相符的職位，
+// 避免不同部門相同的職稱（如「專員」「助理」「課長」）被誤套用到固定的單一職位。
+const DEPARTMENT_TO_CATEGORY: Record<string, string> = {
+  '總經理室': '營運部',
+  '文管': '營運部',
+  '營運部': '營運部',
+  '營業部': '營業部',
+  '業務課': '業務部',
+  '業務部': '業務部',
+  '研發課': '研發部',
+  '研發部': '研發部',
+  '品保課': '品質部',
+  '品保部': '品質部',
+  '品管': '品質部',
+  '品質部': '品質部',
+  '管理部': '總務部',
+  '總務課': '總務部',
+  '總務部': '總務部',
+  '人資': '總務部',
+  '庶務': '總務部',
+  '資材課': '資材部',
+  '資材部': '資材部',
+  '採購': '資材部',
+  '物管': '資材部',
+  '成倉': '資材部',
+  '製造課': '製造部',
+  '製造部': '製造部',
+  '生管': '製造部',
+  '沖床': '製造部',
+  '加工': '製造部',
+  '塗裝': '製造部',
+  '組一': '製造部',
+  '組二': '製造部',
+  '組三': '製造部',
+  '廠務室': '廠務部',
+  '廠務部': '廠務部',
+};
+
+// 依「所屬單位」文字比對對應的職能框架部門類別
+function matchDepartmentCategory(department: string): string | null {
+  for (const [key, category] of Object.entries(DEPARTMENT_TO_CATEGORY)) {
+    if (department.includes(key)) return category;
+  }
+  return null;
+}
+
+// 在候選職位名稱中，找出以指定職稱（title）為字尾的職位。
+// 若有多個符合（例如「課長」同時符合「資材課長」與「資材副課長」），
+// 優先選擇移除字尾後前綴不以「副」「代理」結尾者，避免一般職稱被誤判為較高層級的職位。
+function chooseBySuffix(candidates: string[], title: string): string | null {
+  const matches = candidates.filter((name) => name.endsWith(title));
+  if (matches.length <= 1) return matches[0] ?? null;
+  if (/^[副代]/.test(title)) return matches[0];
+  const primary = matches.filter((name) => !/[副代]$/.test(name.slice(0, name.length - title.length)));
+  return primary[0] ?? matches[0];
+}
 
 function detectPosition(fileName: string): string {
   const normalized = normalizeVariantChars(fileName);
@@ -145,15 +203,24 @@ function matchPositionFromParsed(parsed: ParsedJobDescription, fileName: string)
   const title = parsed.positionTitle ? normalizeVariantChars(parsed.positionTitle) : '';
   const department = parsed.department ? normalizeVariantChars(parsed.department) : '';
 
-  // 「總經理室」+「秘書」為特例：框架中對應的職位為「總經理室秘書」
-  if (department.includes('總經理室') && title.includes('秘書')) {
-    return '總經理室秘書';
-  }
-
   if (title) {
+    // 1. 職位欄已包含完整職位名稱（例如勾選欄直接列出職位全名）
     for (const name of POSITION_NAMES_BY_LENGTH) {
       if (title.includes(name)) return name;
     }
+
+    // 2. 依「所屬單位」對應的部門類別，於該部門候選職位中比對職稱字尾
+    const deptCategory = matchDepartmentCategory(department);
+    if (deptCategory) {
+      const bySuffix = chooseBySuffix(POSITIONS_BY_DEPT[deptCategory] ?? [], title);
+      if (bySuffix) return bySuffix;
+    }
+
+    // 3. 全體職位中比對職稱字尾（所屬單位未對應到部門類別，或該部門內無符合職稱者）
+    const byAnySuffix = chooseBySuffix(POSITION_NAMES, title);
+    if (byAnySuffix) return byAnySuffix;
+
+    // 4. 常見職稱關鍵字對應表（最後備援）
     for (const [kw, name] of Object.entries(POSITION_ALIASES)) {
       if (title.includes(kw)) return name;
     }

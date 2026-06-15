@@ -1043,6 +1043,33 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
           { id: 'ceo-2-3', name: '保密意識', description: '維護商業機密' },
         ]
       },
+      {
+        id: 'ceo-3',
+        category: '專案與目標管理',
+        items: [
+          { id: 'ceo-3-1', name: '專案規劃與追蹤', description: '協助規劃專案進度並追蹤執行情形' },
+          { id: 'ceo-3-2', name: '目標設定與績效管理', description: '協助設定部門目標並追蹤績效達成' },
+          { id: 'ceo-3-3', name: '進度報告與檢討', description: '彙整專案進度，提供檢討與改善建議' },
+        ]
+      },
+      {
+        id: 'ceo-4',
+        category: '數據分析與財務協助',
+        items: [
+          { id: 'ceo-4-1', name: '數據蒐集與整理', description: '蒐集並整理經營分析所需數據' },
+          { id: 'ceo-4-2', name: '財務報表初步分析', description: '協助初步分析財務報表與成本數據' },
+          { id: 'ceo-4-3', name: '預算執行追蹤', description: '追蹤各部門預算執行狀況' },
+        ]
+      },
+      {
+        id: 'ceo-5',
+        category: '法令與合規知識',
+        items: [
+          { id: 'ceo-5-1', name: '公司法等相關法規認知', description: '了解公司法等相關法令規範' },
+          { id: 'ceo-5-2', name: '合約文件審閱', description: '初步審閱合約文件，標示重點與風險' },
+          { id: 'ceo-5-3', name: '法遵申報協助', description: '協助辦理法令遵循相關申報事項' },
+        ]
+      },
     ]
   },
   '文官中心': {

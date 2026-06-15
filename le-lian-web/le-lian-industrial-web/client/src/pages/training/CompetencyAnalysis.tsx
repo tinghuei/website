@@ -125,11 +125,12 @@ const POSITION_ALIASES: Record<string, string> = {
 };
 
 function detectPosition(fileName: string): string {
+  const normalized = normalizeVariantChars(fileName);
   for (const name of POSITION_NAMES_BY_LENGTH) {
-    if (fileName.includes(name)) return name;
+    if (normalized.includes(name)) return name;
   }
   for (const [kw, name] of Object.entries(POSITION_ALIASES)) {
-    if (fileName.includes(kw)) return name;
+    if (normalized.includes(kw)) return name;
   }
   return '技術員';
 }
@@ -182,7 +183,7 @@ function buildRecognizedDocFromParsed(fileName: string, positionName: string, pa
     professionalSkills: parsed.professionalSkills,
     trainingNeeds: parsed.trainingNeeds,
     description: skillCount > 0
-      ? `已從「${fileName}」內容辨識出工作說明書欄位，比對為【${positionName}】（${position.category}・${position.level}），並依「本職位之工作職能及相關技能要求」建立該職位專屬的 ${skillCount} 項職能評分標準（套用後僅影響此職位，不影響共用 iCAP 框架或其他職位）。`
+      ? `已從「${fileName}」內容辨識出工作說明書欄位，比對為【${positionName}】（${position.category}・${position.level}）。套用後將整合該職位現有的 ${position.competencies.length} 項 iCAP 職能類別，並依「本職位之工作職能及相關技能要求」新增 ${skillCount} 項專屬評分標準，共 ${position.competencies.length + skillCount} 項職能向度，僅影響此職位，不影響共用 iCAP 框架或其他職位。`
       : `已從「${fileName}」內容辨識出所屬單位與職位，比對為【${positionName}】（${position.category}・${position.level}），但未擷取到第五項「本職位之工作職能及相關技能要求」，套用後將沿用該職位現有的 iCAP 職能基準分數。`,
     extractedItems,
   };
@@ -422,8 +423,8 @@ export default function CompetencyAnalysis() {
     const standards: CompetencyScores = {};
 
     if (docResult.source === 'content' && docResult.professionalSkills.length > 0) {
-      const score = Math.min(100, target.requiredLevel * 20 + 10);
-      competencies = docResult.professionalSkills.map((skill, i) => ({
+      const supplementaryScore = Math.min(100, target.requiredLevel * 20 + 10);
+      const supplementary: CompetencyCategory[] = docResult.professionalSkills.map((skill, i) => ({
         id: `doc-skill-${i + 1}`,
         category: skill,
         items: [{
@@ -433,7 +434,7 @@ export default function CompetencyAnalysis() {
         }],
       }));
       if (docResult.trainingNeeds.length > 0) {
-        competencies.push({
+        supplementary.push({
           id: 'doc-training',
           category: '教育訓練需求',
           items: docResult.trainingNeeds.map((need, i) => ({
@@ -443,7 +444,12 @@ export default function CompetencyAnalysis() {
           })),
         });
       }
-      competencies.forEach((c) => { standards[c.id] = score; });
+
+      // 整合該職位現有的 iCAP 職能類別（標準分數依要求等級），加上工作說明書專屬要求（標準分數略高 10 分）
+      const base = buildStandardScores(target);
+      competencies = [...target.competencies, ...supplementary];
+      target.competencies.forEach((c) => { standards[c.id] = base[c.id]; });
+      supplementary.forEach((c) => { standards[c.id] = supplementaryScore; });
     } else {
       const base = buildStandardScores(target);
       const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
@@ -662,15 +668,41 @@ export default function CompetencyAnalysis() {
                 {/* Competency values preview */}
                 {docResult.source === 'content' ? (
                   docResult.professionalSkills.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {docResult.professionalSkills.map((skill, i) => (
-                        <div key={i} className="bg-blue-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-500 mb-1 break-words">{skill}</p>
-                          <p className="text-base font-bold text-blue-700">
-                            {Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName].requiredLevel * 20 + 10)}
-                          </p>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1.5">iCAP 既有職能類別（依職位要求等級）</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName].competencies.map((c) => (
+                            <div key={c.id} className="bg-blue-50 rounded-lg p-2 text-center">
+                              <p className="text-xs text-gray-500 mb-1">{c.category}</p>
+                              <p className="text-base font-bold text-blue-700">
+                                {Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName].requiredLevel * 20)}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1.5">本說明書專屬要求（新增職能向度）</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {docResult.professionalSkills.map((skill, i) => (
+                            <div key={i} className="bg-purple-50 rounded-lg p-2 text-center">
+                              <p className="text-xs text-gray-500 mb-1 break-words">{skill}</p>
+                              <p className="text-base font-bold text-purple-700">
+                                {Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName].requiredLevel * 20 + 10)}
+                              </p>
+                            </div>
+                          ))}
+                          {docResult.trainingNeeds.length > 0 && (
+                            <div className="bg-purple-50 rounded-lg p-2 text-center col-span-2 md:col-span-1">
+                              <p className="text-xs text-gray-500 mb-1 break-words">教育訓練需求：{docResult.trainingNeeds.join('、')}</p>
+                              <p className="text-base font-bold text-purple-700">
+                                {Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName].requiredLevel * 20 + 10)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-xs text-gray-400">未擷取到「本職位之工作職能及相關技能要求」，套用後將沿用該職位現有的 iCAP 職能基準分數。</p>

@@ -1,9 +1,10 @@
 // 工作說明書文字擷取與欄位辨識工具
 // 供「職能落差分析」頁面的「上傳工作職能書」功能使用：
-// 從 PDF / TXT 檔案擷取文字內容，辨識「所屬單位」「職位」「工作摘要」
+// 從 PDF / DOCX / TXT 檔案擷取文字內容，辨識「所屬單位」「職位」「工作摘要」
 // 及「本職位之工作職能及相關技能要求」（專業能力／教育訓練需求）等欄位。
 
 import { extractPdfText } from './pdfTextExtractor';
+import { extractDocxText } from './docxTextExtractor';
 
 export interface ParsedJobDescription {
   department: string | null;
@@ -17,7 +18,12 @@ function isTextFile(file: File): boolean {
   return file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt');
 }
 
-/** 擷取上傳檔案的純文字內容（支援 PDF、TXT；其他格式回傳空字串）。 */
+function isDocxFile(file: File): boolean {
+  return file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    || file.name.toLowerCase().endsWith('.docx');
+}
+
+/** 擷取上傳檔案的純文字內容（支援 PDF、DOCX、TXT；其他格式回傳空字串）。 */
 export async function extractFileText(file: File): Promise<string> {
   if (isTextFile(file)) {
     try {
@@ -25,6 +31,9 @@ export async function extractFileText(file: File): Promise<string> {
     } catch {
       return '';
     }
+  }
+  if (isDocxFile(file)) {
+    return extractDocxText(file);
   }
   return extractPdfText(file);
 }

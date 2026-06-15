@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import {
   RadarChart,
   Radar,
@@ -12,6 +12,8 @@ import {
 import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCategory } from '../../data/competencyFramework';
+import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';
+import { loadOverrides, saveOverrides, type PositionCompetencyOverride } from '../../lib/competencyOverrides';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 // 職能分數以「職能類別 id」為鍵（例如 cm-1, cm-2...），各職位的類別數量與名稱皆不同（約 2～6 項）
@@ -38,7 +40,7 @@ function recommendCourseCategory(categoryName: string): string {
   if (/安全|衛生|危害|防護/.test(categoryName)) return '安全衛生';
   if (/品質|品檢/.test(categoryName)) return '品質管理';
   if (/生產|製程|機械設備操作|物料|倉庫|物流|採購|計畫與協調|生產計畫/.test(categoryName)) return '生產管理';
-  if (/領導與管理|領導與管理能力|成本控制|人力資源|行政管理/.test(categoryName)) return '管理發展課程';
+  if (/領導與管理|領導與管理能力|成本控制|人力資源|行政管理|管理能力|財務|預算|會計|法令|法規|公司法|專案|目標管理|績效管理/.test(categoryName)) return '管理發展課程';
   if (/溝通|協調|客戶|業務|銷售|市場/.test(categoryName)) return '職場技能';
   if (/技術|創新|研發|文檔|設備管理|廠房|改善/.test(categoryName)) return '職能發展課程';
   if (/庶務|清潔|文件管理|行政協助|行政執行/.test(categoryName)) return '行政職能課程';
@@ -83,12 +85,24 @@ function getDimensions(position: PositionData): DimensionMeta[] {
 }
 
 // ── AI 辨識結果型別 ────────────────────────────────────────────────────────────
+// source: 'content' 表示已從文件內容辨識出工作說明書欄位；'filename' 表示僅能依檔名推測職位（備援方案）
 interface RecognizedDoc {
   fileName: string;
   positionName: string;
-  competencies: CompetencyScores;
+  source: 'content' | 'filename';
+  department: string | null;
+  jobSummary: string | null;
+  professionalSkills: string[];
+  trainingNeeds: string[];
   description: string;
   extractedItems: string[];
+}
+
+// 依職位的職能評分標準覆寫資料，計算「有效」職位資料：若該職位已有自訂覆寫，以覆寫的職能類別取代框架預設值
+function getEffectivePosition(name: string, overridesMap: Record<string, PositionCompetencyOverride>): PositionData {
+  const base = DETAILED_COMPETENCY_FRAMEWORK[name];
+  const override = overridesMap[name];
+  return override ? { ...base, competencies: override.competencies } : base;
 }
 
 // 依檔名長度由長到短比對職位名稱，避免「組長」誤判蓋掉「副組長」等較長的職位名稱
@@ -120,23 +134,76 @@ function detectPosition(fileName: string): string {
   return '技術員';
 }
 
-// 模擬 AI 職能書辨識結果
-function simulateRecognition(fileName: string): RecognizedDoc {
-  const positionName = detectPosition(fileName);
-  const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
-  const base = buildStandardScores(position);
-  const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
+// 統一異體字（例如「祕書」→「秘書」），避免因字形差異導致職位比對失敗
+function normalizeVariantChars(text: string): string {
+  return text.replace(/祕/g, '秘');
+}
 
-  const competencies: CompetencyScores = {};
-  position.competencies.forEach((c) => { competencies[c.id] = vary(base[c.id]); });
+// 依工作說明書解析結果（所屬單位、職位勾選欄）比對對應的職位；無法比對時改用檔名推測
+function matchPositionFromParsed(parsed: ParsedJobDescription, fileName: string): string {
+  const title = parsed.positionTitle ? normalizeVariantChars(parsed.positionTitle) : '';
+  const department = parsed.department ? normalizeVariantChars(parsed.department) : '';
+
+  // 「總經理室」+「秘書」為特例：框架中對應的職位為「總經理室秘書」
+  if (department.includes('總經理室') && title.includes('秘書')) {
+    return '總經理室秘書';
+  }
+
+  if (title) {
+    for (const name of POSITION_NAMES_BY_LENGTH) {
+      if (title.includes(name)) return name;
+    }
+    for (const [kw, name] of Object.entries(POSITION_ALIASES)) {
+      if (title.includes(kw)) return name;
+    }
+  }
+
+  return detectPosition(fileName);
+}
+
+// 內容辨識成功：依解析出的所屬單位／職位／職能與技能要求，比對職位並建立辨識結果
+function buildRecognizedDocFromParsed(fileName: string, positionName: string, parsed: ParsedJobDescription): RecognizedDoc {
+  const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
+  const skillCount = parsed.professionalSkills.length + (parsed.trainingNeeds.length ? 1 : 0);
+
+  const extractedItems: string[] = [];
+  if (parsed.department) extractedItems.push(`🏢 所屬單位：${parsed.department}`);
+  extractedItems.push(`📋 比對職位：${positionName}（${position.category}・${position.level}）`);
+  if (parsed.jobSummary) extractedItems.push(`📝 工作摘要：${parsed.jobSummary}`);
+  if (parsed.professionalSkills.length) extractedItems.push(`📌 專業能力要求：${parsed.professionalSkills.join('、')}`);
+  if (parsed.trainingNeeds.length) extractedItems.push(`🎓 教育訓練需求：${parsed.trainingNeeds.join('、')}`);
 
   return {
     fileName,
     positionName,
-    competencies,
-    description: `AI 已成功辨識「${fileName}」為【${positionName}】（${position.category}・${position.level}）工作說明書，並已依職能基準框架自動對應該職位的 ${position.competencies.length} 項職能向度標準分數。`,
+    source: 'content',
+    department: parsed.department,
+    jobSummary: parsed.jobSummary,
+    professionalSkills: parsed.professionalSkills,
+    trainingNeeds: parsed.trainingNeeds,
+    description: skillCount > 0
+      ? `已從「${fileName}」內容辨識出工作說明書欄位，比對為【${positionName}】（${position.category}・${position.level}），並依「本職位之工作職能及相關技能要求」建立該職位專屬的 ${skillCount} 項職能評分標準（套用後僅影響此職位，不影響共用 iCAP 框架或其他職位）。`
+      : `已從「${fileName}」內容辨識出所屬單位與職位，比對為【${positionName}】（${position.category}・${position.level}），但未擷取到第五項「本職位之工作職能及相關技能要求」，套用後將沿用該職位現有的 iCAP 職能基準分數。`,
+    extractedItems,
+  };
+}
+
+// 內容辨識失敗（例如圖片掃描檔或非標準格式）時的備援方案：僅依檔名推測對應職位，並沿用框架現有的標準分數
+function simulateRecognitionFromFileName(fileName: string): RecognizedDoc {
+  const positionName = detectPosition(fileName);
+  const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
+
+  return {
+    fileName,
+    positionName,
+    source: 'filename',
+    department: null,
+    jobSummary: null,
+    professionalSkills: [],
+    trainingNeeds: [],
+    description: `未能從「${fileName}」內容中辨識出工作說明書欄位（可能為圖片掃描檔或非標準格式），已改依檔名推測對應職位為【${positionName}】（${position.category}・${position.level}），並沿用該職位現有的 ${position.competencies.length} 項 iCAP 職能向度標準分數，建議於下方確認或修正職位。`,
     extractedItems: [
-      `📋 職位：${positionName}（${position.category}）`,
+      `📋 職位（依檔名推測）：${positionName}（${position.category}）`,
       `🏷️ 職級：${position.level}（要求等級 ${position.requiredLevel}/5）`,
       ...position.competencies.map((c) => `📌 ${c.category}：${c.items.map((i) => i.name).join('、')}`),
     ],
@@ -214,8 +281,15 @@ export default function CompetencyAnalysis() {
   const { currentUser } = useTrainingAuth();
 
   const [positionName, setPositionName] = useState<string>(POSITION_NAMES[0]);
-  const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
-  const dimensions = useMemo(() => getDimensions(position), [positionName]);
+
+  // 各職位的職能評分標準覆寫資料（依工作說明書辨識結果建立），以職位名稱為鍵獨立儲存於 localStorage
+  const [overrides, setOverrides] = useState<Record<string, PositionCompetencyOverride>>(() => loadOverrides());
+  useEffect(() => {
+    saveOverrides(overrides);
+  }, [overrides]);
+
+  const position = useMemo(() => getEffectivePosition(positionName, overrides), [positionName, overrides]);
+  const dimensions = useMemo(() => getDimensions(position), [position]);
 
   const [selfScores, setSelfScores] = useState<CompetencyScores>(() => buildInitialScores(position));
   const [managerScores, setManagerScores] = useState<CompetencyScores>(() => buildManagerScores(position));
@@ -224,9 +298,8 @@ export default function CompetencyAnalysis() {
   const [targetDept, setTargetDept] = useState(DEPARTMENTS[0]);
   const [fitScore, setFitScore] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [customStandards, setCustomStandards] = useState<CompetencyScores | null>(null);
 
-  const standards = customStandards ?? buildStandardScores(position);
+  const standards = overrides[positionName]?.standards ?? buildStandardScores(position);
 
   // Competency gap quiz states
   const [quizStarted, setQuizStarted] = useState(false);
@@ -236,11 +309,10 @@ export default function CompetencyAnalysis() {
 
   // 切換職位：重置自評、主管評估、提交狀態與測驗，避免沿用舊職位的職能維度
   function handlePositionChange(name: string) {
-    const next = DETAILED_COMPETENCY_FRAMEWORK[name];
+    const next = getEffectivePosition(name, overrides);
     setPositionName(name);
     setSelfScores(buildInitialScores(next));
     setManagerScores(buildManagerScores(next));
-    setCustomStandards(null);
     setSubmitted(false);
     setShowManager(false);
     setFitScore(null);
@@ -302,39 +374,126 @@ export default function CompetencyAnalysis() {
     setShowManager(true);
   }
 
-  function handleDocUpload(file: File) {
+  async function handleDocUpload(file: File) {
     setDocFile(file);
     setDocResult(null);
     setDocApplied(false);
     setDocProcessing(true);
     setDocStep(0);
-    const steps = [1, 2, 3, 4];
-    steps.forEach((s, i) => {
-      setTimeout(() => {
-        setDocStep(s);
-        if (s === 4) {
-          setTimeout(() => {
-            const result = simulateRecognition(file.name);
-            setDocResult(result);
-            setCorrectedPositionName(result.positionName);
-            setDocProcessing(false);
-          }, 600);
-        }
-      }, (i + 1) * 900);
-    });
+
+    const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+    await wait(500);
+    setDocStep(1);
+
+    const text = await extractFileText(file);
+    const parsed = parseJobDescriptionText(text);
+
+    await wait(700);
+    setDocStep(2);
+
+    await wait(700);
+    setDocStep(3);
+
+    await wait(700);
+    setDocStep(4);
+    await wait(400);
+
+    const hasParsedContent = !!(
+      parsed.positionTitle || parsed.department || parsed.jobSummary ||
+      parsed.professionalSkills.length > 0 || parsed.trainingNeeds.length > 0
+    );
+    const result = hasParsedContent
+      ? buildRecognizedDocFromParsed(file.name, matchPositionFromParsed(parsed, file.name), parsed)
+      : simulateRecognitionFromFileName(file.name);
+
+    setDocResult(result);
+    setCorrectedPositionName(result.positionName);
+    setDocProcessing(false);
   }
 
+  // 套用職能書辨識結果：依「本職位之工作職能及相關技能要求」建立該職位專屬的職能評分標準，
+  // 以 overrides（按職位名稱獨立儲存）持久化，僅影響所選職位，不影響共用 iCAP 框架或其他職位
   function handleApplyDoc() {
     if (!docResult) return;
-    const next = DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName];
-    const base = buildStandardScores(next);
-    const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
-    const custom: CompetencyScores = {};
-    next.competencies.forEach((c) => { custom[c.id] = vary(base[c.id]); });
+    const target = DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName];
 
-    handlePositionChange(correctedPositionName);
-    setCustomStandards(custom);
+    let competencies: CompetencyCategory[];
+    const standards: CompetencyScores = {};
+
+    if (docResult.source === 'content' && docResult.professionalSkills.length > 0) {
+      const score = Math.min(100, target.requiredLevel * 20 + 10);
+      competencies = docResult.professionalSkills.map((skill, i) => ({
+        id: `doc-skill-${i + 1}`,
+        category: skill,
+        items: [{
+          id: `doc-skill-${i + 1}-1`,
+          name: skill,
+          description: `${skill}：依工作說明書「${docResult.fileName}」列為本職位應具備之專業能力要求`,
+        }],
+      }));
+      if (docResult.trainingNeeds.length > 0) {
+        competencies.push({
+          id: 'doc-training',
+          category: '教育訓練需求',
+          items: docResult.trainingNeeds.map((need, i) => ({
+            id: `doc-training-${i + 1}`,
+            name: need,
+            description: `${need}：依工作說明書「${docResult.fileName}」列為本職位之教育訓練需求`,
+          })),
+        });
+      }
+      competencies.forEach((c) => { standards[c.id] = score; });
+    } else {
+      const base = buildStandardScores(target);
+      const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
+      competencies = target.competencies;
+      competencies.forEach((c) => { standards[c.id] = vary(base[c.id]); });
+    }
+
+    const override: PositionCompetencyOverride = {
+      department: docResult.department ?? '',
+      jobSummary: docResult.jobSummary ?? '',
+      competencies,
+      standards,
+      trainingNeeds: docResult.trainingNeeds,
+      sourceFileName: docResult.fileName,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const nextOverrides = { ...overrides, [correctedPositionName]: override };
+    setOverrides(nextOverrides);
+
+    const nextPosition = getEffectivePosition(correctedPositionName, nextOverrides);
+    setPositionName(correctedPositionName);
+    setSelfScores(buildInitialScores(nextPosition));
+    setManagerScores(buildManagerScores(nextPosition));
+    setSubmitted(false);
+    setShowManager(false);
+    setFitScore(null);
+    setQuizStarted(false);
+    setQuizQuestions([]);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
     setDocApplied(true);
+  }
+
+  // 還原所選職位為共用 iCAP 職能基準（移除該職位的職能書自訂標準）
+  function handleResetOverride() {
+    const nextOverrides = { ...overrides };
+    delete nextOverrides[positionName];
+    setOverrides(nextOverrides);
+
+    const nextPosition = getEffectivePosition(positionName, nextOverrides);
+    setSelfScores(buildInitialScores(nextPosition));
+    setManagerScores(buildManagerScores(nextPosition));
+    setSubmitted(false);
+    setShowManager(false);
+    setFitScore(null);
+    setQuizStarted(false);
+    setQuizQuestions([]);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
   }
 
   function handleClearDoc() {
@@ -343,7 +502,6 @@ export default function CompetencyAnalysis() {
     setDocApplied(false);
     setDocProcessing(false);
     setDocStep(0);
-    setCustomStandards(null);
   }
 
   function handleAnalyzeFit() {
@@ -387,7 +545,9 @@ export default function CompetencyAnalysis() {
           </div>
           <div>
             <h2 className="text-sm font-bold text-gray-900">上傳工作職能書</h2>
-            <p className="text-xs text-gray-500">AI 辨識後自動更新職能標準基準值（支援 PDF、DOCX、TXT）</p>
+            <p className="text-xs text-gray-500">
+              上傳 PDF／TXT 工作說明書，自動擷取「所屬單位」「職位」與「本職位之工作職能及相關技能要求」，建立該職位專屬的職能評分標準；DOCX／圖片檔僅能依檔名推測職位
+            </p>
           </div>
           {docFile && (
             <button onClick={handleClearDoc} className="ml-auto p-1.5 hover:bg-red-100 rounded-lg text-gray-400 hover:text-red-500 transition-colors">
@@ -500,24 +660,33 @@ export default function CompetencyAnalysis() {
                 </div>
 
                 {/* Competency values preview */}
-                <div className="grid grid-cols-3 gap-2">
-                  {DETAILED_COMPETENCY_FRAMEWORK[docResult.positionName].competencies.map((c) => {
-                    const extracted = docResult.competencies[c.id] ?? 0;
-                    const original = Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[docResult.positionName].requiredLevel * 20);
-                    const diff = extracted - original;
-                    return (
+                {docResult.source === 'content' ? (
+                  docResult.professionalSkills.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {docResult.professionalSkills.map((skill, i) => (
+                        <div key={i} className="bg-blue-50 rounded-lg p-2 text-center">
+                          <p className="text-xs text-gray-500 mb-1 break-words">{skill}</p>
+                          <p className="text-base font-bold text-blue-700">
+                            {Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[correctedPositionName].requiredLevel * 20 + 10)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">未擷取到「本職位之工作職能及相關技能要求」，套用後將沿用該職位現有的 iCAP 職能基準分數。</p>
+                  )
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {DETAILED_COMPETENCY_FRAMEWORK[docResult.positionName].competencies.map((c) => (
                       <div key={c.id} className="bg-blue-50 rounded-lg p-2 text-center">
                         <p className="text-xs text-gray-500 mb-1">{c.category}</p>
-                        <p className="text-base font-bold text-blue-700">{extracted}</p>
-                        {diff !== 0 && (
-                          <p className={`text-xs font-medium ${diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {diff > 0 ? `+${diff}` : diff}
-                          </p>
-                        )}
+                        <p className="text-base font-bold text-blue-700">
+                          {Math.min(100, DETAILED_COMPETENCY_FRAMEWORK[docResult.positionName].requiredLevel * 20)}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 {!docApplied ? (
                   <button
@@ -530,7 +699,7 @@ export default function CompetencyAnalysis() {
                 ) : (
                   <div className="flex items-center gap-2 text-green-700 text-sm font-medium bg-green-50 rounded-lg px-3 py-2">
                     <CheckCircle size={16} />
-                    職能標準已更新！分析對象與雷達圖基準值已套用「{correctedPositionName}」職能書數據
+                    已建立並儲存「{correctedPositionName}」專屬職能評分標準，僅套用於此職位，不影響共用 iCAP 框架或其他職位
                   </div>
                 )}
               </div>
@@ -571,6 +740,25 @@ export default function CompetencyAnalysis() {
 
         <span className="text-xs text-gray-400">本職位共 {dimensions.length} 項職能向度，要求等級 {position.requiredLevel}/5</span>
       </div>
+
+      {/* ── Position-specific override badge ── */}
+      {overrides[positionName] && (
+        <div
+          className="flex items-center gap-2 flex-wrap bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-xs text-indigo-700"
+          title={`所屬單位：${overrides[positionName].department || '未提供'}｜工作摘要：${overrides[positionName].jobSummary || '未提供'}`}
+        >
+          <Sparkles size={14} className="flex-shrink-0" />
+          <span>
+            已套用「{positionName}」專屬職能評分標準（依工作說明書「{overrides[positionName].sourceFileName}」於 {new Date(overrides[positionName].updatedAt).toLocaleDateString('zh-TW')} 建立）
+          </span>
+          <button
+            onClick={handleResetOverride}
+            className="ml-auto text-indigo-600 hover:text-indigo-800 underline font-medium flex-shrink-0"
+          >
+            還原為共用 iCAP 標準
+          </button>
+        </div>
+      )}
 
       {/* ── Main two-column section ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

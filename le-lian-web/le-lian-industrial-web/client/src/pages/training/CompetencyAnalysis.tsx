@@ -9,11 +9,12 @@ import {
   Legend,
   Tooltip,
 } from 'recharts';
-import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight } from 'lucide-react';
+import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight, Users } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCategory } from '../../data/competencyFramework';
 import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';
 import { loadOverrides, saveOverrides, type PositionCompetencyOverride } from '../../lib/competencyOverrides';
+import { loadEmployeeJDs, saveEmployeeJDs, type EmployeeJDRecord } from '../../lib/employeeJobDescriptions';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 // 職能分數以「職能類別 id」為鍵（例如 cm-1, cm-2...），各職位的類別數量與名稱皆不同（約 2～6 項）
@@ -352,11 +353,21 @@ export default function CompetencyAnalysis() {
 
   // 各職位的職能評分標準覆寫資料（依工作說明書辨識結果建立），以職位名稱為鍵獨立儲存於 localStorage
   const [overrides, setOverrides] = useState<Record<string, PositionCompetencyOverride>>(() => loadOverrides());
-  useEffect(() => {
-    saveOverrides(overrides);
-  }, [overrides]);
+  useEffect(() => { saveOverrides(overrides); }, [overrides]);
 
-  const position = useMemo(() => getEffectivePosition(positionName, overrides), [positionName, overrides]);
+  // 每位員工的工作說明書記錄（以員工姓名為鍵，持久化至 localStorage）
+  const [employeeJDs, setEmployeeJDs] = useState<Record<string, EmployeeJDRecord>>(() => loadEmployeeJDs());
+  useEffect(() => { saveEmployeeJDs(employeeJDs); }, [employeeJDs]);
+
+  // 管理員／人資查看特定員工資料時，暫時覆寫職位職能標準（不影響職位共用的 overrides）
+  const [viewingEmployeeName, setViewingEmployeeName] = useState<string | null>(null);
+  const [empOverride, setEmpOverride] = useState<PositionCompetencyOverride | null>(null);
+
+  const position = useMemo(() => {
+    const base = DETAILED_COMPETENCY_FRAMEWORK[positionName];
+    const over = empOverride ?? overrides[positionName];
+    return over ? { ...base, competencies: over.competencies } : base;
+  }, [positionName, overrides, empOverride]);
   const dimensions = useMemo(() => getDimensions(position), [position]);
 
   const [selfScores, setSelfScores] = useState<CompetencyScores>(() => buildInitialScores(position));
@@ -367,7 +378,7 @@ export default function CompetencyAnalysis() {
   const [fitScore, setFitScore] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const standards = overrides[positionName]?.standards ?? buildStandardScores(position);
+  const standards = (empOverride ?? overrides[positionName])?.standards ?? buildStandardScores(position);
 
   // Competency gap quiz states
   const [quizStarted, setQuizStarted] = useState(false);
@@ -377,6 +388,8 @@ export default function CompetencyAnalysis() {
 
   // 切換職位：重置自評、主管評估、提交狀態與測驗，避免沿用舊職位的職能維度
   function handlePositionChange(name: string) {
+    setEmpOverride(null);
+    setViewingEmployeeName(null);
     const next = getEffectivePosition(name, overrides);
     setPositionName(name);
     setSelfScores(buildInitialScores(next));
@@ -537,6 +550,26 @@ export default function CompetencyAnalysis() {
     const nextOverrides = { ...overrides, [correctedPositionName]: override };
     setOverrides(nextOverrides);
 
+    // 同步儲存至員工個人說明書記錄，供管理員／人資在「檔案庫」查閱
+    if (currentUser) {
+      const empRecord: EmployeeJDRecord = {
+        employeeName: currentUser.name,
+        userId: currentUser.id,
+        positionName: correctedPositionName,
+        department: override.department,
+        jobSummary: override.jobSummary,
+        professionalSkills: docResult.professionalSkills,
+        trainingNeeds: override.trainingNeeds,
+        competencies: override.competencies,
+        standards: override.standards,
+        sourceFileName: override.sourceFileName,
+        uploadedAt: override.updatedAt,
+      };
+      setEmployeeJDs((prev) => ({ ...prev, [currentUser.name]: empRecord }));
+    }
+    setEmpOverride(null);
+    setViewingEmployeeName(null);
+
     const nextPosition = getEffectivePosition(correctedPositionName, nextOverrides);
     setPositionName(correctedPositionName);
     setSelfScores(buildInitialScores(nextPosition));
@@ -577,6 +610,47 @@ export default function CompetencyAnalysis() {
     setDocStep(0);
   }
 
+  // 載入指定員工的說明書記錄：暫時套用其職能標準（不覆寫職位共用的 overrides）
+  function handleLoadEmployee(employeeName: string) {
+    const record = employeeJDs[employeeName];
+    if (!record) return;
+    const over: PositionCompetencyOverride = {
+      department: record.department,
+      jobSummary: record.jobSummary,
+      competencies: record.competencies,
+      standards: record.standards,
+      trainingNeeds: record.trainingNeeds,
+      sourceFileName: record.sourceFileName,
+      updatedAt: record.uploadedAt,
+    };
+    setEmpOverride(over);
+    setPositionName(record.positionName);
+    setViewingEmployeeName(employeeName);
+    const nextPos = { ...DETAILED_COMPETENCY_FRAMEWORK[record.positionName], competencies: over.competencies };
+    setSelfScores(buildInitialScores(nextPos));
+    setManagerScores(buildManagerScores(nextPos));
+    setSubmitted(false);
+    setShowManager(false);
+    setFitScore(null);
+    setQuizStarted(false);
+    setQuizQuestions([]);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    handleClearDoc();
+  }
+
+  function handleDeleteEmployeeJD(employeeName: string) {
+    setEmployeeJDs((prev) => {
+      const next = { ...prev };
+      delete next[employeeName];
+      return next;
+    });
+    if (viewingEmployeeName === employeeName) {
+      setEmpOverride(null);
+      setViewingEmployeeName(null);
+    }
+  }
+
   function handleAnalyzeFit() {
     setAnalyzing(true);
     setFitScore(null);
@@ -610,6 +684,67 @@ export default function CompetencyAnalysis() {
         )}
       </div>
 
+      {/* ── 員工職能說明書檔案庫（管理員／人資／主管可見）── */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+              <Users size={18} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-gray-900">員工工作職能說明書檔案庫</h2>
+              <p className="text-xs text-gray-500">
+                {Object.keys(employeeJDs).length > 0
+                  ? `共 ${Object.keys(employeeJDs).length} 位員工已上傳工作說明書，點擊「查看」可載入個別員工的職能分析`
+                  : '尚無員工上傳工作說明書；員工上傳並套用後，記錄將自動儲存於此'}
+              </p>
+            </div>
+          </div>
+          {Object.keys(employeeJDs).length > 0 && (
+            <div className="space-y-2">
+              {Object.values(employeeJDs).map((rec) => (
+                <div
+                  key={rec.employeeName}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                    viewingEmployeeName === rec.employeeName
+                      ? 'border-indigo-400 bg-indigo-50'
+                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-gray-900">{rec.employeeName}</span>
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{rec.positionName}</span>
+                      {rec.department && <span className="text-xs text-gray-500">{rec.department}</span>}
+                      {rec.professionalSkills.length > 0 && (
+                        <span className="text-xs text-purple-600">{rec.professionalSkills.length} 項專業能力</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {rec.sourceFileName}・{new Date(rec.uploadedAt).toLocaleDateString('zh-TW')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleLoadEmployee(rec.employeeName)}
+                      className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                    >
+                      查看
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEmployeeJD(rec.employeeName)}
+                      className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors"
+                    >
+                      刪除
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Job Competency Document Upload ── */}
       <div className={`rounded-2xl border-2 ${docApplied ? 'border-green-300 bg-green-50' : 'border-dashed border-blue-300 bg-blue-50/40'} p-5 transition-colors`}>
         <div className="flex items-center gap-3 mb-3">
@@ -628,6 +763,23 @@ export default function CompetencyAnalysis() {
             </button>
           )}
         </div>
+
+        {/* 員工已儲存說明書的提示（未上傳新檔案時顯示） */}
+        {currentUser && employeeJDs[currentUser.name] && !docFile && (
+          <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5 mb-3">
+            <CheckCircle size={15} className="text-teal-500 flex-shrink-0" />
+            <div className="flex-1 min-w-0 text-xs text-teal-700">
+              <span className="font-medium">您的說明書記錄已儲存</span>
+              <span className="text-teal-600">（{employeeJDs[currentUser.name].positionName}・{employeeJDs[currentUser.name].sourceFileName}・{new Date(employeeJDs[currentUser.name].uploadedAt).toLocaleDateString('zh-TW')}）</span>
+            </div>
+            <button
+              onClick={() => handleLoadEmployee(currentUser.name)}
+              className="text-xs font-medium text-teal-700 hover:text-teal-900 bg-teal-100 hover:bg-teal-200 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
+            >
+              載入我的職能標準
+            </button>
+          </div>
+        )}
 
         {!docFile ? (
           <div
@@ -840,8 +992,8 @@ export default function CompetencyAnalysis() {
         <span className="text-xs text-gray-400">本職位共 {dimensions.length} 項職能向度，要求等級 {position.requiredLevel}/5</span>
       </div>
 
-      {/* ── Position-specific override badge ── */}
-      {overrides[positionName] && (
+      {/* ── Position-specific override badge（員工查看自己說明書記錄時不重複顯示）── */}
+      {overrides[positionName] && !empOverride && (
         <div
           className="flex items-center gap-2 flex-wrap bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-xs text-indigo-700"
           title={`所屬單位：${overrides[positionName].department || '未提供'}｜工作摘要：${overrides[positionName].jobSummary || '未提供'}`}
@@ -855,6 +1007,24 @@ export default function CompetencyAnalysis() {
             className="ml-auto text-indigo-600 hover:text-indigo-800 underline font-medium flex-shrink-0"
           >
             還原為共用 iCAP 標準
+          </button>
+        </div>
+      )}
+
+      {/* ── 目前查看的員工說明書提示 ── */}
+      {viewingEmployeeName && (
+        <div className="flex items-center gap-2 flex-wrap bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5 text-xs text-teal-700">
+          <Users size={14} className="flex-shrink-0" />
+          {viewingEmployeeName === currentUser?.name ? (
+            <span>目前顯示您（<strong>{viewingEmployeeName}</strong>）已儲存的說明書職能標準（{positionName}・{empOverride?.sourceFileName}）</span>
+          ) : (
+            <span>目前檢視：<strong>{viewingEmployeeName}</strong> 的工作說明書職能資料（{positionName}）</span>
+          )}
+          <button
+            onClick={() => { setEmpOverride(null); setViewingEmployeeName(null); }}
+            className="ml-auto text-teal-600 hover:text-teal-800 underline font-medium flex-shrink-0"
+          >
+            {viewingEmployeeName === currentUser?.name ? '切換為職位共用標準' : '返回職位共用標準'}
           </button>
         </div>
       )}

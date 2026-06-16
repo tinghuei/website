@@ -18,6 +18,20 @@ import {
   CourseAssignment,
 } from '../data/trainingMockData';
 
+// 員工自行註冊的帳號，持久化至 localStorage，避免頁面重整後遺失
+const REGISTERED_USERS_KEY = 'registered_users_v1';
+function loadRegisteredUsers(): User[] {
+  try { return JSON.parse(localStorage.getItem(REGISTERED_USERS_KEY) || '[]'); } catch { return []; }
+}
+function saveRegisteredUser(user: User): void {
+  try {
+    const existing = loadRegisteredUsers();
+    if (!existing.find((u) => u.email === user.email)) {
+      localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify([...existing, user]));
+    }
+  } catch {}
+}
+
 interface TrainingAuthContextValue {
   currentUser: User | null;
   users: User[];
@@ -63,7 +77,11 @@ const TrainingAuthContext = createContext<TrainingAuthContextValue | null>(null)
 
 export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(USERS);
+  // 合併內建帳號與員工自行註冊的帳號（去重，避免 email 重複）
+  const [users, setUsers] = useState<User[]>(() => {
+    const registered = loadRegisteredUsers().filter((r) => !USERS.find((u) => u.email === r.email));
+    return [...USERS, ...registered];
+  });
   const [courses, setCourses] = useState<Course[]>(COURSES);
   const [enrollments, setEnrollments] = useState<Enrollment[]>(ENROLLMENTS);
   const [discussions, setDiscussions] = useState<Discussion[]>(DISCUSSIONS);
@@ -72,7 +90,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   const [assignments, setAssignments] = useState<CourseAssignment[]>(ASSIGNMENTS);
 
   const login = (email: string): User | null => {
-    const user = USERS.find((u) => u.email === email);
+    const user = users.find((u) => u.email === email);
     if (user) {
       setCurrentUser(user);
       return user;
@@ -389,6 +407,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   const addUser = (userData: Omit<User, 'id'>): User => {
     const newUser: User = { ...userData, id: `u${Date.now()}` };
     setUsers((prev) => [...prev, newUser]);
+    saveRegisteredUser(newUser); // 持久化至 localStorage，頁面重整後仍可登入
     addAuditLog(currentUser?.id || '', '新增使用者', newUser.name, `Email: ${newUser.email}`);
     return newUser;
   };

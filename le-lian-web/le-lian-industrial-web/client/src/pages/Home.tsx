@@ -59,7 +59,7 @@ export default function Home() {
               <span className="text-accent block">專業製造 品質保證</span>
             </h1>
             <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
-              成立於民國75年，專注於工業製造與相關技術服務。我們致力於提升產品品質、製程效率與客戶滿意度，為您提供穩定、可靠且具競爭力的產品與服務。
+              成立於民國82年，專注於工業製造與相關技術服務。我們致力於提升產品品質、製程效率與客戶滿意度，為您提供穩定、可靠且具競爭力的產品與服務。
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button size="lg" className="bg-accent hover:bg-accent/90 text-white">
@@ -150,7 +150,7 @@ export default function Home() {
         <div className="container">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-4xl font-bold text-accent mb-2">38+</div>
+              <div className="text-4xl font-bold text-accent mb-2">33+</div>
               <p className="text-white/80">年營運經驗</p>
             </div>
             <div>

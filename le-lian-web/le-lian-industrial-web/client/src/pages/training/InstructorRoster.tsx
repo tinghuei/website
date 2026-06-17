@@ -72,11 +72,30 @@ export default function InstructorRoster() {
   const [stuForm, setStuForm] = useState<StudentForm>(DEFAULT_STU_FORM);
   const [editingIns, setEditingIns] = useState<string | null>(null);
   const [editingStu, setEditingStu] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const insFileRef = useRef<HTMLInputElement>(null);
   const stuFileRef = useRef<HTMLInputElement>(null);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Excel 欄位名稱常因不同來源（手動建檔、HR 系統匯出等）而有差異，
+  // 以別名清單比對欄位，避免標題文字稍有不同就被當成空值
+  const normalizeRow = (row: Record<string, unknown>): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      out[key.trim()] = value === undefined || value === null ? '' : String(value).trim();
+    }
+    return out;
+  };
+  const pickField = (row: Record<string, string>, aliases: string[]): string => {
+    for (const alias of aliases) {
+      if (row[alias]) return row[alias];
+    }
+    return '';
+  };
 
   const filteredInstructors = instructors.filter(i =>
     i.name.includes(searchQuery) || i.specialty.includes(searchQuery) || i.department.includes(searchQuery) || i.type.includes(searchQuery)
@@ -141,24 +160,33 @@ export default function InstructorRoster() {
       try {
         const wb = XLSX.read(evt.target?.result, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
-        const imported: Instructor[] = data.map((row, i) => ({
-          id: `ins-imp-${Date.now()}-${i}`,
-          name: row['姓名'] || '',
-          type: (row['講師類型'] === '外部' ? '外部' : '內部') as '內部' | '外部',
-          title: row['職稱'] || '',
-          department: row['部門'] || '',
-          specialty: row['專長領域'] || '',
-          phone: row['聯絡電話'] || '',
-          email: row['電子郵件'] || '',
-          certifications: row['相關證照'] || '',
-          totalCourses: 0,
-        }));
+        const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
+        const imported: Instructor[] = data.map((raw, i) => {
+          const row = normalizeRow(raw);
+          return {
+            id: `ins-imp-${Date.now()}-${i}`,
+            name: pickField(row, ['姓名', '講師姓名', '員工姓名', 'Name']),
+            type: (pickField(row, ['講師類型', '類型', 'Type']) === '外部' ? '外部' : '內部') as '內部' | '外部',
+            title: pickField(row, ['職稱', 'Title']),
+            department: pickField(row, ['部門', 'Department']),
+            specialty: pickField(row, ['專長領域', '專長', 'Specialty']),
+            phone: pickField(row, ['聯絡電話', '電話', 'Phone']),
+            email: pickField(row, ['電子郵件', '電子信箱', 'Email']),
+            certifications: pickField(row, ['相關證照', '證照', 'Certifications']),
+            totalCourses: 0,
+          };
+        });
         const valid = imported.filter(i => i.name);
-        setInstructors(prev => [...prev, ...valid]);
-        showToast(`成功匯入 ${valid.length} 筆講師資料`);
+        if (data.length === 0) {
+          showToast('匯入失敗：檔案中沒有資料', 'error');
+        } else if (valid.length === 0) {
+          showToast('匯入失敗：找不到「姓名」欄位，請確認欄位名稱或使用「下載範本」格式', 'error');
+        } else {
+          setInstructors(prev => [...prev, ...valid]);
+          showToast(`成功匯入 ${valid.length} 筆講師資料`);
+        }
       } catch {
-        showToast('匯入失敗：請確認格式正確');
+        showToast('匯入失敗：請確認檔案格式正確（.xlsx / .xls）', 'error');
       }
     };
     reader.readAsBinaryString(file);
@@ -173,22 +201,31 @@ export default function InstructorRoster() {
       try {
         const wb = XLSX.read(evt.target?.result, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
-        const imported: Student[] = data.map((row, i) => ({
-          id: `stu-imp-${Date.now()}-${i}`,
-          employeeId: row['員工編號'] || '',
-          name: row['姓名'] || '',
-          birthday: row['出生日期'] || '',
-          department: row['部門'] || '',
-          title: row['職稱'] || '',
-          joinDate: row['到職日期'] || '',
-          email: row['電子郵件'] || '',
-        }));
+        const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
+        const imported: Student[] = data.map((raw, i) => {
+          const row = normalizeRow(raw);
+          return {
+            id: `stu-imp-${Date.now()}-${i}`,
+            employeeId: pickField(row, ['員工編號', '工號', 'EmployeeID', 'Employee ID']),
+            name: pickField(row, ['姓名', '員工姓名', 'Name']),
+            birthday: pickField(row, ['出生日期', '生日', 'Birthday']),
+            department: pickField(row, ['部門', 'Department']),
+            title: pickField(row, ['職稱', 'Title']),
+            joinDate: pickField(row, ['到職日期', '入職日期', '到職日', 'Join Date']),
+            email: pickField(row, ['電子郵件', '電子信箱', 'Email']),
+          };
+        });
         const valid = imported.filter(s => s.name);
-        setStudents(prev => [...prev, ...valid]);
-        showToast(`成功匯入 ${valid.length} 筆學員資料`);
+        if (data.length === 0) {
+          showToast('匯入失敗：檔案中沒有資料', 'error');
+        } else if (valid.length === 0) {
+          showToast('匯入失敗：找不到「姓名」欄位，請確認欄位名稱或使用「下載範本」格式', 'error');
+        } else {
+          setStudents(prev => [...prev, ...valid]);
+          showToast(`成功匯入 ${valid.length} 筆學員資料`);
+        }
       } catch {
-        showToast('匯入失敗：請確認格式正確');
+        showToast('匯入失敗：請確認檔案格式正確（.xlsx / .xls）', 'error');
       }
     };
     reader.readAsBinaryString(file);
@@ -241,7 +278,7 @@ export default function InstructorRoster() {
     <div className="p-6 max-w-6xl mx-auto">
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
-          <span className="text-green-400">✓</span>{toast}
+          <span className={toast.type === 'error' ? 'text-red-400' : 'text-green-400'}>{toast.type === 'error' ? '✕' : '✓'}</span>{toast.msg}
         </div>
       )}
 

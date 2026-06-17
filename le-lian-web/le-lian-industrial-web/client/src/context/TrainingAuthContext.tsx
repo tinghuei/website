@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
+import { usePersistentState } from '../lib/persistentState';
 import { deleteCourseVideo } from '../lib/videoStorage';
 import { deletePresentationFile } from '../lib/presentationStorage';
 import {
@@ -87,20 +88,22 @@ interface TrainingAuthContextValue {
 const TrainingAuthContext = createContext<TrainingAuthContextValue | null>(null);
 
 export function TrainingAuthProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  // 合併內建帳號與員工自行註冊的帳號（去重，避免 email 重複）
-  const [users, setUsers] = useState<User[]>(() => {
+  // currentUser 持久化登入狀態，避免重新整理頁面後被踢回登入頁
+  const [currentUser, setCurrentUser] = usePersistentState<User | null>('currentUser', null);
+  // 合併內建帳號與員工自行註冊的帳號（去重，避免 email 重複）；之後皆以 localStorage 中的 users 為準，
+  // 不會因網站更新而被重置或覆寫
+  const [users, setUsers] = usePersistentState<User[]>('users', () => {
     const registered = loadRegisteredUsers().filter((r) => !USERS.find((u) => u.email === r.email));
     return [...USERS, ...registered];
   });
-  const [courses, setCourses] = useState<Course[]>(COURSES);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>(ENROLLMENTS);
-  const [discussions, setDiscussions] = useState<Discussion[]>(DISCUSSIONS);
-  const [notifications, setNotifications] = useState<Notification[]>(NOTIFICATIONS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(AUDIT_LOGS);
-  const [assignments, setAssignments] = useState<CourseAssignment[]>(ASSIGNMENTS);
-  const [questionReports, setQuestionReports] = useState<QuestionReport[]>(QUESTION_REPORTS);
-  const [customFreeCourses, setCustomFreeCourses] = useState<FreeCourse[]>(CUSTOM_FREE_COURSES);
+  const [courses, setCourses] = usePersistentState<Course[]>('courses', COURSES);
+  const [enrollments, setEnrollments] = usePersistentState<Enrollment[]>('enrollments', ENROLLMENTS);
+  const [discussions, setDiscussions] = usePersistentState<Discussion[]>('discussions', DISCUSSIONS);
+  const [notifications, setNotifications] = usePersistentState<Notification[]>('notifications', NOTIFICATIONS);
+  const [auditLogs, setAuditLogs] = usePersistentState<AuditLog[]>('auditLogs', AUDIT_LOGS);
+  const [assignments, setAssignments] = usePersistentState<CourseAssignment[]>('assignments', ASSIGNMENTS);
+  const [questionReports, setQuestionReports] = usePersistentState<QuestionReport[]>('questionReports', QUESTION_REPORTS);
+  const [customFreeCourses, setCustomFreeCourses] = usePersistentState<FreeCourse[]>('customFreeCourses', CUSTOM_FREE_COURSES);
 
   const login = (email: string): User | null => {
     const user = users.find((u) => u.email === email);

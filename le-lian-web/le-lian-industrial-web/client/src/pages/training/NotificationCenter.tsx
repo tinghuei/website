@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock, X, ChevronRight, Plus, Users, Eye, ArrowRight, Pencil, Trash2, History, EyeOff } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { usePersistentState } from '../../lib/persistentState';
 import { COMPANY_ANNOUNCEMENTS } from '../../data/trainingMockData';
 
 type NotifType = 'deadline_reminder' | 'review_result' | 'new_course' | 'system';
@@ -136,14 +137,14 @@ function TypeIcon({ type, title }: { type: NotifType; title: string }) {
 export default function NotificationCenter() {
   const { currentUser, courses } = useTrainingAuth();
   const [, navigate] = useLocation();
-  const [notifications, setNotifications] = useState<MockNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = usePersistentState<MockNotification[]>('notifCenterNotifications', INITIAL_NOTIFICATIONS);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [selectedNotif, setSelectedNotif] = useState<MockNotification | null>(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementLocal | null>(null);
   const [selectedDeadline, setSelectedDeadline] = useState<DeadlineItem | null>(null);
   const [mainTab, setMainTab] = useState<'notifications' | 'announcements'>('notifications');
 
-  const [announcements, setAnnouncements] = useState<AnnouncementLocal[]>(() =>
+  const [announcements, setAnnouncements] = usePersistentState<AnnouncementLocal[]>('announcements', () =>
     COMPANY_ANNOUNCEMENTS.map(a => ({
       ...a,
       targetAudience: '全體員工' as const,

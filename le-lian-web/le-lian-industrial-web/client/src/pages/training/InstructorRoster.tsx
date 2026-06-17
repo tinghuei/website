@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Users, UserCheck, Download, Upload, Plus, Edit, Trash2, X, Search } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { usePersistentState } from '../../lib/persistentState';
 import * as XLSX from 'xlsx';
 
 interface Instructor {
@@ -62,8 +63,8 @@ const DEPARTMENTS = ['總經理室', '品保課', '管理部', '總務課', '營
 export default function InstructorRoster() {
   const { currentUser } = useTrainingAuth();
   const [activeRoster, setActiveRoster] = useState<ActiveRoster>('instructors');
-  const [instructors, setInstructors] = useState<Instructor[]>(INITIAL_INSTRUCTORS);
-  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
+  const [instructors, setInstructors] = usePersistentState<Instructor[]>('instructors', INITIAL_INSTRUCTORS);
+  const [students, setStudents] = usePersistentState<Student[]>('students', INITIAL_STUDENTS);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddIns, setShowAddIns] = useState(false);
   const [showAddStu, setShowAddStu] = useState(false);
@@ -153,8 +154,9 @@ export default function InstructorRoster() {
           certifications: row['相關證照'] || '',
           totalCourses: 0,
         }));
-        setInstructors(prev => [...prev, ...imported.filter(i => i.name)]);
-        showToast(`成功匯入 ${imported.length} 筆講師資料`);
+        const valid = imported.filter(i => i.name);
+        setInstructors(prev => [...prev, ...valid]);
+        showToast(`成功匯入 ${valid.length} 筆講師資料`);
       } catch {
         showToast('匯入失敗：請確認格式正確');
       }
@@ -182,8 +184,9 @@ export default function InstructorRoster() {
           joinDate: row['到職日期'] || '',
           email: row['電子郵件'] || '',
         }));
-        setStudents(prev => [...prev, ...imported.filter(s => s.name)]);
-        showToast(`成功匯入 ${imported.length} 筆學員資料`);
+        const valid = imported.filter(s => s.name);
+        setStudents(prev => [...prev, ...valid]);
+        showToast(`成功匯入 ${valid.length} 筆學員資料`);
       } catch {
         showToast('匯入失敗：請確認格式正確');
       }

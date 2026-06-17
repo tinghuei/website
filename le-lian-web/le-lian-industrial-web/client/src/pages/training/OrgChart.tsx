@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, Plus, X, Trash2 } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { usePersistentState } from '../../lib/persistentState';
 import { LEADERSHIP, ORG_UNITS, type OrgMember, type OrgUnit } from '../../data/orgChartData';
 
 interface OrgSnapshot {
@@ -71,7 +72,7 @@ export default function OrgChart() {
   const { currentUser } = useTrainingAuth();
   const isHRAdmin = !!currentUser && ['admin', 'hr'].includes(currentUser.role);
 
-  const [snapshots, setSnapshots] = useState<OrgSnapshot[]>([BASE_SNAPSHOT]);
+  const [snapshots, setSnapshots] = usePersistentState<OrgSnapshot[]>('orgSnapshots', [BASE_SNAPSHOT]);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(BASE_SNAPSHOT.id);
   const selectedSnapshot = snapshots.find((s) => s.id === selectedSnapshotId) || snapshots[snapshots.length - 1];
 

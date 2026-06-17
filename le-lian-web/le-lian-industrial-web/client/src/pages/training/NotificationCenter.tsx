@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
-import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock, X, ChevronRight, Plus, Users, Eye, ArrowRight } from 'lucide-react';
+import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock, X, ChevronRight, Plus, Users, Eye, ArrowRight, Pencil, Trash2, History, EyeOff } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { COMPANY_ANNOUNCEMENTS } from '../../data/trainingMockData';
 
@@ -46,6 +46,13 @@ const TABS: { id: FilterTab; label: string }[] = [
   { id: 'system', label: '系統公告' },
 ];
 
+interface AnnEditLogEntry {
+  action: '建立' | '編輯' | '刪除' | '還原';
+  editedAt: string;
+  editedBy: string;
+  summary: string;
+}
+
 interface AnnouncementLocal {
   id: string;
   title: string;
@@ -59,6 +66,10 @@ interface AnnouncementLocal {
   targetDept: string;
   requireConfirmation: boolean;
   readBy: string[];
+  expiresAt?: string;
+  editHistory: AnnEditLogEntry[];
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 interface NewAnnForm {
@@ -70,6 +81,7 @@ interface NewAnnForm {
   important: boolean;
   pinned: boolean;
   requireConfirmation: boolean;
+  expiresAt: string;
 }
 
 const DEFAULT_ANN_FORM: NewAnnForm = {
@@ -81,7 +93,28 @@ const DEFAULT_ANN_FORM: NewAnnForm = {
   important: false,
   pinned: false,
   requireConfirmation: false,
+  expiresAt: '',
 };
+
+function formToSnapshot(f: NewAnnForm) {
+  return { title: f.title.trim(), content: f.content.trim(), category: f.category, targetAudience: f.targetAudience, targetDept: f.targetDept, important: f.important, pinned: f.pinned, requireConfirmation: f.requireConfirmation, expiresAt: f.expiresAt };
+}
+
+function diffSummary(before: ReturnType<typeof formToSnapshot>, after: ReturnType<typeof formToSnapshot>): string {
+  const labels: Record<string, string> = { title: '標題', content: '內容', category: '類別', targetAudience: '推播對象', targetDept: '指定部門', important: '標示重要', pinned: '置頂顯示', requireConfirmation: '需確認閱讀', expiresAt: '有效期限' };
+  const changed: string[] = [];
+  (Object.keys(labels) as (keyof typeof labels)[]).forEach(key => {
+    const b = (before as Record<string, unknown>)[key];
+    const a = (after as Record<string, unknown>)[key];
+    if (b !== a) changed.push(labels[key]);
+  });
+  return changed.length ? `修改了：${changed.join('、')}` : '內容無變更';
+}
+
+function isExpired(ann: AnnouncementLocal): boolean {
+  if (!ann.expiresAt) return false;
+  return new Date(ann.expiresAt).getTime() < Date.now();
+}
 
 const ANN_CATEGORIES = ['訓練通知', '安全通知', '課程公告', '人事公告', '補助資訊', '系統公告'];
 const DEPARTMENTS_LIST = ['總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組'];
@@ -117,12 +150,17 @@ export default function NotificationCenter() {
       targetDept: '',
       requireConfirmation: false,
       readBy: [],
+      editHistory: [{ action: '建立' as const, editedAt: a.publishedAt, editedBy: a.publishedBy, summary: '初始公告建立' }],
     }))
   );
 
   const [showCreateAnn, setShowCreateAnn] = useState(false);
   const [annForm, setAnnForm] = useState<NewAnnForm>(DEFAULT_ANN_FORM);
+  const [editingAnnId, setEditingAnnId] = useState<string | null>(null);
   const [showReadersFor, setShowReadersFor] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AnnouncementLocal | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<AnnouncementLocal | null>(null);
+  const [showExpiredAndDeleted, setShowExpiredAndDeleted] = useState(false);
 
   const isHRAdmin = currentUser && ['manager', 'admin', 'hr'].includes(currentUser.role);
 
@@ -134,14 +172,15 @@ export default function NotificationCenter() {
   );
 
   const visibleAnnouncements = useMemo(() => {
-    if (!currentUser) return announcements;
-    return announcements.filter(ann => {
+    const audienceFiltered = !currentUser ? announcements : announcements.filter(ann => {
       if (ann.targetAudience === '全體員工') return true;
       if (ann.targetAudience === '主管以上') return ['manager', 'admin', 'hr'].includes(currentUser.role);
       if (ann.targetAudience === '特定部門') return !ann.targetDept || ann.targetDept === currentUser.department;
       return true;
     });
-  }, [announcements, currentUser]);
+    if (isHRAdmin && showExpiredAndDeleted) return audienceFiltered;
+    return audienceFiltered.filter(ann => !ann.deletedAt && !isExpired(ann));
+  }, [announcements, currentUser, isHRAdmin, showExpiredAndDeleted]);
 
   const markAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
@@ -150,23 +189,89 @@ export default function NotificationCenter() {
 
   const handleCreateAnnouncement = () => {
     if (!annForm.title.trim() || !annForm.content.trim()) return;
-    const newAnn: AnnouncementLocal = {
-      id: `ann${Date.now()}`,
-      title: annForm.title.trim(),
-      content: annForm.content.trim(),
-      category: annForm.category,
-      publishedAt: new Date().toISOString().split('T')[0],
-      publishedBy: currentUser?.name || '系統管理員',
-      pinned: annForm.pinned,
-      important: annForm.important,
-      targetAudience: annForm.targetAudience,
-      targetDept: annForm.targetDept,
-      requireConfirmation: annForm.requireConfirmation,
-      readBy: [],
-    };
-    setAnnouncements(prev => [newAnn, ...prev]);
+    const operator = currentUser?.name || '系統管理員';
+    const now = new Date().toISOString().split('T')[0];
+
+    if (editingAnnId) {
+      setAnnouncements(prev => prev.map(a => {
+        if (a.id !== editingAnnId) return a;
+        const before = formToSnapshot({ ...DEFAULT_ANN_FORM, title: a.title, content: a.content, category: a.category, targetAudience: a.targetAudience, targetDept: a.targetDept, important: a.important, pinned: a.pinned, requireConfirmation: a.requireConfirmation, expiresAt: a.expiresAt || '' });
+        const after = formToSnapshot(annForm);
+        const summary = diffSummary(before, after);
+        return {
+          ...a,
+          title: annForm.title.trim(),
+          content: annForm.content.trim(),
+          category: annForm.category,
+          pinned: annForm.pinned,
+          important: annForm.important,
+          targetAudience: annForm.targetAudience,
+          targetDept: annForm.targetDept,
+          requireConfirmation: annForm.requireConfirmation,
+          expiresAt: annForm.expiresAt || undefined,
+          editHistory: [...a.editHistory, { action: '編輯' as const, editedAt: now, editedBy: operator, summary }],
+        };
+      }));
+    } else {
+      const newAnn: AnnouncementLocal = {
+        id: `ann${Date.now()}`,
+        title: annForm.title.trim(),
+        content: annForm.content.trim(),
+        category: annForm.category,
+        publishedAt: now,
+        publishedBy: operator,
+        pinned: annForm.pinned,
+        important: annForm.important,
+        targetAudience: annForm.targetAudience,
+        targetDept: annForm.targetDept,
+        requireConfirmation: annForm.requireConfirmation,
+        readBy: [],
+        expiresAt: annForm.expiresAt || undefined,
+        editHistory: [{ action: '建立', editedAt: now, editedBy: operator, summary: '建立公告' }],
+      };
+      setAnnouncements(prev => [newAnn, ...prev]);
+    }
     setShowCreateAnn(false);
+    setEditingAnnId(null);
     setAnnForm(DEFAULT_ANN_FORM);
+  };
+
+  const handleOpenEditAnnouncement = (ann: AnnouncementLocal) => {
+    setEditingAnnId(ann.id);
+    setAnnForm({
+      title: ann.title,
+      content: ann.content,
+      category: ann.category,
+      targetAudience: ann.targetAudience,
+      targetDept: ann.targetDept,
+      important: ann.important,
+      pinned: ann.pinned,
+      requireConfirmation: ann.requireConfirmation,
+      expiresAt: ann.expiresAt || '',
+    });
+    setShowCreateAnn(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    const operator = currentUser?.name || '系統管理員';
+    const now = new Date().toISOString().split('T')[0];
+    setAnnouncements(prev => prev.map(a =>
+      a.id === deleteTarget.id
+        ? { ...a, deletedAt: now, deletedBy: operator, editHistory: [...a.editHistory, { action: '刪除' as const, editedAt: now, editedBy: operator, summary: '公告已刪除（保留紀錄供稽核）' }] }
+        : a
+    ));
+    setDeleteTarget(null);
+  };
+
+  const handleRestoreAnnouncement = (ann: AnnouncementLocal) => {
+    const operator = currentUser?.name || '系統管理員';
+    const now = new Date().toISOString().split('T')[0];
+    setAnnouncements(prev => prev.map(a =>
+      a.id === ann.id
+        ? { ...a, deletedAt: undefined, deletedBy: undefined, editHistory: [...a.editHistory, { action: '還原' as const, editedAt: now, editedBy: operator, summary: '公告已還原' }] }
+        : a
+    ));
   };
 
   const handleConfirmRead = (annId: string) => {
@@ -312,13 +417,22 @@ export default function NotificationCenter() {
             <div className="space-y-4">
               {/* Create announcement button (admin/hr/manager) */}
               {isHRAdmin && (
-                <button
-                  onClick={() => setShowCreateAnn(true)}
-                  className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-orange-300 rounded-xl text-orange-600 hover:bg-orange-50 transition-colors text-sm font-medium"
-                >
-                  <Plus size={16} />
-                  新增公告
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setEditingAnnId(null); setAnnForm(DEFAULT_ANN_FORM); setShowCreateAnn(true); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-orange-300 rounded-xl text-orange-600 hover:bg-orange-50 transition-colors text-sm font-medium"
+                  >
+                    <Plus size={16} />
+                    新增公告
+                  </button>
+                  <button
+                    onClick={() => setShowExpiredAndDeleted(v => !v)}
+                    className={`flex items-center justify-center gap-1.5 px-4 rounded-xl text-xs font-medium border transition-colors ${showExpiredAndDeleted ? 'bg-gray-700 text-white border-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                  >
+                    <EyeOff size={14} />
+                    {showExpiredAndDeleted ? '隱藏已過期/已刪除' : '顯示已過期/已刪除'}
+                  </button>
+                </div>
               )}
 
               {visibleAnnouncements.length === 0 && (
@@ -330,17 +444,21 @@ export default function NotificationCenter() {
 
               {visibleAnnouncements.map((ann) => {
                 const confirmed = hasConfirmed(ann);
+                const expired = isExpired(ann);
+                const deleted = !!ann.deletedAt;
                 return (
                   <div
                     key={ann.id}
-                    className={`bg-white rounded-xl border overflow-hidden transition-all ${ann.pinned ? 'border-orange-200' : 'border-gray-100'}`}
+                    className={`bg-white rounded-xl border overflow-hidden transition-all ${deleted ? 'border-red-200 opacity-60' : expired ? 'border-gray-200 opacity-70' : ann.pinned ? 'border-orange-200' : 'border-gray-100'}`}
                   >
                     <div className="flex">
-                      <div className={`w-1 shrink-0 ${ann.important ? 'bg-orange-500' : 'bg-gray-300'}`} />
+                      <div className={`w-1 shrink-0 ${deleted ? 'bg-red-400' : ann.important ? 'bg-orange-500' : 'bg-gray-300'}`} />
                       <div className="flex-1 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 cursor-pointer" onClick={() => setSelectedAnnouncement(ann)}>
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {deleted && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">🗑 已刪除</span>}
+                              {!deleted && expired && <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-medium">已過期</span>}
                               {ann.pinned && <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">📌 置頂</span>}
                               {ann.important && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">重要</span>}
                               <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{ann.category}</span>
@@ -348,6 +466,7 @@ export default function NotificationCenter() {
                               {ann.requireConfirmation && (
                                 <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">需確認閱讀</span>
                               )}
+                              {ann.expiresAt && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">效期至 {ann.expiresAt}</span>}
                             </div>
                             <p className="text-sm font-semibold text-gray-900 mb-1">{ann.title}</p>
                             <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{ann.content}</p>
@@ -361,6 +480,43 @@ export default function NotificationCenter() {
                             <span>{ann.publishedBy}</span>
                           </div>
                           <div className="flex items-center gap-2">
+                            {isHRAdmin && (
+                              <button
+                                onClick={() => setHistoryTarget(ann)}
+                                title="編輯紀錄"
+                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-2 py-1 rounded-lg"
+                              >
+                                <History size={12} />
+                                紀錄 {ann.editHistory.length}
+                              </button>
+                            )}
+                            {isHRAdmin && !deleted && (
+                              <button
+                                onClick={() => handleOpenEditAnnouncement(ann)}
+                                title="編輯公告"
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 border border-blue-200 px-2 py-1 rounded-lg"
+                              >
+                                <Pencil size={12} /> 編輯
+                              </button>
+                            )}
+                            {isHRAdmin && !deleted && (
+                              <button
+                                onClick={() => setDeleteTarget(ann)}
+                                title="刪除公告"
+                                className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 border border-red-200 px-2 py-1 rounded-lg"
+                              >
+                                <Trash2 size={12} /> 刪除
+                              </button>
+                            )}
+                            {isHRAdmin && deleted && (
+                              <button
+                                onClick={() => handleRestoreAnnouncement(ann)}
+                                title="還原公告"
+                                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 border border-green-200 px-2 py-1 rounded-lg"
+                              >
+                                還原
+                              </button>
+                            )}
                             {isHRAdmin && ann.requireConfirmation && (
                               <button
                                 onClick={() => setShowReadersFor(showReadersFor === ann.id ? null : ann.id)}
@@ -370,7 +526,7 @@ export default function NotificationCenter() {
                                 已讀 {ann.readBy.length} 人
                               </button>
                             )}
-                            {ann.requireConfirmation && !isHRAdmin && (
+                            {ann.requireConfirmation && !isHRAdmin && !deleted && !expired && (
                               confirmed ? (
                                 <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
                                   <CheckCircle size={12} /> 已確認閱讀
@@ -604,13 +760,62 @@ export default function NotificationCenter() {
         </div>
       )}
 
-      {/* Create Announcement Modal */}
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5">
+              <h2 className="font-bold text-gray-900 mb-2">確定要刪除這則公告？</h2>
+              <p className="text-sm text-gray-500 mb-1">「{deleteTarget.title}」</p>
+              <p className="text-xs text-gray-400">刪除後此公告將不再顯示給一般員工，但會保留於編輯紀錄中供稽核，管理員可隨時還原。</p>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex gap-3">
+              <button onClick={() => setDeleteTarget(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
+              <button onClick={handleConfirmDelete} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold">確定刪除</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit history modal */}
+      {historyTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setHistoryTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2"><History size={16} className="text-gray-500" />編輯紀錄</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{historyTarget.title}</p>
+              </div>
+              <button onClick={() => setHistoryTarget(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
+            </div>
+            <div className="p-5 space-y-3 overflow-y-auto">
+              {historyTarget.editHistory.slice().reverse().map((h, idx) => (
+                <div key={idx} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <span className={`w-2.5 h-2.5 rounded-full ${h.action === '刪除' ? 'bg-red-500' : h.action === '建立' ? 'bg-green-500' : h.action === '還原' ? 'bg-blue-500' : 'bg-orange-500'}`} />
+                    {idx < historyTarget.editHistory.length - 1 && <span className="w-px flex-1 bg-gray-200 mt-1" />}
+                  </div>
+                  <div className="pb-3">
+                    <p className="text-sm font-medium text-gray-800">{h.action} <span className="text-xs text-gray-400 font-normal">· {h.editedBy} · {h.editedAt}</span></p>
+                    <p className="text-xs text-gray-500 mt-0.5">{h.summary}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t border-gray-100">
+              <button onClick={() => setHistoryTarget(null)} className="w-full py-2 bg-gray-700 text-white rounded-xl text-sm font-medium hover:bg-gray-800">關閉</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit Announcement Modal */}
       {showCreateAnn && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateAnn(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowCreateAnn(false); setEditingAnnId(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-orange-500 to-red-500 p-5 text-white flex items-center justify-between">
-              <h2 className="font-bold text-lg">新增公告</h2>
-              <button onClick={() => setShowCreateAnn(false)} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={18} /></button>
+              <h2 className="font-bold text-lg">{editingAnnId ? '編輯公告' : '新增公告'}</h2>
+              <button onClick={() => { setShowCreateAnn(false); setEditingAnnId(null); }} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
@@ -709,15 +914,32 @@ export default function NotificationCenter() {
                   ✓ 啟用「需確認閱讀」後，收到此公告的人員需點擊確認按鈕，系統將記錄閱讀確認簽名，管理員可查看已讀名單。
                 </div>
               )}
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">公告有效期限（選填）</label>
+                <input
+                  type="date"
+                  value={annForm.expiresAt}
+                  onChange={e => setAnnForm(f => ({ ...f, expiresAt: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+                <p className="text-xs text-gray-400 mt-1">超過此日期後，公告將自動從一般員工的公告列表中隱藏（管理員仍可開啟「顯示已過期/已刪除」查看）。</p>
+              </div>
+
+              {editingAnnId && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-500">
+                  ℹ️ 編輯後將自動記錄變更內容、編輯人員與時間於「編輯紀錄」中，供日後稽核查閱。
+                </div>
+              )}
             </div>
             <div className="p-4 border-t border-gray-100 flex gap-3">
-              <button onClick={() => setShowCreateAnn(false)} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">取消</button>
+              <button onClick={() => { setShowCreateAnn(false); setEditingAnnId(null); }} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">取消</button>
               <button
                 onClick={handleCreateAnnouncement}
                 disabled={!annForm.title.trim() || !annForm.content.trim()}
                 className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
               >
-                發布公告
+                {editingAnnId ? '儲存變更' : '發布公告'}
               </button>
             </div>
           </div>

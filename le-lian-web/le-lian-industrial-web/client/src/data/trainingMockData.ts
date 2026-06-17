@@ -121,6 +121,25 @@ export interface QuestionReport {
   resolvedAt?: string;
 }
 
+// 免費課程目錄項目（外部平台連結 / 可嵌入影片）。預設目錄為硬編碼於 FreeCourses.tsx 的公開資源，
+// 此處 CUSTOM_FREE_COURSES 為 HR/管理員透過後台表單新增的項目，採附加方式儲存，不覆寫預設目錄。
+export interface FreeCourse {
+  id: string;
+  source: string;
+  sourceColor: string;
+  title: string;
+  category: string;
+  hours: number;
+  langs: string[];
+  isNew: boolean;
+  desc: string;
+  url: string; // 該來源平台的官方網址，供「前往觀看」使用
+  videoId?: string; // 若有可直接嵌入播放的 YouTube 影片 ID（須經人工確認內容與課程相符且可免費觀看）
+  addedBy?: string; // 新增此項目的 HR/管理員姓名
+}
+
+export const CUSTOM_FREE_COURSES: FreeCourse[] = [];
+
 export const USERS: User[] = [
   {
     id: '1',

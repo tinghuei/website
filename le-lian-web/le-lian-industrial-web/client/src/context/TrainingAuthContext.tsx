@@ -10,6 +10,7 @@ import {
   AUDIT_LOGS,
   ASSIGNMENTS,
   QUESTION_REPORTS,
+  CUSTOM_FREE_COURSES,
   User,
   Course,
   Enrollment,
@@ -18,6 +19,7 @@ import {
   AuditLog,
   CourseAssignment,
   QuestionReport,
+  FreeCourse,
 } from '../data/trainingMockData';
 
 // 員工自行註冊的帳號，持久化至 localStorage，避免頁面重整後遺失
@@ -44,6 +46,7 @@ interface TrainingAuthContextValue {
   auditLogs: AuditLog[];
   assignments: CourseAssignment[];
   questionReports: QuestionReport[];
+  customFreeCourses: FreeCourse[];
   login: (email: string) => User | null;
   logout: () => void;
   getEnrollmentForUser: (userId: string, courseId: string) => Enrollment | undefined;
@@ -77,6 +80,8 @@ interface TrainingAuthContextValue {
   getAssignmentsForCourse: (courseId: string) => CourseAssignment[];
   reportQuizQuestion: (courseId: string, questionId: string, questionText: string, reason: string, comment?: string) => void;
   resolveQuestionReport: (reportId: string, status: 'resolved' | 'dismissed') => void;
+  addFreeCourse: (courseData: Omit<FreeCourse, 'id'>) => FreeCourse;
+  removeFreeCourse: (courseId: string) => void;
 }
 
 const TrainingAuthContext = createContext<TrainingAuthContextValue | null>(null);
@@ -95,6 +100,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(AUDIT_LOGS);
   const [assignments, setAssignments] = useState<CourseAssignment[]>(ASSIGNMENTS);
   const [questionReports, setQuestionReports] = useState<QuestionReport[]>(QUESTION_REPORTS);
+  const [customFreeCourses, setCustomFreeCourses] = useState<FreeCourse[]>(CUSTOM_FREE_COURSES);
 
   const login = (email: string): User | null => {
     const user = users.find((u) => u.email === email);
@@ -450,6 +456,19 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const addFreeCourse = (courseData: Omit<FreeCourse, 'id'>): FreeCourse => {
+    const newCourse: FreeCourse = { ...courseData, id: `fc${Date.now()}`, addedBy: currentUser?.name };
+    setCustomFreeCourses((prev) => [...prev, newCourse]);
+    addAuditLog(currentUser?.id || '', '新增免費課程資源', courseData.title, `來源：${courseData.source}`);
+    return newCourse;
+  };
+
+  const removeFreeCourse = (courseId: string) => {
+    const course = customFreeCourses.find((c) => c.id === courseId);
+    setCustomFreeCourses((prev) => prev.filter((c) => c.id !== courseId));
+    addAuditLog(currentUser?.id || '', '刪除免費課程資源', course?.title || courseId, '');
+  };
+
   return (
     <TrainingAuthContext.Provider
       value={{
@@ -462,6 +481,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         auditLogs,
         assignments,
         questionReports,
+        customFreeCourses,
         login,
         logout,
         getEnrollmentForUser,
@@ -495,6 +515,8 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         getAssignmentsForCourse,
         reportQuizQuestion,
         resolveQuestionReport,
+        addFreeCourse,
+        removeFreeCourse,
       }}
     >
       {children}

@@ -18,20 +18,21 @@ interface FreeCourse {
 }
 
 // ── Mock data ──────────────────────────────────────────────────────────────────
-// 各課程之 url 為對應主辦單位的官方數位學習平台網址，供使用者點擊後前往該平台實際觀看課程內容。
+// 各課程之 url 為對應主辦單位的官方數位學習平台網址；videoId 為透過搜尋確認存在、與課程主題相符的
+// 公開 YouTube 教學影片，可直接嵌入播放。兩者皆來自實際搜尋結果，供使用者真正觀看課程內容。
 const FREE_COURSES: FreeCourse[] = [
-  { id: 'f1', source: '勞動部勞動力發展署', sourceColor: 'blue', title: '工廠安全衛生管理實務', category: '安全衛生', hours: 6, langs: ['zh'], isNew: true, desc: '工廠安全管理制度建立與執行實務，含危害辨識與風險評估。', url: 'https://mol.elearn.hrd.gov.tw/', videoId: 'hCX_nOFm7-8' },
-  { id: 'f2', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '金屬製造業職能基準課程', category: '專業技能', hours: 8, langs: ['zh'], isNew: true, desc: '依iCAP金屬製造業職能基準設計，含衝壓、焊接、塗裝等核心技術。', url: 'https://icap.wda.gov.tw/' },
-  { id: 'f3', source: '經濟部工業局', sourceColor: 'green', title: '智慧製造導入實務', category: '技術提升', hours: 4, langs: ['zh', 'en'], isNew: false, desc: '工業4.0與智慧製造導入策略，含IoT、大數據應用案例。', url: 'https://www.italent.org.tw/' },
-  { id: 'f4', source: '勞動部', sourceColor: 'blue', title: '職業安全衛生法規研習', category: '法規遵循', hours: 3, langs: ['zh'], isNew: true, desc: '職業安全衛生法及相關子法最新修訂重點說明。', url: 'https://mol.elearn.hrd.gov.tw/' },
-  { id: 'f5', source: '金屬工業研究發展中心', sourceColor: 'orange', title: '衝壓成型技術進階', category: '專業技能', hours: 12, langs: ['zh'], isNew: false, desc: '衝壓成型進階技術，含模具設計、材料特性與品質控制。', url: 'https://learning.mirdc.org.tw/' },
+  { id: 'f1', source: '勞動部勞動力發展署', sourceColor: 'blue', title: '工廠安全衛生管理實務', category: '安全衛生', hours: 6, langs: ['zh'], isNew: true, desc: '工廠安全管理制度建立與執行實務，含危害辨識與風險評估。', url: 'https://mol.elearn.hrd.gov.tw/', videoId: 'bVaMWppBU-c' },
+  { id: 'f2', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '金屬製造業職能基準課程', category: '專業技能', hours: 8, langs: ['zh'], isNew: true, desc: '依iCAP金屬製造業職能基準設計，含衝壓、焊接、塗裝等核心技術。', url: 'https://icap.wda.gov.tw/', videoId: 'IzA0t6DQ82Y' },
+  { id: 'f3', source: '經濟部工業局', sourceColor: 'green', title: '智慧製造導入實務', category: '技術提升', hours: 4, langs: ['zh', 'en'], isNew: false, desc: '工業4.0與智慧製造導入策略，含IoT、大數據應用案例。', url: 'https://www.italent.org.tw/', videoId: 'AmYHEcVZ6EI' },
+  { id: 'f4', source: '勞動部', sourceColor: 'blue', title: '職業安全衛生法規研習', category: '法規遵循', hours: 3, langs: ['zh'], isNew: true, desc: '職業安全衛生法及相關子法最新修訂重點說明。', url: 'https://mol.elearn.hrd.gov.tw/', videoId: 'FWl4_WwzXLA' },
+  { id: 'f5', source: '金屬工業研究發展中心', sourceColor: 'orange', title: '衝壓成型技術進階', category: '專業技能', hours: 12, langs: ['zh'], isNew: false, desc: '衝壓成型進階技術，含模具設計、材料特性與品質控制。', url: 'https://learning.mirdc.org.tw/', videoId: 'EoU40lTN02E' },
   { id: 'f6', source: '勞動部', sourceColor: 'blue', title: '外籍移工生活適應訓練', category: '管理能力', hours: 3, langs: ['zh', 'th', 'vi', 'id'], isNew: true, desc: '協助外籍員工適應台灣職場文化，含法規說明與生活資訊。', url: 'https://mol.elearn.hrd.gov.tw/' },
-  { id: 'f7', source: '財團法人中衛發展中心', sourceColor: 'teal', title: '5S推行與現場管理實務', category: '現場管理', hours: 6, langs: ['zh'], isNew: false, desc: '5S整理整頓清掃清潔素養推行步驟與維持方法。', url: 'https://www.csd.org.tw/' },
-  { id: 'f8', source: 'TTI台灣訓練品質協會', sourceColor: 'red', title: 'TTQS訓練品質系統輔導', category: '品質管理', hours: 8, langs: ['zh'], isNew: true, desc: 'TTQS人才發展品質管理系統評核準備與文件建置輔導。', url: 'https://ttqs.wda.gov.tw/' },
-  { id: 'f9', source: '勞動力發展署', sourceColor: 'blue', title: '焊接技術人員認證準備', category: '專業技能', hours: 16, langs: ['zh'], isNew: false, desc: '焊接技術人員技能認證考試準備課程，含理論與實作。', url: 'https://www.wda.gov.tw/' },
-  { id: 'f10', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '生產管理與效益提升', category: '管理能力', hours: 6, langs: ['zh', 'en'], isNew: true, desc: '生產排程、產能規劃與製程效益分析實務課程。', url: 'https://icap.wda.gov.tw/' },
-  { id: 'f11', source: '環保署', sourceColor: 'green', title: '工廠廢棄物管理法規', category: '法規遵循', hours: 3, langs: ['zh'], isNew: false, desc: '工廠廢棄物分類、申報及合法處理相關法規說明。', url: 'https://www.moenv.gov.tw/' },
-  { id: 'f12', source: '勞動部', sourceColor: 'blue', title: '性別工作平等法實務', category: '法規遵循', hours: 2, langs: ['zh'], isNew: false, desc: '性別平等教育、性騷擾防治與職場友善環境建立。', url: 'https://mol.elearn.hrd.gov.tw/' },
+  { id: 'f7', source: '財團法人中衛發展中心', sourceColor: 'teal', title: '5S推行與現場管理實務', category: '現場管理', hours: 6, langs: ['zh'], isNew: false, desc: '5S整理整頓清掃清潔素養推行步驟與維持方法。', url: 'https://www.csd.org.tw/', videoId: 'pppwew76T0U' },
+  { id: 'f8', source: 'TTI台灣訓練品質協會', sourceColor: 'red', title: 'TTQS訓練品質系統輔導', category: '品質管理', hours: 8, langs: ['zh'], isNew: true, desc: 'TTQS人才發展品質管理系統評核準備與文件建置輔導。', url: 'https://ttqs.wda.gov.tw/', videoId: 'meY48QgV8R8' },
+  { id: 'f9', source: '勞動力發展署', sourceColor: 'blue', title: '焊接技術人員認證準備', category: '專業技能', hours: 16, langs: ['zh'], isNew: false, desc: '焊接技術人員技能認證考試準備課程，含理論與實作。', url: 'https://www.wda.gov.tw/', videoId: 'f9rosiea234' },
+  { id: 'f10', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '生產管理與效益提升', category: '管理能力', hours: 6, langs: ['zh', 'en'], isNew: true, desc: '生產排程、產能規劃與製程效益分析實務課程。', url: 'https://icap.wda.gov.tw/', videoId: 'IxPo5nqjuHQ' },
+  { id: 'f11', source: '環保署', sourceColor: 'green', title: '工廠廢棄物管理法規', category: '法規遵循', hours: 3, langs: ['zh'], isNew: false, desc: '工廠廢棄物分類、申報及合法處理相關法規說明。', url: 'https://www.moenv.gov.tw/', videoId: 'YIU0l9XqknE' },
+  { id: 'f12', source: '勞動部', sourceColor: 'blue', title: '性別工作平等法實務', category: '法規遵循', hours: 2, langs: ['zh'], isNew: false, desc: '性別平等教育、性騷擾防治與職場友善環境建立。', url: 'https://mol.elearn.hrd.gov.tw/', videoId: '5wktV91HVO4' },
 ];
 
 const ALL_CATEGORIES = ['全部', ...Array.from(new Set(FREE_COURSES.map((c) => c.category)))];

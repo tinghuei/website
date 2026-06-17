@@ -1,5 +1,5 @@
 import { Fragment, useState, useMemo, useEffect } from 'react';
-import { TrendingUp, CheckCircle, Clock, AlertCircle, ChevronDown, X, Plus, Paperclip, ThumbsUp, ThumbsDown, ShieldCheck, Upload } from 'lucide-react';
+import { TrendingUp, CheckCircle, Clock, AlertCircle, ChevronDown, X, Plus, Paperclip, ThumbsUp, ThumbsDown, ShieldCheck, Upload, Bell } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import type { User } from '../../data/trainingMockData';
 import { BarChart, Bar, LineChart, Line, ReferenceLine, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -164,7 +164,7 @@ const L3_STATUS_COLOR: Record<L3Confirmation['status'], string> = {
 type TabId = 'overview' | 'l1' | 'l2' | 'l3' | 'l4';
 
 export default function PerformanceTracking() {
-  const { currentUser, enrollments, users, courses } = useTrainingAuth();
+  const { currentUser, enrollments, users, courses, addNotification } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [l3Records, setL3Records] = useState<L3Confirmation[]>(INITIAL_L3);
   const [l4Campaigns, setL4Campaigns] = useState<L4Campaign[]>(INITIAL_L4);
@@ -391,6 +391,56 @@ export default function PerformanceTracking() {
 
   const isKpiMet = (campaign: L4Campaign, actual: number) =>
     campaign.higherIsBetter ? actual >= campaign.targetValue : actual <= campaign.targetValue;
+
+  // 尚未填寫 L3（待填寫／逾期）：人資／管理員可逐一或一鍵發送推播提醒
+  const unfilledL3 = useMemo(() => filteredL3.filter(r => r.status === 'pending' || r.status === 'overdue'), [filteredL3]);
+
+  const handleSendL3Reminder = (r: L3Confirmation) => {
+    const employee = resolveEmployee(r, users);
+    if (!employee) { showToast('找不到對應的員工帳號，無法發送提醒'); return; }
+    addNotification(employee.id, 'l3_reminder', `提醒您填寫「${r.courseName}」${r.quarter} 季度的在職應用確認，請儘快完成填寫`);
+    showToast(`✓ 已發送提醒給 ${r.userName}`);
+  };
+
+  const handleSendAllL3Reminders = () => {
+    if (unfilledL3.length === 0) { showToast('目前沒有待填寫或逾期的項目'); return; }
+    const notifiedEmployeeIds = new Set<string>();
+    unfilledL3.forEach(r => {
+      const employee = resolveEmployee(r, users);
+      if (!employee || notifiedEmployeeIds.has(employee.id)) return;
+      notifiedEmployeeIds.add(employee.id);
+      addNotification(employee.id, 'l3_reminder', `提醒您填寫「${r.courseName}」${r.quarter} 季度的在職應用確認，請儘快完成填寫`);
+    });
+    showToast(`✓ 已發送提醒給 ${notifiedEmployeeIds.size} 位員工`);
+  };
+
+  // 依部門找出該 L4 計畫負責填報的主管
+  const resolveL4Manager = (c: L4Campaign) => users.find(u => u.role === 'manager' && u.department === c.department);
+
+  // 本季尚未填報實際數值的 L4 計畫
+  const currentQuarterMissingL4 = useMemo(
+    () => l4Campaigns.filter(c => !c.entries.some(e => e.quarter === currentQuarter)),
+    [l4Campaigns]
+  );
+
+  const handleSendL4Reminder = (c: L4Campaign) => {
+    const manager = resolveL4Manager(c);
+    if (!manager) { showToast(`找不到「${c.department}」對應的主管帳號，無法發送提醒`); return; }
+    addNotification(manager.id, 'l4_reminder', `提醒您填寫「${c.courseName}」（${c.kpiType}）${currentQuarter} 季度的實際 KPI 數值`);
+    showToast(`✓ 已發送提醒給 ${manager.name}`);
+  };
+
+  const handleSendAllL4Reminders = () => {
+    if (currentQuarterMissingL4.length === 0) { showToast('本季 L4 成果評估皆已填報'); return; }
+    const notifiedManagerIds = new Set<string>();
+    currentQuarterMissingL4.forEach(c => {
+      const manager = resolveL4Manager(c);
+      if (!manager || notifiedManagerIds.has(manager.id)) return;
+      notifiedManagerIds.add(manager.id);
+      addNotification(manager.id, 'l4_reminder', `提醒您填寫「${c.courseName}」（${c.kpiType}）${currentQuarter} 季度的實際 KPI 數值`);
+    });
+    showToast(`✓ 已發送提醒給 ${notifiedManagerIds.size} 位主管`);
+  };
 
   const TABS: { id: TabId; label: string; color: string }[] = [
     { id: 'overview', label: '總覽', color: 'gray' },
@@ -801,10 +851,15 @@ export default function PerformanceTracking() {
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
                 <h3 className="font-semibold text-gray-800">L3 在職應用確認總覽</h3>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">已完成 {l3ConfirmedCount}</span>
                   <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">處理中 {l3PendingCount}</span>
                   <span className="text-xs bg-red-100 text-red-600 px-2.5 py-1 rounded-full font-medium">逾期 {l3OverdueCount}</span>
+                  {unfilledL3.length > 0 && (
+                    <button onClick={handleSendAllL3Reminders} className="flex items-center gap-1.5 text-xs bg-orange-500 hover:bg-orange-600 text-white px-2.5 py-1.5 rounded-full font-medium transition-colors">
+                      <Bell size={12} /> 一鍵提醒未填寫（{unfilledL3.length}）
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -840,9 +895,16 @@ export default function PerformanceTracking() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <button onClick={() => setExpandedL3(expandedL3 === r.id ? null : r.id)} className="text-gray-400 hover:text-gray-700">
-                              <ChevronDown size={15} className={`transition-transform ${expandedL3 === r.id ? 'rotate-180' : ''}`} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {(r.status === 'pending' || r.status === 'overdue') && (
+                                <button onClick={() => handleSendL3Reminder(r)} title="發送填寫提醒" className="text-orange-500 hover:text-orange-700">
+                                  <Bell size={15} />
+                                </button>
+                              )}
+                              <button onClick={() => setExpandedL3(expandedL3 === r.id ? null : r.id)} className="text-gray-400 hover:text-gray-700">
+                                <ChevronDown size={15} className={`transition-transform ${expandedL3 === r.id ? 'rotate-180' : ''}`} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                         {expandedL3 === r.id && (
@@ -888,6 +950,36 @@ export default function PerformanceTracking() {
               <button onClick={() => setShowAddL4(true)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                 <Plus size={15} /> 新增 L4 成果評估計畫
               </button>
+            </div>
+          )}
+
+          {/* 本季尚未填報的主管：人資／管理員可逐一或一鍵發送推播提醒 */}
+          {isHRAdmin && currentQuarterMissingL4.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-red-200 flex items-center justify-between flex-wrap gap-2">
+                <h3 className="font-semibold text-red-800 text-sm flex items-center gap-2">
+                  <AlertCircle size={16} /> 本季（{currentQuarter}）尚未填報 — {currentQuarterMissingL4.length} 項
+                </h3>
+                <button onClick={handleSendAllL4Reminders} className="flex items-center gap-1.5 text-xs bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-full font-medium transition-colors">
+                  <Bell size={12} /> 一鍵提醒所有主管
+                </button>
+              </div>
+              <div className="divide-y divide-red-100">
+                {currentQuarterMissingL4.map(c => {
+                  const manager = resolveL4Manager(c);
+                  return (
+                    <div key={c.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{c.courseName} · {c.kpiType}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{c.department}{manager ? ` · 負責主管：${manager.name}` : ' · 找不到對應主管帳號'}</p>
+                      </div>
+                      <button onClick={() => handleSendL4Reminder(c)} className="flex items-center gap-1.5 text-xs border border-red-300 text-red-600 hover:bg-red-100 px-2.5 py-1.5 rounded-full font-medium transition-colors">
+                        <Bell size={12} /> 發送提醒
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 

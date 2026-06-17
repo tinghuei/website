@@ -67,6 +67,7 @@ interface TrainingAuthContextValue {
   getCourseDiscussions: (courseId: string) => Discussion[];
   setUserRole: (userId: string, role: User['role']) => void;
   addUser: (userData: Omit<User, 'id'>) => User;
+  addAuditLog: (userId: string, action: string, target: string, details: string) => void;
   assignCourse: (userId: string, courseId: string, dueDate?: string, note?: string) => CourseAssignment;
   revokeAssignment: (assignmentId: string) => void;
   getAssignmentsForUser: (userId: string) => CourseAssignment[];
@@ -293,7 +294,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const addAuditLog = (userId: string, action: string, target: string, details: string) => {
-    const user = USERS.find((u) => u.id === userId);
+    const user = users.find((u) => u.id === userId);
     const newLog: AuditLog = {
       id: `al${Date.now()}`,
       userId,
@@ -360,6 +361,8 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
       localVideo: courseData.localVideo,
       localPresentation: courseData.localPresentation,
       presentationName: courseData.presentationName,
+      videoTranscript: courseData.videoTranscript,
+      externalVideoUrl: courseData.externalVideoUrl,
     };
     setCourses((prev) => [...prev, newCourse]);
     addAuditLog(currentUser?.id || '', '新增課程', courseData.title || '', 'AI 自動生成課程內容及測驗題目');
@@ -449,6 +452,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         getCourseDiscussions,
         setUserRole,
         addUser,
+        addAuditLog,
         assignCourse,
         revokeAssignment,
         getAssignmentsForUser,

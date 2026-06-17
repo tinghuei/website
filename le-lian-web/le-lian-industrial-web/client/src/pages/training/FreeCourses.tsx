@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Globe, RefreshCw, Plus, Sparkles, Clock, Filter, Check, X, Play, Pause } from 'lucide-react';
+import { Globe, RefreshCw, Plus, Sparkles, Clock, Filter, Check, X, Play, Pause, ExternalLink } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -13,22 +13,25 @@ interface FreeCourse {
   langs: string[];
   isNew: boolean;
   desc: string;
+  url: string; // 該來源平台的官方網址，供「前往觀看」使用
+  videoId?: string; // 若有可直接嵌入播放的 YouTube 影片 ID
 }
 
 // ── Mock data ──────────────────────────────────────────────────────────────────
+// 各課程之 url 為對應主辦單位的官方數位學習平台網址，供使用者點擊後前往該平台實際觀看課程內容。
 const FREE_COURSES: FreeCourse[] = [
-  { id: 'f1', source: '勞動部勞動力發展署', sourceColor: 'blue', title: '工廠安全衛生管理實務', category: '安全衛生', hours: 6, langs: ['zh'], isNew: true, desc: '工廠安全管理制度建立與執行實務，含危害辨識與風險評估。' },
-  { id: 'f2', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '金屬製造業職能基準課程', category: '專業技能', hours: 8, langs: ['zh'], isNew: true, desc: '依iCAP金屬製造業職能基準設計，含衝壓、焊接、塗裝等核心技術。' },
-  { id: 'f3', source: '經濟部工業局', sourceColor: 'green', title: '智慧製造導入實務', category: '技術提升', hours: 4, langs: ['zh', 'en'], isNew: false, desc: '工業4.0與智慧製造導入策略，含IoT、大數據應用案例。' },
-  { id: 'f4', source: '勞動部', sourceColor: 'blue', title: '職業安全衛生法規研習', category: '法規遵循', hours: 3, langs: ['zh'], isNew: true, desc: '職業安全衛生法及相關子法最新修訂重點說明。' },
-  { id: 'f5', source: '金屬工業研究發展中心', sourceColor: 'orange', title: '衝壓成型技術進階', category: '專業技能', hours: 12, langs: ['zh'], isNew: false, desc: '衝壓成型進階技術，含模具設計、材料特性與品質控制。' },
-  { id: 'f6', source: '勞動部', sourceColor: 'blue', title: '外籍移工生活適應訓練', category: '管理能力', hours: 3, langs: ['zh', 'th', 'vi', 'id'], isNew: true, desc: '協助外籍員工適應台灣職場文化，含法規說明與生活資訊。' },
-  { id: 'f7', source: '財團法人中衛發展中心', sourceColor: 'teal', title: '5S推行與現場管理實務', category: '現場管理', hours: 6, langs: ['zh'], isNew: false, desc: '5S整理整頓清掃清潔素養推行步驟與維持方法。' },
-  { id: 'f8', source: 'TTI台灣訓練品質協會', sourceColor: 'red', title: 'TTQS訓練品質系統輔導', category: '品質管理', hours: 8, langs: ['zh'], isNew: true, desc: 'TTQS人才發展品質管理系統評核準備與文件建置輔導。' },
-  { id: 'f9', source: '勞動力發展署', sourceColor: 'blue', title: '焊接技術人員認證準備', category: '專業技能', hours: 16, langs: ['zh'], isNew: false, desc: '焊接技術人員技能認證考試準備課程，含理論與實作。' },
-  { id: 'f10', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '生產管理與效益提升', category: '管理能力', hours: 6, langs: ['zh', 'en'], isNew: true, desc: '生產排程、產能規劃與製程效益分析實務課程。' },
-  { id: 'f11', source: '環保署', sourceColor: 'green', title: '工廠廢棄物管理法規', category: '法規遵循', hours: 3, langs: ['zh'], isNew: false, desc: '工廠廢棄物分類、申報及合法處理相關法規說明。' },
-  { id: 'f12', source: '勞動部', sourceColor: 'blue', title: '性別工作平等法實務', category: '法規遵循', hours: 2, langs: ['zh'], isNew: false, desc: '性別平等教育、性騷擾防治與職場友善環境建立。' },
+  { id: 'f1', source: '勞動部勞動力發展署', sourceColor: 'blue', title: '工廠安全衛生管理實務', category: '安全衛生', hours: 6, langs: ['zh'], isNew: true, desc: '工廠安全管理制度建立與執行實務，含危害辨識與風險評估。', url: 'https://mol.elearn.hrd.gov.tw/', videoId: 'hCX_nOFm7-8' },
+  { id: 'f2', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '金屬製造業職能基準課程', category: '專業技能', hours: 8, langs: ['zh'], isNew: true, desc: '依iCAP金屬製造業職能基準設計，含衝壓、焊接、塗裝等核心技術。', url: 'https://icap.wda.gov.tw/' },
+  { id: 'f3', source: '經濟部工業局', sourceColor: 'green', title: '智慧製造導入實務', category: '技術提升', hours: 4, langs: ['zh', 'en'], isNew: false, desc: '工業4.0與智慧製造導入策略，含IoT、大數據應用案例。', url: 'https://www.italent.org.tw/' },
+  { id: 'f4', source: '勞動部', sourceColor: 'blue', title: '職業安全衛生法規研習', category: '法規遵循', hours: 3, langs: ['zh'], isNew: true, desc: '職業安全衛生法及相關子法最新修訂重點說明。', url: 'https://mol.elearn.hrd.gov.tw/' },
+  { id: 'f5', source: '金屬工業研究發展中心', sourceColor: 'orange', title: '衝壓成型技術進階', category: '專業技能', hours: 12, langs: ['zh'], isNew: false, desc: '衝壓成型進階技術，含模具設計、材料特性與品質控制。', url: 'https://learning.mirdc.org.tw/' },
+  { id: 'f6', source: '勞動部', sourceColor: 'blue', title: '外籍移工生活適應訓練', category: '管理能力', hours: 3, langs: ['zh', 'th', 'vi', 'id'], isNew: true, desc: '協助外籍員工適應台灣職場文化，含法規說明與生活資訊。', url: 'https://mol.elearn.hrd.gov.tw/' },
+  { id: 'f7', source: '財團法人中衛發展中心', sourceColor: 'teal', title: '5S推行與現場管理實務', category: '現場管理', hours: 6, langs: ['zh'], isNew: false, desc: '5S整理整頓清掃清潔素養推行步驟與維持方法。', url: 'https://www.csd.org.tw/' },
+  { id: 'f8', source: 'TTI台灣訓練品質協會', sourceColor: 'red', title: 'TTQS訓練品質系統輔導', category: '品質管理', hours: 8, langs: ['zh'], isNew: true, desc: 'TTQS人才發展品質管理系統評核準備與文件建置輔導。', url: 'https://ttqs.wda.gov.tw/' },
+  { id: 'f9', source: '勞動力發展署', sourceColor: 'blue', title: '焊接技術人員認證準備', category: '專業技能', hours: 16, langs: ['zh'], isNew: false, desc: '焊接技術人員技能認證考試準備課程，含理論與實作。', url: 'https://www.wda.gov.tw/' },
+  { id: 'f10', source: 'iCAP職能發展平台', sourceColor: 'purple', title: '生產管理與效益提升', category: '管理能力', hours: 6, langs: ['zh', 'en'], isNew: true, desc: '生產排程、產能規劃與製程效益分析實務課程。', url: 'https://icap.wda.gov.tw/' },
+  { id: 'f11', source: '環保署', sourceColor: 'green', title: '工廠廢棄物管理法規', category: '法規遵循', hours: 3, langs: ['zh'], isNew: false, desc: '工廠廢棄物分類、申報及合法處理相關法規說明。', url: 'https://www.moenv.gov.tw/' },
+  { id: 'f12', source: '勞動部', sourceColor: 'blue', title: '性別工作平等法實務', category: '法規遵循', hours: 2, langs: ['zh'], isNew: false, desc: '性別平等教育、性騷擾防治與職場友善環境建立。', url: 'https://mol.elearn.hrd.gov.tw/' },
 ];
 
 const ALL_CATEGORIES = ['全部', ...Array.from(new Set(FREE_COURSES.map((c) => c.category)))];
@@ -83,18 +86,38 @@ function FreeCourseModal({ course, onClose, onAdd }: { course: FreeCourse; onClo
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} className="text-gray-500" /></button>
         </div>
 
-        {/* External platform banner */}
-        <div className={`bg-gradient-to-br ${gradient} px-6 py-8 flex flex-col items-center justify-center gap-4`}>
-          <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
-            <Globe size={32} className="text-white" />
+        {/* External platform / embedded video */}
+        {course.videoId ? (
+          <div className="aspect-video bg-black">
+            <iframe
+              className="w-full h-full"
+              src={`https://www.youtube.com/embed/${course.videoId}`}
+              title={course.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
           </div>
-          <div className="text-center">
-            <p className="text-white font-bold text-lg">{course.title}</p>
-            <p className="text-white/80 text-sm mt-1">{course.source} 提供</p>
+        ) : (
+          <div className={`bg-gradient-to-br ${gradient} px-6 py-8 flex flex-col items-center justify-center gap-4`}>
+            <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+              <Globe size={32} className="text-white" />
+            </div>
+            <div className="text-center">
+              <p className="text-white font-bold text-lg">{course.title}</p>
+              <p className="text-white/80 text-sm mt-1">{course.source} 提供</p>
+            </div>
           </div>
-          <div className="bg-white/20 backdrop-blur rounded-xl px-4 py-2 text-white/90 text-sm text-center">
-            此課程為外部免費資源，請至對應平台觀看
-          </div>
+        )}
+        <div className="px-5 pt-4">
+          <a
+            href={course.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full inline-flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <ExternalLink size={15} />
+            前往 {course.source} 官方平台觀看完整課程
+          </a>
         </div>
 
         {/* Info */}
@@ -106,7 +129,7 @@ function FreeCourseModal({ course, onClose, onAdd }: { course: FreeCourse; onClo
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${SOURCE_BADGE_MAP[course.sourceColor] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{course.source}</span>
           </div>
           <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-            <strong>說明：</strong>此為政府機關或公益平台提供的免費課程資源。完成後可加入課程庫作為參訓記錄，並由人資審核確認。
+            <strong>說明：</strong>此為政府機關或公益平台提供的免費課程資源{course.videoId ? '，上方已嵌入可直接播放的教學影片' : '，請點擊上方按鈕前往該平台實際觀看課程內容'}。加入課程庫後，課程內也會保留此觀看連結，完成後可作為參訓記錄，並由人資審核確認。
           </div>
         </div>
 
@@ -201,6 +224,16 @@ function CourseCard({
             {course.langs.map((l) => LANG_FLAGS[l] || l).join(' ')}
           </span>
           <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+            <a
+              href={course.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200"
+            >
+              <ExternalLink size={11} />
+              前往觀看
+            </a>
             <button
               onClick={(e) => { e.stopPropagation(); handleAdd(); }}
               disabled={added}
@@ -278,6 +311,8 @@ export default function FreeCourses() {
       passingScore: 70,
       quizQuestions: [],
       status: 'active',
+      videoId: course.videoId,
+      externalVideoUrl: course.url,
     });
     showToast(`「${course.title}」已成功加入課程庫！`);
   }

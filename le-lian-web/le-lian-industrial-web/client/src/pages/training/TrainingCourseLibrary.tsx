@@ -65,6 +65,7 @@ function EditCourseModal({ course, onSave, onClose }: {
     mandatory: course.mandatory || false,
     passingScore: course.passingScore || 70,
     videoId: course.videoId || '',
+    videoTranscript: course.videoTranscript || '',
     quizQuestions: course.quizQuestions || [],
   });
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -163,7 +164,11 @@ function EditCourseModal({ course, onSave, onClose }: {
         if (stored && isPdf(stored)) pdfFile = stored;
       }
 
-      const materialText = pdfFile ? await extractPdfText(pdfFile) : '';
+      const pdfText = pdfFile ? await extractPdfText(pdfFile) : '';
+      const videoText = form.videoTranscript.trim();
+      // 影片文字稿與 PDF 教材文字合併，作為「依實際內容出題」的素材；
+      // 瀏覽器端無法自動辨識影片語音內容，故影片內容須由課程建立者貼上文字稿/大綱才能據此出題。
+      const materialText = [videoText, pdfText].filter(Boolean).join('\n');
       const courseInfo = { title: form.title || '本課程', category: form.category, description: form.description };
       const targetCount = Math.min(15, Math.max(5, 20 - form.quizQuestions.length));
 
@@ -177,9 +182,10 @@ function EditCourseModal({ course, onSave, onClose }: {
         setQuizNote('目前題庫範本已全部加入，如需更多題目請點擊「新增題目」手動編寫。');
       } else {
         setForm(f => ({ ...f, quizQuestions: [...f.quizQuestions, ...drafts] }));
+        const sourceLabel = videoText && pdfText ? '依影片文字稿與 PDF 教材內容產生' : videoText ? '依影片文字稿內容產生' : pdfText ? '依教材 PDF 內容產生' : '';
         setQuizNote(
           contentDrafts.length > 0
-            ? `已新增 ${drafts.length} 題草稿（其中 ${contentDrafts.length} 題依教材 PDF 內容產生），請逐題確認內容與正確答案後再發布。`
+            ? `已新增 ${drafts.length} 題草稿（其中 ${contentDrafts.length} 題${sourceLabel}），請逐題確認內容與正確答案後再發布。`
             : `已新增 ${drafts.length} 題草稿，請逐題確認內容與正確答案後再發布。`
         );
       }
@@ -235,6 +241,19 @@ function EditCourseModal({ course, onSave, onClose }: {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
             <p className="text-xs text-gray-400 mt-1">設定後員工可在課程中觀看教學影片</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">影片內容文字稿/大綱（選填）</label>
+            <textarea
+              value={form.videoTranscript}
+              onChange={e => setForm(f => ({ ...f, videoTranscript: e.target.value }))}
+              rows={4}
+              placeholder="貼上影片的逐字稿、字幕或內容大綱，AI 自動生成測驗時會依此文字內容出題"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              瀏覽器無法自動辨識影片中的語音內容，請貼上文字稿/字幕或大綱，AI 自動生成測驗才能依「實際影片內容」出題，而非僅依課程標題與類別產生通用題目。
+            </p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">上傳影片檔（選填）</label>
@@ -339,7 +358,9 @@ function EditCourseModal({ course, onSave, onClose }: {
             </div>
             {form.quizQuestions.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 mb-2">
-                <strong>提示：</strong>AI 自動生成之題目為草稿，部分依課程類別、名稱與課程描述文字產生固定範本題，若課程已上傳 PDF 教材，會額外擷取教材文字內容產生對應題目；<strong>仍未讀取影片內容</strong>，請務必依實際教學內容確認、修改題目與正確答案後再儲存發布。
+                <strong>提示：</strong>AI 自動生成之題目為草稿，部分依課程類別、名稱與課程描述文字產生固定範本題；若已填寫上方「影片內容文字稿/大綱」或上傳 PDF 教材，會額外依該文字內容產生對應題目
+                {!form.videoTranscript.trim() && <>（<strong>目前尚未填寫影片文字稿，無法依實際影片內容出題</strong>）</>}
+                ，請務必依實際教學內容確認、修改題目與正確答案後再儲存發布。
               </div>
             )}
             {quizNote && (

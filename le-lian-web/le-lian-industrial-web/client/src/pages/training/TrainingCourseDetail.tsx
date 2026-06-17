@@ -17,6 +17,8 @@ import {
   Award,
   FileText,
   Download,
+  ExternalLink,
+  Globe,
 } from 'lucide-react';
 
 declare global {
@@ -430,6 +432,26 @@ export default function TrainingCourseDetail() {
                     </div>
                   </div>
                 )}
+              </div>
+            ) : course.externalVideoUrl ? (
+              <div className={`${thumbColor} relative aspect-video flex items-center justify-center overflow-hidden`}>
+                <div className="relative z-10 flex flex-col items-center gap-4 px-6 text-center">
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                    <Globe size={32} className="text-white" />
+                  </div>
+                  <p className="text-white/85 text-sm max-w-sm leading-relaxed">
+                    本課程影片提供於外部平台，請點擊下方按鈕前往觀看
+                  </p>
+                  <a
+                    href={course.externalVideoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-white text-gray-900 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <ExternalLink size={15} />
+                    前往外部平台觀看
+                  </a>
+                </div>
               </div>
             ) : (
               <div className={`${thumbColor} relative aspect-video flex items-center justify-center overflow-hidden`}>

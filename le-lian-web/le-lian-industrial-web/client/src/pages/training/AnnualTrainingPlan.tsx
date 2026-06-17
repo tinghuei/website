@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck } from 'lucide-react';
+import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck, Pencil, History, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { loadRecords, loadRoutine, TTQS_PHASES } from '../../lib/physicalTrainingStorage';
@@ -405,6 +405,134 @@ function QuarterlyModal({ onClose, onConfirm }: QuarterlyModalProps) {
   );
 }
 
+// ── 課程編輯 Modal（人資／管理員專用）──────────────────────────────────────────
+const PLAN_CATEGORY_OPTIONS = ['行政職能課程', '法令規範課程', '核心提升課程', '專業領域課程'];
+const PLAN_MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
+
+interface PlanRowEditModalProps {
+  row: PlanRow;
+  onClose: () => void;
+  onSave: (updated: PlanRow) => void;
+}
+
+function PlanRowEditModal({ row, onClose, onSave }: PlanRowEditModalProps) {
+  const [form, setForm] = useState<PlanRow>({ ...row });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">編輯課程</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">課程名稱</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">類別</label>
+              <select
+                value={form.cat}
+                onChange={(e) => setForm({ ...form, cat: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+              >
+                {PLAN_CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">訓練類型</label>
+              <div className="flex gap-1">
+                {['內部', '外部'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setForm({ ...form, type: t })}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+                      form.type === t ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:border-blue-300'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">目標對象</label>
+            <input
+              type="text"
+              value={form.target}
+              onChange={(e) => setForm({ ...form, target: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">時數</label>
+              <input
+                type="number"
+                min={0}
+                value={form.hours}
+                onChange={(e) => setForm({ ...form, hours: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">預定月份</label>
+              <select
+                value={form.month}
+                onChange={(e) => setForm({ ...form, month: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+              >
+                {PLAN_MONTH_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">預計人數</label>
+              <input
+                type="number"
+                min={0}
+                value={form.count}
+                onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">備註</label>
+            <input
+              type="text"
+              value={form.note}
+              onChange={(e) => setForm({ ...form, note: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
+            取消
+          </button>
+          <button
+            onClick={() => onSave(form)}
+            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700"
+          >
+            儲存修改
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 歷年成效查詢：年度送審簽核資料 ────────────────────────────────────────────
 export interface AnnualSignoff {
   hrSubmittedAt: string | null;
@@ -454,7 +582,7 @@ const HISTORY_YEAR_OPTIONS = ['2024', '2025', '2026', '2027'];
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AnnualTrainingPlan() {
-  const { courses, enrollments } = useTrainingAuth();
+  const { courses, enrollments, currentUser, auditLogs, addAuditLog } = useTrainingAuth();
   const [courseTrack, setCourseTrack] = useState(() => [...COURSE_TRACK]);
   const [activeTab, setActiveTab] = useState(0);
   const [year, setYear] = useState('2026');
@@ -463,6 +591,13 @@ export default function AnnualTrainingPlan() {
   const [rows, setRows] = useState<PlanRow[]>(INITIAL_ROWS);
   const [savedMsg, setSavedMsg] = useState('');
   const [showQuarterlyModal, setShowQuarterlyModal] = useState(false);
+  const [editingRow, setEditingRow] = useState<PlanRow | null>(null);
+  const [showPlanHistory, setShowPlanHistory] = useState(false);
+
+  // 人資與管理員可編輯／刪除年度計畫課程；一般主管僅可檢視
+  const canManagePlan = currentUser?.role === 'admin' || currentUser?.role === 'hr';
+  const PLAN_AUDIT_ACTIONS = ['新增年度訓練計畫課程', '編輯年度訓練計畫課程', '刪除年度訓練計畫課程'];
+  const planAuditLogs = auditLogs.filter((l) => PLAN_AUDIT_ACTIONS.includes(l.action));
 
   // ── 歷年成效查詢 ──
   const [physicalRecords] = useState(() => loadRecords());
@@ -563,7 +698,33 @@ export default function AnnualTrainingPlan() {
 
   function handleAddRow() {
     const newId = Math.max(...rows.map((r) => r.id)) + 1;
-    setRows((prev) => [...prev, { id: newId, name: '', cat: '', type: '內部', target: '', hours: 0, month: '1月', count: 0, note: '' }]);
+    const newRow: PlanRow = { id: newId, name: '', cat: '', type: '內部', target: '', hours: 0, month: '1月', count: 0, note: '' };
+    setRows((prev) => [...prev, newRow]);
+    if (currentUser) {
+      addAuditLog(currentUser.id, '新增年度訓練計畫課程', `#${newId}`, '新增一筆空白課程，待填寫並編輯');
+    }
+  }
+
+  function handleSaveEditedRow(updated: PlanRow) {
+    const before = rows.find((r) => r.id === updated.id);
+    setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    if (currentUser) {
+      addAuditLog(
+        currentUser.id,
+        '編輯年度訓練計畫課程',
+        updated.name || `#${updated.id}`,
+        `修改前：${before?.name || '（空白）'}／${before?.month}／${before?.hours}h／${before?.count}人；修改後：${updated.name}／${updated.month}／${updated.hours}h／${updated.count}人`
+      );
+    }
+    setEditingRow(null);
+  }
+
+  function handleDeleteRow(row: PlanRow) {
+    if (!window.confirm(`確定要刪除「${row.name || '#' + row.id}」課程嗎？此操作無法復原。`)) return;
+    setRows((prev) => prev.filter((r) => r.id !== row.id));
+    if (currentUser) {
+      addAuditLog(currentUser.id, '刪除年度訓練計畫課程', row.name || `#${row.id}`, `類別：${row.cat}／預定月份：${row.month}／時數：${row.hours}h`);
+    }
   }
 
   function handleSave() {
@@ -679,7 +840,7 @@ export default function AnnualTrainingPlan() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {['#', '課程名稱', '類別', '訓練類型', '目標對象', '時數', '預定月份', '預計人數', '備註'].map((h) => (
+                    {['#', '課程名稱', '類別', '訓練類型', '目標對象', '時數', '預定月份', '預計人數', '備註', ...(canManagePlan ? ['操作'] : [])].map((h) => (
                       <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -702,13 +863,73 @@ export default function AnnualTrainingPlan() {
                       <td className="px-3 py-2.5 text-gray-600">{row.month}</td>
                       <td className="px-3 py-2.5 text-center text-gray-600">{row.count}</td>
                       <td className="px-3 py-2.5 text-xs text-gray-400">{row.note}</td>
+                      {canManagePlan && (
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setEditingRow(row)}
+                              className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="編輯課程"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRow(row)}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="刪除課程"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
+
+          {/* 編輯紀錄（人資／管理員專用） */}
+          {canManagePlan && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <button
+                onClick={() => setShowPlanHistory((v) => !v)}
+                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                  <History size={16} className="text-gray-400" />
+                  課程編輯紀錄（{planAuditLogs.length} 筆）
+                </span>
+                <span className="text-xs text-gray-400">{showPlanHistory ? '收合 ▲' : '展開 ▼'}</span>
+              </button>
+              {showPlanHistory && (
+                <div className="border-t border-gray-100 max-h-80 overflow-y-auto divide-y divide-gray-50">
+                  {planAuditLogs.length === 0 ? (
+                    <div className="px-6 py-6 text-center text-sm text-gray-400">尚無編輯紀錄</div>
+                  ) : (
+                    planAuditLogs.map((log) => (
+                      <div key={log.id} className="px-6 py-3 text-xs">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-gray-700">{log.action}</span>
+                          <span className="text-gray-500">{log.target}</span>
+                          <span className="text-gray-300">·</span>
+                          <span className="text-gray-400">{log.userName}</span>
+                          <span className="text-gray-300 ml-auto">{log.timestamp}</span>
+                        </div>
+                        {log.details && <div className="text-gray-400 mt-1">{log.details}</div>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
+      )}
+
+      {editingRow && (
+        <PlanRowEditModal row={editingRow} onClose={() => setEditingRow(null)} onSave={handleSaveEditedRow} />
       )}
 
       {/* ── Tab 2: 課程地圖 ── */}

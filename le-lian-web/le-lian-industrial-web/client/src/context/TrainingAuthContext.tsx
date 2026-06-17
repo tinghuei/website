@@ -77,6 +77,7 @@ interface TrainingAuthContextValue {
   setUserStatus: (userId: string, status: 'active' | 'resigned') => void;
   deleteUser: (userId: string) => void;
   addAuditLog: (userId: string, action: string, target: string, details: string) => void;
+  clearAuditLogsByActions: (actions: string[]) => void;
   assignCourse: (userId: string, courseId: string, dueDate?: string, note?: string) => CourseAssignment;
   revokeAssignment: (assignmentId: string) => void;
   getAssignmentsForUser: (userId: string) => CourseAssignment[];
@@ -324,6 +325,11 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     setAuditLogs((prev) => [newLog, ...prev]);
   };
 
+  // 僅清除指定 action 類型的稽核紀錄（例如課程編輯紀錄），不影響其他種類的稽核紀錄
+  const clearAuditLogsByActions = (actions: string[]) => {
+    setAuditLogs((prev) => prev.filter((l) => !actions.includes(l.action)));
+  };
+
   const updateCourse = (courseId: string, updates: Partial<Course>) => {
     setCourses((prev) => prev.map((c) => (c.id === courseId ? { ...c, ...updates } : c)));
   };
@@ -535,6 +541,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         setUserStatus,
         deleteUser,
         addAuditLog,
+        clearAuditLogsByActions,
         assignCourse,
         revokeAssignment,
         getAssignmentsForUser,

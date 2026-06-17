@@ -582,7 +582,7 @@ const HISTORY_YEAR_OPTIONS = ['2024', '2025', '2026', '2027'];
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AnnualTrainingPlan() {
-  const { courses, enrollments, currentUser, auditLogs, addAuditLog } = useTrainingAuth();
+  const { courses, enrollments, currentUser, auditLogs, addAuditLog, clearAuditLogsByActions } = useTrainingAuth();
   const [courseTrack, setCourseTrack] = useState(() => [...COURSE_TRACK]);
   const [activeTab, setActiveTab] = useState(0);
   const [year, setYear] = useState('2026');
@@ -593,6 +593,7 @@ export default function AnnualTrainingPlan() {
   const [showQuarterlyModal, setShowQuarterlyModal] = useState(false);
   const [editingRow, setEditingRow] = useState<PlanRow | null>(null);
   const [showPlanHistory, setShowPlanHistory] = useState(false);
+  const [clearHistoryStep, setClearHistoryStep] = useState<1 | 2 | null>(null);
 
   // 人資與管理員可編輯／刪除年度計畫課程；一般主管僅可檢視
   const canManagePlan = currentUser?.role === 'admin' || currentUser?.role === 'hr';
@@ -846,9 +847,9 @@ export default function AnnualTrainingPlan() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {rows.map((row) => (
+                  {rows.map((row, idx) => (
                     <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-2.5 text-gray-400 text-xs">{row.id}</td>
+                      <td className="px-3 py-2.5 text-gray-400 text-xs">{idx + 1}</td>
                       <td className="px-3 py-2.5 font-medium text-gray-900 min-w-[160px]">{row.name}</td>
                       <td className="px-3 py-2.5">
                         <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{row.cat}</span>
@@ -893,16 +894,26 @@ export default function AnnualTrainingPlan() {
           {/* 編輯紀錄（人資／管理員專用） */}
           {canManagePlan && (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <button
-                onClick={() => setShowPlanHistory((v) => !v)}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <div className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={() => setShowPlanHistory((v) => !v)}
+                  className="flex items-center gap-2 text-sm font-semibold text-gray-700 flex-1 text-left"
+                >
                   <History size={16} className="text-gray-400" />
                   課程編輯紀錄（{planAuditLogs.length} 筆）
-                </span>
-                <span className="text-xs text-gray-400">{showPlanHistory ? '收合 ▲' : '展開 ▼'}</span>
-              </button>
+                </button>
+                <div className="flex items-center gap-3">
+                  {planAuditLogs.length > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setClearHistoryStep(1); }}
+                      className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-medium"
+                    >
+                      <X size={12} /> 清空全部
+                    </button>
+                  )}
+                  <button onClick={() => setShowPlanHistory((v) => !v)} className="text-xs text-gray-400">{showPlanHistory ? '收合 ▲' : '展開 ▼'}</button>
+                </div>
+              </div>
               {showPlanHistory && (
                 <div className="border-t border-gray-100 max-h-80 overflow-y-auto divide-y divide-gray-50">
                   {planAuditLogs.length === 0 ? (
@@ -1419,6 +1430,42 @@ export default function AnnualTrainingPlan() {
             setTimeout(() => setSavedMsg(''), 2500);
           }}
         />
+      )}
+
+      {/* 清空課程編輯紀錄：兩段式確認，避免誤刪歷史紀錄 */}
+      {clearHistoryStep && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            {clearHistoryStep === 1 ? (
+              <>
+                <h3 className="font-bold text-gray-900 mb-2">清空課程編輯紀錄</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  確定要清空目前的課程編輯紀錄（共 {planAuditLogs.length} 筆）嗎？此操作只會移除年度訓練計畫的新增／編輯／刪除紀錄，不會影響課程資料本身，且無法復原。
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setClearHistoryStep(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                  <button onClick={() => setClearHistoryStep(2)} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-medium">繼續</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-bold text-red-700 mb-2">再次確認清空</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  這是清空前的最後確認：{planAuditLogs.length} 筆課程編輯紀錄將被永久刪除，且無法復原。確定要繼續嗎？
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setClearHistoryStep(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                  <button
+                    onClick={() => { clearAuditLogsByActions(PLAN_AUDIT_ACTIONS); setClearHistoryStep(null); }}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-semibold"
+                  >
+                    確定永久清空
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

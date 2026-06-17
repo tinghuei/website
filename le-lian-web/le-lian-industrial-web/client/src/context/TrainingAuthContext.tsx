@@ -74,6 +74,8 @@ interface TrainingAuthContextValue {
   getCourseDiscussions: (courseId: string) => Discussion[];
   setUserRole: (userId: string, role: User['role']) => void;
   addUser: (userData: Omit<User, 'id'>) => User;
+  setUserStatus: (userId: string, status: 'active' | 'resigned') => void;
+  deleteUser: (userId: string) => void;
   addAuditLog: (userId: string, action: string, target: string, details: string) => void;
   assignCourse: (userId: string, courseId: string, dueDate?: string, note?: string) => CourseAssignment;
   revokeAssignment: (assignmentId: string) => void;
@@ -107,7 +109,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
 
   const login = (email: string): User | null => {
     const user = users.find((u) => u.email === email);
-    if (user) {
+    if (user && user.status !== 'resigned') {
       setCurrentUser(user);
       return user;
     }
@@ -430,6 +432,25 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     return newUser;
   };
 
+  // 標記帳號為已離職（或恢復在職）：保留該員工的課程紀錄、稽核日誌等歷史資料，
+  // 僅停用登入權限，與 deleteUser 的「永久刪除」是兩種不同的操作選項
+  const setUserStatus = (userId: string, status: 'active' | 'resigned') => {
+    const user = users.find((u) => u.id === userId);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status } : u)));
+    addAuditLog(
+      currentUser?.id || '',
+      status === 'resigned' ? '停用使用者帳號（標記已離職）' : '恢復使用者帳號',
+      user?.name || userId,
+      status === 'resigned' ? '帳號已無法登入系統' : '帳號已恢復可登入'
+    );
+  };
+
+  const deleteUser = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    addAuditLog(currentUser?.id || '', '刪除使用者帳號', user?.name || userId, `Email: ${user?.email || ''}`);
+  };
+
   const reportQuizQuestion = (courseId: string, questionId: string, questionText: string, reason: string, comment?: string) => {
     const course = courses.find((c) => c.id === courseId);
     const newReport: QuestionReport = {
@@ -511,6 +532,8 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         getCourseDiscussions,
         setUserRole,
         addUser,
+        setUserStatus,
+        deleteUser,
         addAuditLog,
         assignCourse,
         revokeAssignment,

@@ -54,7 +54,9 @@ export default function TrainingLogin() {
       return;
     }
     const existing = users.find((u) => u.email === trimmed);
-    if (existing) {
+    if (existing?.status === 'resigned') {
+      setError('此帳號已停用，如有任何問題請洽人資。');
+    } else if (existing) {
       doLogin(trimmed);
     } else {
       setStep('register');

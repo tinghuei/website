@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { ALL_EMPLOYEES } from '../../data/orgChartData';
 import { useLocation } from 'wouter';
 import {
   BookOpen,
@@ -23,7 +24,12 @@ const statusBadge: Record<string, { label: string; cls: string }> = {
 };
 
 const DEPT_OPTIONS = ['總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組', '組三組', '沖床組', '塗裝組', '加工組', '財務部', '庶務組', '人資安全組'];
-const TITLE_OPTIONS = ['操作員', '技術員', '工程師', '主任', '課長', '組長', '副理', '經理'];
+// 合併常見職稱與組織圖（orgChartData.ts，全公司職位單一資料來源）中實際使用的職稱，
+// 並讓員工可自行輸入清單外的職稱，避免實際職稱不在固定清單中而無法填寫
+const TITLE_OPTIONS = Array.from(new Set([
+  '操作員', '技術員', '工程師', '主任', '課長', '組長', '副理', '經理',
+  ...ALL_EMPLOYEES.map((e) => e.title),
+]));
 
 export default function TrainingDashboard() {
   const { currentUser, getUserEnrollments, courses, getUserNotifications, getPendingReviews } = useTrainingAuth();
@@ -141,14 +147,16 @@ export default function TrainingDashboard() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1.5">職稱</label>
-                  <select
+                  <input
                     value={profileForm.title}
                     onChange={(e) => setProfileForm((p) => ({ ...p, title: e.target.value }))}
+                    list="title-suggestions"
+                    placeholder="選擇或輸入職稱"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  >
-                    <option value="">選擇職稱</option>
-                    {TITLE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  />
+                  <datalist id="title-suggestions">
+                    {TITLE_OPTIONS.map((t) => <option key={t} value={t} />)}
+                  </datalist>
                 </div>
                 <button
                   onClick={() => setProfileSaved(true)}

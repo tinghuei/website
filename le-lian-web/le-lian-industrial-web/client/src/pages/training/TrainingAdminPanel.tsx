@@ -140,7 +140,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, addUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport } = useTrainingAuth();
+  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -159,6 +159,8 @@ export default function TrainingAdminPanel() {
   const [editingCourse, setEditingCourse] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingUserRole, setEditingUserRole] = useState<string | null>(null);
+  const [deleteUserStep, setDeleteUserStep] = useState<{ id: string; step: 1 | 2 } | null>(null);
+  const [confirmStatusUser, setConfirmStatusUser] = useState<string | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [addUserForm, setAddUserForm] = useState({ name: '', email: '', department: '', role: 'employee' as 'employee' | 'manager' | 'admin' });
   const [addUserSuccess, setAddUserSuccess] = useState(false);
@@ -495,11 +497,16 @@ export default function TrainingAdminPanel() {
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">部門</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">入職日期</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">角色設定</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">帳號狀態</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {users.map((user) => (
-                  <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${user.id === currentUser?.id ? 'bg-blue-50/30' : ''}`}>
+                {users.map((user) => {
+                  const isSelf = user.id === currentUser?.id;
+                  const isResigned = user.status === 'resigned';
+                  return (
+                  <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${isSelf ? 'bg-blue-50/30' : ''} ${isResigned ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${
@@ -510,7 +517,7 @@ export default function TrainingAdminPanel() {
                         <div>
                           <p className="text-sm font-medium text-gray-900">
                             {user.name}
-                            {user.id === currentUser?.id && <span className="ml-1.5 text-xs text-blue-500">（你）</span>}
+                            {isSelf && <span className="ml-1.5 text-xs text-blue-500">（你）</span>}
                           </p>
                         </div>
                       </div>
@@ -555,11 +562,108 @@ export default function TrainingAdminPanel() {
                         </div>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${isResigned ? 'bg-gray-200 text-gray-600' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {isResigned ? '已離職（無法登入）' : '在職'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setConfirmStatusUser(user.id)}
+                          disabled={isSelf}
+                          title={isSelf ? '無法停用自己的帳號' : isResigned ? '恢復在職' : '標記為已離職'}
+                          className="text-xs text-gray-400 hover:text-amber-600 underline transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:no-underline"
+                        >
+                          {isResigned ? '恢復在職' : '標記已離職'}
+                        </button>
+                        <button
+                          onClick={() => setDeleteUserStep({ id: user.id, step: 1 })}
+                          disabled={isSelf}
+                          title={isSelf ? '無法刪除自己的帳號' : '刪除帳號'}
+                          className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          {/* Status toggle confirmation（標記已離職 / 恢復在職） */}
+          {confirmStatusUser && (() => {
+            const target = users.find((u) => u.id === confirmStatusUser);
+            if (!target) return null;
+            const willResign = target.status !== 'resigned';
+            return (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+                  <h3 className="font-bold text-gray-900 mb-2">{willResign ? '標記為已離職' : '恢復在職'}</h3>
+                  <p className="text-gray-500 text-sm mb-4">
+                    {willResign
+                      ? `確定要將「${target.name}」標記為已離職嗎？標記後該帳號將無法登入系統，但會保留其課程紀錄與稽核資料。`
+                      : `確定要恢復「${target.name}」的在職狀態嗎？恢復後該帳號將可再次登入系統。`}
+                  </p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setConfirmStatusUser(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                    <button
+                      onClick={() => { setUserStatus(target.id, willResign ? 'resigned' : 'active'); setConfirmStatusUser(null); }}
+                      className={`flex-1 text-white py-2 rounded-lg text-sm font-medium ${willResign ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                    >
+                      {willResign ? '確定標記' : '確定恢復'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 刪除使用者帳號：兩段式確認，避免誤刪 */}
+          {deleteUserStep && (() => {
+            const target = users.find((u) => u.id === deleteUserStep.id);
+            if (!target) return null;
+            return (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+                  {deleteUserStep.step === 1 ? (
+                    <>
+                      <h3 className="font-bold text-gray-900 mb-2">刪除使用者帳號</h3>
+                      <p className="text-gray-500 text-sm mb-4">
+                        確定要刪除「{target.name}」（{target.email}）的帳號嗎？此操作無法復原，所有登入權限將立即失效。
+                      </p>
+                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+                        提示：若只是該員工離職，建議改用「標記已離職」以保留歷史訓練紀錄。
+                      </p>
+                      <div className="flex gap-3">
+                        <button onClick={() => setDeleteUserStep(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                        <button onClick={() => setDeleteUserStep({ id: target.id, step: 2 })} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-medium">繼續</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="font-bold text-red-700 mb-2">再次確認刪除</h3>
+                      <p className="text-gray-500 text-sm mb-4">
+                        這是刪除前的最後確認：「{target.name}」的帳號將被永久刪除，且無法復原。確定要繼續嗎？
+                      </p>
+                      <div className="flex gap-3">
+                        <button onClick={() => setDeleteUserStep(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                        <button
+                          onClick={() => { deleteUser(target.id); setDeleteUserStep(null); }}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-semibold"
+                        >
+                          確定永久刪除
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Add user modal */}
           {showAddUser && (

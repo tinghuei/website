@@ -8,6 +8,9 @@ export interface User {
   managerId?: string;
   avatar: string;
   joinDate: string;
+  // 帳號狀態：未設定視為在職（active）。設為 resigned 後該帳號將無法登入系統，
+  // 但保留歷史資料（課程紀錄、稽核日誌等），與直接刪除帳號是兩種不同的操作選項
+  status?: 'active' | 'resigned';
 }
 
 export interface QuizQuestion {

@@ -105,6 +105,22 @@ export interface AuditLog {
   timestamp: string;
 }
 
+export interface QuestionReport {
+  id: string;
+  courseId: string;
+  courseName: string;
+  questionId: string;
+  questionText: string;
+  userId: string;
+  userName: string;
+  reason: string;
+  comment?: string;
+  createdAt: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  resolvedBy?: string;
+  resolvedAt?: string;
+}
+
 export const USERS: User[] = [
   {
     id: '1',
@@ -1428,3 +1444,7 @@ export const COMPANY_ANNOUNCEMENTS = [
     important: false,
   },
 ];
+
+// 員工於測驗作答時回報的題目問題（如題目與影片內容不符、答案錯誤等），預設為空，
+// 由 HR/管理員於後台處理。
+export const QUESTION_REPORTS: QuestionReport[] = [];

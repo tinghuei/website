@@ -1,13 +1,25 @@
 import { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { CheckCircle, XCircle, AlertCircle, ChevronRight, Award } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, ChevronRight, Award, Flag, X } from 'lucide-react';
+
+const REPORT_REASONS = [
+  '此題目不符合影片內容',
+  '此題目答案錯誤',
+  '此題目問題有誤',
+  '其他',
+];
 
 export default function TrainingTakeQuiz() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [, navigate] = useLocation();
-  const { currentUser, courses, getEnrollmentForUser, submitQuiz, checkAndSetPendingReview } = useTrainingAuth();
+  const { currentUser, courses, getEnrollmentForUser, submitQuiz, checkAndSetPendingReview, reportQuizQuestion } = useTrainingAuth();
+  const [reportingQuestionId, setReportingQuestionId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
+  const [reportComment, setReportComment] = useState('');
+  const [reportedQuestionIds, setReportedQuestionIds] = useState<string[]>([]);
+  const [reportToast, setReportToast] = useState(false);
 
   const course = courses.find((c) => c.id === id);
   const enrollment = currentUser ? getEnrollmentForUser(currentUser.id, id || '') : null;
@@ -76,6 +88,23 @@ export default function TrainingTakeQuiz() {
   const handleAnswer = (questionId: string, optionIndex: number) => {
     if (submitted) return;
     setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
+  };
+
+  const handleOpenReport = (questionId: string) => {
+    setReportingQuestionId(questionId);
+    setReportReason(REPORT_REASONS[0]);
+    setReportComment('');
+  };
+
+  const handleSubmitReport = () => {
+    if (!reportingQuestionId) return;
+    const q = questions.find((qq) => qq.id === reportingQuestionId);
+    if (!q || !course) return;
+    reportQuizQuestion(course.id, q.id, q.question, reportReason, reportComment.trim() || undefined);
+    setReportedQuestionIds((prev) => [...prev, q.id]);
+    setReportingQuestionId(null);
+    setReportToast(true);
+    setTimeout(() => setReportToast(false), 3000);
   };
 
   const handleSubmit = () => {
@@ -229,8 +258,21 @@ export default function TrainingTakeQuiz() {
         {questions.map((q, idx) => {
           const userAnswer = answers[q.id];
           return (
-            <div key={q.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-start gap-3 mb-4">
+            <div key={q.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative">
+              <button
+                onClick={() => handleOpenReport(q.id)}
+                title="回報此題目"
+                className={`absolute top-3 right-3 flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors ${
+                  reportedQuestionIds.includes(q.id)
+                    ? 'bg-orange-50 text-orange-500 cursor-default'
+                    : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'
+                }`}
+                disabled={reportedQuestionIds.includes(q.id)}
+              >
+                <Flag size={12} />
+                {reportedQuestionIds.includes(q.id) ? '已回報' : '回報題目'}
+              </button>
+              <div className="flex items-start gap-3 mb-4 pr-20">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                   userAnswer !== undefined ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -288,6 +330,51 @@ export default function TrainingTakeQuiz() {
           )}
         </button>
       </div>
+
+      {reportToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
+          <span className="text-green-400">✓</span>已送出題目回報，謝謝您的協助
+        </div>
+      )}
+
+      {reportingQuestionId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2"><Flag size={16} className="text-orange-500" /> 回報此題目</h3>
+              <button onClick={() => setReportingQuestionId(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-gray-500">您的回報將送交給人資/管理員（及系統 AI）審閱，協助改善題庫品質。</p>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">問題原因 *</label>
+                <div className="space-y-2">
+                  {REPORT_REASONS.map((r) => (
+                    <label key={r} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input type="radio" name="reportReason" checked={reportReason === r} onChange={() => setReportReason(r)} className="accent-orange-500" />
+                      {r}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">補充說明（選填）</label>
+                <textarea
+                  value={reportComment}
+                  onChange={(e) => setReportComment(e.target.value)}
+                  rows={3}
+                  placeholder="請描述您發現的問題..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex gap-3">
+              <button onClick={() => setReportingQuestionId(null)} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">取消</button>
+              <button onClick={handleSubmitReport} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">送出回報</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

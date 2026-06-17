@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Plus,
   Building2,
+  Flag,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
 import type { Course } from '../../data/trainingMockData';
@@ -39,6 +40,7 @@ const ADMIN_TABS = [
   { id: 'satisfaction', label: '滿意度分析', icon: BarChart3 },
   { id: 'routine', label: '例行課程管理', icon: ClipboardList },
   { id: 'orgchart', label: '組織架構圖', icon: Building2 },
+  { id: 'question-reports', label: '測驗題目回報', icon: Flag },
   { id: 'permissions', label: '權限管理', icon: Lock },
 ];
 
@@ -138,7 +140,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, enrollments, assignments, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, addUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR } = useTrainingAuth();
+  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, addUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -1429,6 +1431,54 @@ export default function TrainingAdminPanel() {
 
       {/* 組織架構圖 */}
       {activeTab === 'orgchart' && <OrgChart />}
+
+      {/* 測驗題目回報 */}
+      {activeTab === 'question-reports' && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="font-semibold text-gray-900">測驗題目回報（{questionReports.length} 筆）</h2>
+            <div className="flex gap-2">
+              <span className="text-xs bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full font-medium">待處理 {questionReports.filter(r => r.status === 'open').length}</span>
+              <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">已處理 {questionReports.filter(r => r.status !== 'open').length}</span>
+            </div>
+          </div>
+          {questionReports.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-100 p-12 text-center text-gray-400">
+              <p>目前沒有員工回報的測驗題目問題</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
+              {questionReports.map((r) => (
+                <div key={r.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-gray-900">{r.courseName}</span>
+                        <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">{r.reason}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          r.status === 'open' ? 'bg-yellow-100 text-yellow-700' : r.status === 'resolved' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {r.status === 'open' ? '待處理' : r.status === 'resolved' ? '已處理' : '已忽略'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-1.5">題目：{r.questionText}</p>
+                      {r.comment && <p className="text-xs text-gray-500 mt-1">補充說明：{r.comment}</p>}
+                      <p className="text-xs text-gray-400 mt-1">回報人：{r.userName} · {r.createdAt}</p>
+                      {r.status !== 'open' && <p className="text-xs text-gray-400 mt-0.5">處理人：{r.resolvedBy} · {r.resolvedAt}</p>}
+                    </div>
+                    {r.status === 'open' && (
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => resolveQuestionReport(r.id, 'dismissed')} className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50">忽略</button>
+                        <button onClick={() => resolveQuestionReport(r.id, 'resolved')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium">標記已處理</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 權限管理 */}
       {activeTab === 'permissions' && (

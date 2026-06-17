@@ -9,6 +9,7 @@ import {
   NOTIFICATIONS,
   AUDIT_LOGS,
   ASSIGNMENTS,
+  QUESTION_REPORTS,
   User,
   Course,
   Enrollment,
@@ -16,6 +17,7 @@ import {
   Notification,
   AuditLog,
   CourseAssignment,
+  QuestionReport,
 } from '../data/trainingMockData';
 
 // 員工自行註冊的帳號，持久化至 localStorage，避免頁面重整後遺失
@@ -41,6 +43,7 @@ interface TrainingAuthContextValue {
   notifications: Notification[];
   auditLogs: AuditLog[];
   assignments: CourseAssignment[];
+  questionReports: QuestionReport[];
   login: (email: string) => User | null;
   logout: () => void;
   getEnrollmentForUser: (userId: string, courseId: string) => Enrollment | undefined;
@@ -72,6 +75,8 @@ interface TrainingAuthContextValue {
   revokeAssignment: (assignmentId: string) => void;
   getAssignmentsForUser: (userId: string) => CourseAssignment[];
   getAssignmentsForCourse: (courseId: string) => CourseAssignment[];
+  reportQuizQuestion: (courseId: string, questionId: string, questionText: string, reason: string, comment?: string) => void;
+  resolveQuestionReport: (reportId: string, status: 'resolved' | 'dismissed') => void;
 }
 
 const TrainingAuthContext = createContext<TrainingAuthContextValue | null>(null);
@@ -89,6 +94,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>(NOTIFICATIONS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(AUDIT_LOGS);
   const [assignments, setAssignments] = useState<CourseAssignment[]>(ASSIGNMENTS);
+  const [questionReports, setQuestionReports] = useState<QuestionReport[]>(QUESTION_REPORTS);
 
   const login = (email: string): User | null => {
     const user = users.find((u) => u.email === email);
@@ -415,6 +421,35 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     return newUser;
   };
 
+  const reportQuizQuestion = (courseId: string, questionId: string, questionText: string, reason: string, comment?: string) => {
+    const course = courses.find((c) => c.id === courseId);
+    const newReport: QuestionReport = {
+      id: `qr${Date.now()}`,
+      courseId,
+      courseName: course?.title || '',
+      questionId,
+      questionText,
+      userId: currentUser?.id || '',
+      userName: currentUser?.name || '',
+      reason,
+      comment,
+      createdAt: new Date().toLocaleString('zh-TW'),
+      status: 'open',
+    };
+    setQuestionReports((prev) => [newReport, ...prev]);
+    addAuditLog(currentUser?.id || '', '回報測驗題目問題', course?.title || courseId, `題目：${questionText}｜原因：${reason}`);
+  };
+
+  const resolveQuestionReport = (reportId: string, status: 'resolved' | 'dismissed') => {
+    setQuestionReports((prev) =>
+      prev.map((r) =>
+        r.id === reportId
+          ? { ...r, status, resolvedBy: currentUser?.name || 'HR/管理員', resolvedAt: new Date().toLocaleString('zh-TW') }
+          : r
+      )
+    );
+  };
+
   return (
     <TrainingAuthContext.Provider
       value={{
@@ -426,6 +461,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         notifications,
         auditLogs,
         assignments,
+        questionReports,
         login,
         logout,
         getEnrollmentForUser,
@@ -457,6 +493,8 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         revokeAssignment,
         getAssignmentsForUser,
         getAssignmentsForCourse,
+        reportQuizQuestion,
+        resolveQuestionReport,
       }}
     >
       {children}

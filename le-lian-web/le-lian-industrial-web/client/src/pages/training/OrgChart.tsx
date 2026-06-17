@@ -69,7 +69,7 @@ function cloneUnits(units: OrgUnit[]): OrgUnit[] {
 
 export default function OrgChart() {
   const { currentUser } = useTrainingAuth();
-  const isHRAdmin = currentUser?.role === 'admin';
+  const isHRAdmin = !!currentUser && ['admin', 'hr'].includes(currentUser.role);
 
   const [snapshots, setSnapshots] = useState<OrgSnapshot[]>([BASE_SNAPSHOT]);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(BASE_SNAPSHOT.id);

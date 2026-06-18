@@ -42,8 +42,8 @@ export default function TrainingNavbar({ onMenuClick }: TrainingNavbarProps) {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50">
-      <div className="flex items-center gap-2">
+    <nav className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-sm sticky top-0 z-50">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
         <button
           onClick={onMenuClick}
           className="md:hidden p-2 -ml-1 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
@@ -52,17 +52,17 @@ export default function TrainingNavbar({ onMenuClick }: TrainingNavbarProps) {
           <Menu size={20} className="text-gray-600" />
         </button>
         <Link href="/training/login">
-          <div className="flex items-center gap-3 cursor-pointer">
-            <img src="/website/choice-logo.svg" alt="CHOICE" className="h-9 object-contain" />
-            <div>
-              <h1 className="text-base font-bold text-gray-900 leading-tight">樂聯工業</h1>
-              <p className="text-xs text-gray-500 leading-tight">員工訓練系統</p>
+          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0">
+            <img src="/website/choice-logo.svg" alt="CHOICE" className="h-8 sm:h-9 object-contain shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-bold text-gray-900 leading-tight truncate">樂聯工業</h1>
+              <p className="text-xs text-gray-500 leading-tight truncate">員工訓練系統</p>
             </div>
           </div>
         </Link>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         <LanguageSwitcher />
         {/* Notification Bell */}
         <div className="relative">
@@ -82,7 +82,7 @@ export default function TrainingNavbar({ onMenuClick }: TrainingNavbarProps) {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50">
+            <div className="absolute right-0 top-12 w-80 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-xl border border-gray-100 z-50">
               <div className="p-3 border-b border-gray-100 flex items-center justify-between">
                 <span className="font-semibold text-gray-800 text-sm">通知</span>
                 {unreadCount > 0 && currentUser && (
@@ -141,7 +141,7 @@ export default function TrainingNavbar({ onMenuClick }: TrainingNavbarProps) {
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 top-12 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50">
+            <div className="absolute right-0 top-12 w-56 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-xl border border-gray-100 z-50">
               <div className="p-3 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">

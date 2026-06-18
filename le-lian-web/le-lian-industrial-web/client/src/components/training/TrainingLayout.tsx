@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { useLocation, Redirect } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import TrainingNavbar from './TrainingNavbar';
@@ -13,6 +13,7 @@ interface TrainingLayoutProps {
 export default function TrainingLayout({ children, roles }: TrainingLayoutProps) {
   const { currentUser } = useTrainingAuth();
   const [location] = useLocation();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   if (!currentUser) {
     return <Redirect to="/training/login" />;
@@ -24,10 +25,10 @@ export default function TrainingLayout({ children, roles }: TrainingLayoutProps)
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <TrainingNavbar />
+      <TrainingNavbar onMenuClick={() => setMobileNavOpen(o => !o)} />
       <div className="flex flex-1">
-        <TrainingSidebar />
-        <main className="flex-1 overflow-auto">
+        <TrainingSidebar open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+        <main className="flex-1 overflow-auto min-w-0">
           {children}
         </main>
       </div>

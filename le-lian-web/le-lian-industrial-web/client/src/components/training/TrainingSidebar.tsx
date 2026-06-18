@@ -19,6 +19,7 @@ import {
   Users,
   TrendingUp,
   Crown,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
@@ -45,7 +46,12 @@ const navItems = [
   { to: '/training/admin',              icon: Settings,        labelKey: 'nav.admin',         roles: ['admin', 'hr'] },
 ];
 
-export default function TrainingSidebar() {
+interface TrainingSidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function TrainingSidebar({ open, onClose }: TrainingSidebarProps) {
   const { currentUser, getPendingReviews } = useTrainingAuth();
   const { t } = useTranslation();
   const [location] = useLocation();
@@ -55,7 +61,21 @@ export default function TrainingSidebar() {
   const visibleItems = navItems.filter((item) => item.roles.includes(role));
 
   return (
-    <aside className="w-56 bg-gray-900 min-h-screen flex flex-col py-6 px-3 shrink-0">
+    <>
+      {open && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />
+      )}
+      <aside
+        className={`w-56 bg-gray-900 flex flex-col py-6 px-3 shrink-0 fixed md:static top-0 left-0 h-full md:min-h-screen z-50 overflow-y-auto transition-transform duration-200 md:translate-x-0 ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+      <button
+        onClick={onClose}
+        className="md:hidden self-end mb-2 p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white"
+      >
+        <X size={18} />
+      </button>
       <nav className="flex flex-col gap-1 flex-1">
         {visibleItems.map(({ to, icon: Icon, labelKey }) => {
           const isActive = location === to || location.startsWith(to + '/');
@@ -63,6 +83,7 @@ export default function TrainingSidebar() {
             <Link
               key={to}
               href={to}
+              onClick={onClose}
               className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-md'
@@ -98,6 +119,7 @@ export default function TrainingSidebar() {
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { Bell, LogOut, ChevronDown, Check } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Check, Menu } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { Link, useLocation } from 'wouter';
 import LanguageSwitcher from './LanguageSwitcher';
 
-export default function TrainingNavbar() {
+interface TrainingNavbarProps {
+  onMenuClick: () => void;
+}
+
+export default function TrainingNavbar({ onMenuClick }: TrainingNavbarProps) {
   const { currentUser, logout, getUserNotifications, markNotificationRead, markAllNotificationsRead } = useTrainingAuth();
   const [, navigate] = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -39,7 +43,14 @@ export default function TrainingNavbar() {
 
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-2 -ml-1 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+          aria-label="開啟選單"
+        >
+          <Menu size={20} className="text-gray-600" />
+        </button>
         <Link href="/training/login">
           <div className="flex items-center gap-3 cursor-pointer">
             <img src="/website/choice-logo.svg" alt="CHOICE" className="h-9 object-contain" />

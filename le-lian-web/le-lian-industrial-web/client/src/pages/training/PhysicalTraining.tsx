@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award, FileText, ClipboardCheck, Printer } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award, FileText, ClipboardCheck, Printer, FileSignature, ListChecks } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import {
-  type PhysicalRecord, type RoutineCourse, type CourseDesign, type EffectivenessTracking, TTQS_PHASES,
+  type PhysicalRecord, type RoutineCourse, type CourseDesign, type EffectivenessTracking,
+  type TrainingApplication, type PreClassCheck, type ChecklistItem, type ParticipantChange, TTQS_PHASES,
   loadRecords, saveRecords, loadRoutine, saveRoutine,
 } from '../../lib/physicalTrainingStorage';
 
@@ -13,6 +14,55 @@ const COMPETENCY_OPTIONS = ['專業知識', '設備操作', '品質意識', '工
 const TEACHING_METHOD_OPTIONS = ['講授', '實作', '案例研討', '影片教學', '測驗', '分組討論'];
 const COURSE_CATEGORY_OPTIONS = ['新人', '專業', '管理', '工安', '其他'] as const;
 const JUDGMENT_OPTIONS = ['成效顯著', '符合預期', '部分達成', '需再訓練'] as const;
+const APPLICATION_TYPE_OPTIONS = ['新增課程申請', '課程內容異動', '課程時數異動', '課程取消', '其他'] as const;
+const APPLICATION_COURSE_CATEGORY_OPTIONS = ['新人訓練', '專業訓練', '管理訓練', '內部分享', '其他'] as const;
+
+const EMPTY_ITEM = (): ChecklistItem => ({ done: false, note: '' });
+
+const EMPTY_APPLICATION: TrainingApplication = {
+  department: '', applyDate: '', applicantName: '', applicantTitle: '', employeeId: '',
+  applicationType: '新增課程申請', applicationTypeOther: '',
+  courseCategory: '專業訓練', courseCategoryOther: '',
+  hostUnit: '', classMode: '實體課程',
+  changeReasons: { courseName: '', courseCategory: '', hours: '', instructor: '', classMode: '', cancellation: '', other: '' },
+  expectedBenefit: '',
+  costs: { courseCost: 0, instructorFee: 0, otherFee: 0 },
+  participants: [],
+  signOff: {},
+};
+
+const EMPTY_CHECK: PreClassCheck = {
+  preClass: {
+    applicationForm: EMPTY_ITEM(), instructorConfirmed: EMPTY_ITEM(), instructorContract: EMPTY_ITEM(),
+    syllabusMaterials: EMPTY_ITEM(), venueArranged: EMPTY_ITEM(), equipment: EMPTY_ITEM(),
+    catering: EMPTY_ITEM(), transportLodging: EMPTY_ITEM(), studentsNotified: EMPTY_ITEM(), consentForm: EMPTY_ITEM(),
+  },
+  inClass: {
+    onTime: EMPTY_ITEM(), signIn: EMPTY_ITEM(), equipmentWorking: EMPTY_ITEM(), followsSyllabus: EMPTY_ITEM(),
+  },
+  postClass: {
+    signOut: EMPTY_ITEM(), satisfactionSurveyCollected: EMPTY_ITEM(), reportCollected: EMPTY_ITEM(),
+    quizResultCollected: EMPTY_ITEM(), certificateSigned: EMPTY_ITEM(), resultsFiled: EMPTY_ITEM(),
+    instructorFeeReceiptCollected: EMPTY_ITEM(), recordsArchived: EMPTY_ITEM(), documentsArchived: EMPTY_ITEM(),
+  },
+  signOff: {},
+};
+
+const PRE_CLASS_LABELS: Record<keyof PreClassCheck['preClass'], string> = {
+  applicationForm: '教育訓練課程申請/異動表', instructorConfirmed: '講師聯絡與確認', instructorContract: '講師合約/聘書',
+  syllabusMaterials: '課程大綱/教材', venueArranged: '教室/場地安排', equipment: '設備（投影、音響等）',
+  catering: '餐點/茶水安排', transportLodging: '交通/住宿安排（如適用）', studentsNotified: '課前通知學員', consentForm: '員工課程訓練同意書',
+};
+const IN_CLASS_LABELS: Record<keyof PreClassCheck['inClass'], string> = {
+  onTime: '課程準時開始/下課', signIn: '出席簽到', equipmentWorking: '教學設備運作正常', followsSyllabus: '課程依大綱進行',
+};
+const POST_CLASS_LABELS: Record<keyof PreClassCheck['postClass'], string> = {
+  signOut: '出席簽退', satisfactionSurveyCollected: '學員滿意度調查表回收', reportCollected: '學員課程心得報告回收',
+  quizResultCollected: '學員課程測驗結果回收', certificateSigned: '學員結業證明簽名回收', resultsFiled: '教育訓練成果建檔（證照登錄）',
+  instructorFeeReceiptCollected: '講師費用收據簽名及回收', recordsArchived: '教育訓練紀錄保存（含講義、教材、影像）', documentsArchived: '教育訓練文件保存（含以上項目所有文件）',
+};
+
+type CheckGroup = 'preClass' | 'inClass' | 'postClass';
 
 const EMPTY_DESIGN: CourseDesign = {
   category: '專業',
@@ -184,6 +234,82 @@ function exportEffectivenessForm(rc: RoutineCourse, e: EffectivenessTracking) {
   printForm(`成效追蹤表-${rc.courseName}`, html);
 }
 
+function exportApplicationForm(rc: RoutineCourse, app: TrainingApplication) {
+  const sign = (label: string, s?: { name: string; date: string }) =>
+    `<div class="signbox"><div>${label}</div><div>${s ? `${s.name}<br/>${s.date}` : '（未簽核）'}</div></div>`;
+  const participantRows = app.participants.map(p => `<tr><td>${p.unit}</td><td>${p.employeeId}</td><td>${p.name}</td><td>${p.title}</td><td>${p.changeNote}</td></tr>`).join('');
+  const html = `
+    <h1>樂聯工業股份有限公司 教育訓練申請/異動表</h1>
+    <table>
+      <tr><th>申請部門</th><td>${app.department}</td><th>申請日期</th><td>${app.applyDate}</td></tr>
+      <tr><th>申請人</th><td>${app.applicantName}</td><th>職稱</th><td>${app.applicantTitle}</td></tr>
+      <tr><th>員工編號</th><td>${app.employeeId}</td><th>主辦單位</th><td>${app.hostUnit}</td></tr>
+      <tr><th>上課方式</th><td colspan="3">${app.classMode}</td></tr>
+    </table>
+    <h2>申請類別</h2>${checkLine([...APPLICATION_TYPE_OPTIONS], [app.applicationType])}
+    ${app.applicationType === '其他' ? `<p>${app.applicationTypeOther}</p>` : ''}
+    <h2>課程類別</h2>${checkLine([...APPLICATION_COURSE_CATEGORY_OPTIONS], [app.courseCategory])}
+    ${app.courseCategory === '其他' ? `<p>${app.courseCategoryOther}</p>` : ''}
+    <h2>課程資訊</h2>
+    <table>
+      <tr><th>課程名稱</th><td>${rc.courseName}</td><th>時數</th><td>${rc.hours}</td></tr>
+      <tr><th>講師</th><td>${rc.instructor}</td><th>上課日期</th><td>${rc.date}</td></tr>
+    </table>
+    <h2>異動原因說明</h2>
+    <table>
+      <tr><th>課程名稱</th><td>${app.changeReasons.courseName}</td></tr>
+      <tr><th>課程類別</th><td>${app.changeReasons.courseCategory}</td></tr>
+      <tr><th>時數</th><td>${app.changeReasons.hours}</td></tr>
+      <tr><th>講師</th><td>${app.changeReasons.instructor}</td></tr>
+      <tr><th>上課方式</th><td>${app.changeReasons.classMode}</td></tr>
+      <tr><th>取消原因</th><td>${app.changeReasons.cancellation}</td></tr>
+      <tr><th>其他</th><td>${app.changeReasons.other}</td></tr>
+    </table>
+    <h2>預期效益</h2><p>${app.expectedBenefit || '（未填寫）'}</p>
+    <h2>費用</h2>
+    <table>
+      <tr><th>課程費用</th><td>${app.costs.courseCost}</td><th>講師費</th><td>${app.costs.instructorFee}</td><th>其他費用</th><td>${app.costs.otherFee}</td></tr>
+    </table>
+    <h2>人員異動名單</h2>
+    <table><tr><th>單位</th><th>員編</th><th>姓名</th><th>職稱</th><th>異動說明</th></tr>${participantRows || '<tr><td colspan="5">（無）</td></tr>'}</table>
+    <h2>簽核</h2>
+    <div class="signrow">
+      ${sign('承辦', app.signOff.handler)}
+      ${sign('部門主管', app.signOff.deptManager)}
+      ${sign('人資審核', app.signOff.hrReview)}
+      ${sign('核准', app.signOff.approver)}
+    </div>
+  `;
+  printForm(`教育訓練申請異動表-${rc.courseName}`, html);
+}
+
+function exportExecutionCheck(rc: RoutineCourse, check: PreClassCheck) {
+  const sign = (label: string, s?: { name: string; date: string }) =>
+    `<div class="signbox"><div>${label}</div><div>${s ? `${s.name}<br/>${s.date}` : '（未簽核）'}</div></div>`;
+  const rows = (labels: Record<string, string>, group: Record<string, ChecklistItem>) =>
+    Object.entries(labels).map(([key, label]) => `<tr><td>${label}</td><td>${group[key]?.done ? '是' : '否'}</td><td>${group[key]?.note || ''}</td></tr>`).join('');
+  const html = `
+    <h1>樂聯工業股份有限公司 教育訓練課程執行檢查表</h1>
+    <table>
+      <tr><th>課程名稱</th><td>${rc.courseName}</td><th>上課日期</th><td>${rc.date}</td></tr>
+      <tr><th>講師</th><td>${rc.instructor}</td><th>部門</th><td>${rc.department}</td></tr>
+    </table>
+    <h2>課前確認</h2>
+    <table><tr><th>項目</th><th>是否完成</th><th>備註</th></tr>${rows(PRE_CLASS_LABELS, check.preClass)}</table>
+    <h2>課中確認</h2>
+    <table><tr><th>項目</th><th>是否完成</th><th>備註</th></tr>${rows(IN_CLASS_LABELS, check.inClass)}</table>
+    <h2>課後確認</h2>
+    <table><tr><th>項目</th><th>是否完成</th><th>備註</th></tr>${rows(POST_CLASS_LABELS, check.postClass)}</table>
+    <h2>簽核</h2>
+    <div class="signrow">
+      ${sign('承辦', check.signOff.handler)}
+      ${sign('人資主管', check.signOff.hrManager)}
+      ${sign('總經理室祕書', check.signOff.secretary)}
+    </div>
+  `;
+  printForm(`課程執行檢查表-${rc.courseName}`, html);
+}
+
 function exportToExcel(records: PhysicalRecord[]) {
   const wb = XLSX.utils.book_new();
   const header = ['序號', '課程名稱', '訓練類型', '訓練日期', '時數', '訓練地點', '講師', '部門', '參訓人數', 'TTQS面向', '訓練成效', '佐證文件', '審核狀態'];
@@ -278,11 +404,20 @@ export default function PhysicalTraining() {
   const [effModalFor, setEffModalFor] = useState<string | null>(null);
   const [effForm, setEffForm] = useState<EffectivenessTracking>({ ...EMPTY_EFFECTIVENESS });
 
+  // CF-CM-HR-41 教育訓練申請/異動表
+  const [appModalFor, setAppModalFor] = useState<string | null>(null);
+  const [appForm, setAppForm] = useState<TrainingApplication>({ ...EMPTY_APPLICATION });
+  // CF-CM-HR-40 教育訓練課程執行檢查表
+  const [checkModalFor, setCheckModalFor] = useState<string | null>(null);
+  const [checkForm, setCheckForm] = useState<PreClassCheck>({ ...EMPTY_CHECK });
+
   const role = currentUser?.role || '';
   const canSignDeptManager = role === 'manager' || role === 'admin';
   const canSignHr = role === 'hr' || role === 'admin';
   const canSignVp = role === 'vp' || role === 'admin';
+  const canSignApprover = role === 'vp' || role === 'admin';
   const canFillEffectiveness = role === 'manager' || role === 'admin' || role === 'hr' || role === 'vp';
+  const canFillCheck = role === 'hr' || role === 'admin';
 
   function openDesignModal(rc: RoutineCourse) {
     setDesignForm(rc.design ? { ...rc.design } : { ...EMPTY_DESIGN, targetAudience: rc.department });
@@ -317,6 +452,75 @@ export default function PhysicalTraining() {
     setRoutineCourses(prev => prev.map(r => r.id === effModalFor ? { ...r, effectiveness: effForm } : r));
     showToast('成效追蹤表已儲存');
     setEffModalFor(null);
+  }
+
+  function openAppModal(rc: RoutineCourse) {
+    setAppForm(rc.application ? { ...rc.application } : {
+      ...EMPTY_APPLICATION,
+      department: rc.department,
+      applyDate: new Date().toISOString().split('T')[0],
+      applicantName: currentUser?.name || '',
+    });
+    setAppModalFor(rc.id);
+  }
+
+  function saveApplication() {
+    if (!appModalFor) return;
+    setRoutineCourses(prev => prev.map(r => r.id === appModalFor ? { ...r, application: appForm } : r));
+    showToast('教育訓練申請/異動表已儲存');
+    setAppModalFor(null);
+  }
+
+  function signApplication(stage: keyof TrainingApplication['signOff']) {
+    setAppForm(f => ({
+      ...f,
+      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0] } },
+    }));
+  }
+
+  function addParticipantChange() {
+    setAppForm(f => ({ ...f, participants: [...f.participants, { unit: '', employeeId: '', name: '', title: '', changeNote: '' }] }));
+  }
+
+  function updateParticipantChange(idx: number, field: keyof ParticipantChange, value: string) {
+    setAppForm(f => ({ ...f, participants: f.participants.map((p, i) => i === idx ? { ...p, [field]: value } : p) }));
+  }
+
+  function removeParticipantChange(idx: number) {
+    setAppForm(f => ({ ...f, participants: f.participants.filter((_, i) => i !== idx) }));
+  }
+
+  function openCheckModal(rc: RoutineCourse) {
+    setCheckForm(rc.executionCheck ? { ...rc.executionCheck } : { ...EMPTY_CHECK });
+    setCheckModalFor(rc.id);
+  }
+
+  function saveExecutionCheck() {
+    if (!checkModalFor) return;
+    setRoutineCourses(prev => prev.map(r => r.id === checkModalFor ? { ...r, executionCheck: checkForm } : r));
+    showToast('課程執行檢查表已儲存');
+    setCheckModalFor(null);
+  }
+
+  function toggleCheckItem(group: CheckGroup, key: string) {
+    setCheckForm(f => {
+      const groupObj = f[group] as Record<string, ChecklistItem>;
+      return { ...f, [group]: { ...groupObj, [key]: { ...groupObj[key], done: !groupObj[key].done } } };
+    });
+  }
+
+  function updateCheckNote(group: CheckGroup, key: string, note: string) {
+    setCheckForm(f => {
+      const groupObj = f[group] as Record<string, ChecklistItem>;
+      return { ...f, [group]: { ...groupObj, [key]: { ...groupObj[key], note } } };
+    });
+  }
+
+  function signCheck(stage: keyof PreClassCheck['signOff']) {
+    setCheckForm(f => ({
+      ...f,
+      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0] } },
+    }));
   }
 
   useEffect(() => { saveRecords(records); }, [records]);
@@ -908,6 +1112,8 @@ export default function PhysicalTraining() {
                           <h3 className="font-semibold text-gray-900 text-sm">{rc.courseName}</h3>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.color}`}>{s.label}</span>
                           {rc.design && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">已有課程大綱</span>}
+                          {rc.application && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">已有申請表</span>}
+                          {rc.executionCheck && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-cyan-100 text-cyan-700">已完成執行檢查</span>}
                           {rc.effectiveness ? (
                             <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-teal-100 text-teal-700">已完成成效追蹤</span>
                           ) : effDueDate ? (
@@ -929,6 +1135,20 @@ export default function PhysicalTraining() {
                           title="課程大綱表（表單一）"
                         >
                           <FileText size={12} />課程大綱表
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); openAppModal(rc); }}
+                          className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-amber-200"
+                          title="教育訓練申請/異動表（CF-CM-HR-41）"
+                        >
+                          <FileSignature size={12} />申請/異動表
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); openCheckModal(rc); }}
+                          className="text-xs bg-cyan-50 hover:bg-cyan-100 text-cyan-700 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-cyan-200"
+                          title="教育訓練課程執行檢查表（CF-CM-HR-40）"
+                        >
+                          <ListChecks size={12} />執行檢查表
                         </button>
                         {rc.status === 'completed' && (
                           <button
@@ -1319,6 +1539,263 @@ export default function PhysicalTraining() {
                     <button onClick={() => exportEffectivenessForm(rc, effForm)} className="px-4 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 flex items-center gap-1.5"><Printer size={15} />列印</button>
                     {canFillEffectiveness && (
                       <button onClick={saveEffectiveness} className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"><Save size={15} />儲存</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 教育訓練申請/異動表（CF-CM-HR-41）modal */}
+          {appModalFor && (() => {
+            const rc = routineCourses.find(r => r.id === appModalFor);
+            if (!rc) return null;
+            return (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                  <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileSignature size={18} className="text-amber-600" />教育訓練申請/異動表 — {rc.courseName}</h3>
+                    <button onClick={() => setAppModalFor(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
+                  </div>
+                  <div className="p-5 space-y-5 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">申請部門</label>
+                        <input type="text" value={appForm.department} onChange={e => setAppForm(f => ({ ...f, department: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">申請日期</label>
+                        <input type="date" value={appForm.applyDate} onChange={e => setAppForm(f => ({ ...f, applyDate: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">申請人</label>
+                        <input type="text" value={appForm.applicantName} onChange={e => setAppForm(f => ({ ...f, applicantName: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">職稱</label>
+                        <input type="text" value={appForm.applicantTitle} onChange={e => setAppForm(f => ({ ...f, applicantTitle: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">員工編號</label>
+                        <input type="text" value={appForm.employeeId} onChange={e => setAppForm(f => ({ ...f, employeeId: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">主辦單位</label>
+                        <input type="text" value={appForm.hostUnit} onChange={e => setAppForm(f => ({ ...f, hostUnit: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">上課方式</label>
+                      <div className="flex gap-1.5">
+                        {(['實體課程', '線上課程'] as const).map(m => (
+                          <button key={m} onClick={() => setAppForm(f => ({ ...f, classMode: m }))} className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${appForm.classMode === m ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-200 text-gray-600 hover:border-amber-300'}`}>{m}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">申請類別</label>
+                      <div className="flex flex-wrap gap-2">
+                        {APPLICATION_TYPE_OPTIONS.map(t => (
+                          <button key={t} onClick={() => setAppForm(f => ({ ...f, applicationType: t }))} className={`px-2.5 py-1 text-xs rounded-lg border ${appForm.applicationType === t ? 'bg-amber-100 text-amber-700 border-amber-300' : 'border-gray-200 text-gray-500 hover:border-amber-300'}`}>{t}</button>
+                        ))}
+                      </div>
+                      {appForm.applicationType === '其他' && (
+                        <input type="text" value={appForm.applicationTypeOther} onChange={e => setAppForm(f => ({ ...f, applicationTypeOther: e.target.value }))} placeholder="請說明" className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">課程類別</label>
+                      <div className="flex flex-wrap gap-2">
+                        {APPLICATION_COURSE_CATEGORY_OPTIONS.map(c => (
+                          <button key={c} onClick={() => setAppForm(f => ({ ...f, courseCategory: c }))} className={`px-2.5 py-1 text-xs rounded-lg border ${appForm.courseCategory === c ? 'bg-amber-100 text-amber-700 border-amber-300' : 'border-gray-200 text-gray-500 hover:border-amber-300'}`}>{c}</button>
+                        ))}
+                      </div>
+                      {appForm.courseCategory === '其他' && (
+                        <input type="text" value={appForm.courseCategoryOther} onChange={e => setAppForm(f => ({ ...f, courseCategoryOther: e.target.value }))} placeholder="請說明" className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">異動原因說明</label>
+                      <div className="space-y-2">
+                        {([
+                          ['courseName', '課程名稱'],
+                          ['courseCategory', '課程類別'],
+                          ['hours', '時數'],
+                          ['instructor', '講師'],
+                          ['classMode', '上課方式'],
+                          ['cancellation', '取消原因'],
+                          ['other', '其他'],
+                        ] as const).map(([key, label]) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <label className="w-20 text-xs text-gray-500 shrink-0">{label}</label>
+                            <input type="text" value={appForm.changeReasons[key]} onChange={e => setAppForm(f => ({ ...f, changeReasons: { ...f.changeReasons, [key]: e.target.value } }))} className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">預期效益</label>
+                      <textarea value={appForm.expectedBenefit} onChange={e => setAppForm(f => ({ ...f, expectedBenefit: e.target.value }))} rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">費用</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {([
+                          ['courseCost', '課程費用'],
+                          ['instructorFee', '講師費'],
+                          ['otherFee', '其他費用'],
+                        ] as const).map(([key, label]) => (
+                          <div key={key}>
+                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                            <input type="number" min={0} value={appForm.costs[key]} onChange={e => setAppForm(f => ({ ...f, costs: { ...f.costs, [key]: Number(e.target.value) } }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-medium text-gray-600">人員異動名單</label>
+                        <button onClick={addParticipantChange} className="text-xs text-amber-600 hover:text-amber-800 flex items-center gap-1"><Plus size={12} />新增人員</button>
+                      </div>
+                      <div className="space-y-2">
+                        {appForm.participants.map((p, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input type="text" value={p.unit} onChange={e => updateParticipantChange(idx, 'unit', e.target.value)} placeholder="單位" className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                            <input type="text" value={p.employeeId} onChange={e => updateParticipantChange(idx, 'employeeId', e.target.value)} placeholder="員編" className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                            <input type="text" value={p.name} onChange={e => updateParticipantChange(idx, 'name', e.target.value)} placeholder="姓名" className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                            <input type="text" value={p.title} onChange={e => updateParticipantChange(idx, 'title', e.target.value)} placeholder="職稱" className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                            <input type="text" value={p.changeNote} onChange={e => updateParticipantChange(idx, 'changeNote', e.target.value)} placeholder="異動說明" className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                            <button onClick={() => removeParticipantChange(idx)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-2">簽核</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {([
+                          ['handler', '承辦', canSignHr],
+                          ['deptManager', '部門主管', canSignDeptManager],
+                          ['hrReview', '人資審核', canSignHr],
+                          ['approver', '核准', canSignApprover],
+                        ] as const).map(([key, label, canSign]) => {
+                          const signed = appForm.signOff[key];
+                          return (
+                            <div key={key} className="border border-gray-200 rounded-xl p-2 text-center">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
+                              {signed ? (
+                                <p className="text-xs text-green-600">✓ {signed.name}<br />{signed.date}</p>
+                              ) : canSign ? (
+                                <button onClick={() => signApplication(key)} className="text-xs text-amber-600 hover:underline">點擊簽核</button>
+                              ) : (
+                                <p className="text-xs text-gray-300">未簽核</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-5 border-t border-gray-100 flex gap-3 shrink-0">
+                    <button onClick={() => setAppModalFor(null)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700">取消</button>
+                    <button onClick={() => exportApplicationForm(rc, appForm)} className="px-4 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 flex items-center gap-1.5"><Printer size={15} />列印</button>
+                    <button onClick={saveApplication} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"><Save size={15} />儲存</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 教育訓練課程執行檢查表（CF-CM-HR-40）modal */}
+          {checkModalFor && (() => {
+            const rc = routineCourses.find(r => r.id === checkModalFor);
+            if (!rc) return null;
+            const renderGroup = (groupKey: CheckGroup, labels: Record<string, string>, title: string) => {
+              const groupObj = checkForm[groupKey] as Record<string, ChecklistItem>;
+              return (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">{title}</label>
+                  <div className="space-y-1.5">
+                    {Object.entries(labels).map(([key, label]) => {
+                      const item = groupObj[key];
+                      return (
+                        <div key={key} className="flex items-center gap-2 border border-gray-200 rounded-lg px-2.5 py-1.5">
+                          <button
+                            disabled={!canFillCheck}
+                            onClick={() => toggleCheckItem(groupKey, key)}
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-md border shrink-0 disabled:opacity-50 ${item.done ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+                          >
+                            {item.done ? '是' : '否'}
+                          </button>
+                          <span className="text-xs text-gray-700 flex-1">{label}</span>
+                          <input
+                            type="text"
+                            disabled={!canFillCheck}
+                            value={item.note}
+                            onChange={e => updateCheckNote(groupKey, key, e.target.value)}
+                            placeholder="備註"
+                            className="w-40 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-300 disabled:bg-gray-50"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            };
+            return (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                  <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2"><ListChecks size={18} className="text-cyan-600" />教育訓練課程執行檢查表 — {rc.courseName}</h3>
+                    <button onClick={() => setCheckModalFor(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
+                  </div>
+                  <div className="p-5 space-y-5 overflow-y-auto">
+                    {!canFillCheck && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">此表單由人資開課前確認，您目前以檢視模式開啟。</div>
+                    )}
+                    {renderGroup('preClass', PRE_CLASS_LABELS, '課前確認')}
+                    {renderGroup('inClass', IN_CLASS_LABELS, '課中確認')}
+                    {renderGroup('postClass', POST_CLASS_LABELS, '課後確認')}
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-2">簽核</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          ['handler', '承辦', canFillCheck],
+                          ['hrManager', '人資主管', canFillCheck],
+                          ['secretary', '總經理室祕書', canFillCheck],
+                        ] as const).map(([key, label, canSign]) => {
+                          const signed = checkForm.signOff[key];
+                          return (
+                            <div key={key} className="border border-gray-200 rounded-xl p-2 text-center">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
+                              {signed ? (
+                                <p className="text-xs text-green-600">✓ {signed.name}<br />{signed.date}</p>
+                              ) : canSign ? (
+                                <button onClick={() => signCheck(key)} className="text-xs text-cyan-600 hover:underline">點擊簽核</button>
+                              ) : (
+                                <p className="text-xs text-gray-300">未簽核</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-5 border-t border-gray-100 flex gap-3 shrink-0">
+                    <button onClick={() => setCheckModalFor(null)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700">取消</button>
+                    <button onClick={() => exportExecutionCheck(rc, checkForm)} className="px-4 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 flex items-center gap-1.5"><Printer size={15} />列印</button>
+                    {canFillCheck && (
+                      <button onClick={saveExecutionCheck} className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"><Save size={15} />儲存</button>
                     )}
                   </div>
                 </div>

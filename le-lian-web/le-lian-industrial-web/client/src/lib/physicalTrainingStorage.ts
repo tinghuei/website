@@ -41,6 +41,10 @@ export interface RoutineCourse {
   design?: CourseDesign;
   /** 表單二：教育訓練成效追蹤表（建議課後30天填寫，TTQS Review/Action 階段） */
   effectiveness?: EffectivenessTracking;
+  /** CF-CM-HR-41：教育訓練申請/異動表（開課前15天提出） */
+  application?: TrainingApplication;
+  /** CF-CM-HR-40：教育訓練課程執行檢查表（開課前HR確認） */
+  executionCheck?: PreClassCheck;
 }
 
 /** 簽核狀態 */
@@ -107,6 +111,96 @@ export interface EffectivenessTracking {
   judgment: '成效顯著' | '符合預期' | '部分達成' | '需再訓練';
   suggestion: string;
   filledBy: string;
+}
+
+/** 異動申請名單中的一筆人員變動 */
+export interface ParticipantChange {
+  unit: string;
+  employeeId: string;
+  name: string;
+  title: string;
+  changeNote: string;
+}
+
+/** CF-CM-HR-41：教育訓練申請/異動表 */
+export interface TrainingApplication {
+  department: string;
+  applyDate: string;
+  applicantName: string;
+  applicantTitle: string;
+  employeeId: string;
+  applicationType: '新增課程申請' | '課程內容異動' | '課程時數異動' | '課程取消' | '其他';
+  applicationTypeOther: string;
+  courseCategory: '新人訓練' | '專業訓練' | '管理訓練' | '內部分享' | '其他';
+  courseCategoryOther: string;
+  hostUnit: string;
+  classMode: '實體課程' | '線上課程';
+  changeReasons: {
+    courseName: string;
+    courseCategory: string;
+    hours: string;
+    instructor: string;
+    classMode: string;
+    cancellation: string;
+    other: string;
+  };
+  expectedBenefit: string;
+  costs: {
+    courseCost: number;
+    instructorFee: number;
+    otherFee: number;
+  };
+  participants: ParticipantChange[];
+  signOff: {
+    approver?: { name: string; date: string };
+    hrReview?: { name: string; date: string };
+    deptManager?: { name: string; date: string };
+    handler?: { name: string; date: string };
+  };
+}
+
+/** 檢查清單單一項目 */
+export interface ChecklistItem {
+  done: boolean;
+  note: string;
+}
+
+/** CF-CM-HR-40：教育訓練課程執行檢查表 */
+export interface PreClassCheck {
+  preClass: {
+    applicationForm: ChecklistItem;
+    instructorConfirmed: ChecklistItem;
+    instructorContract: ChecklistItem;
+    syllabusMaterials: ChecklistItem;
+    venueArranged: ChecklistItem;
+    equipment: ChecklistItem;
+    catering: ChecklistItem;
+    transportLodging: ChecklistItem;
+    studentsNotified: ChecklistItem;
+    consentForm: ChecklistItem;
+  };
+  inClass: {
+    onTime: ChecklistItem;
+    signIn: ChecklistItem;
+    equipmentWorking: ChecklistItem;
+    followsSyllabus: ChecklistItem;
+  };
+  postClass: {
+    signOut: ChecklistItem;
+    satisfactionSurveyCollected: ChecklistItem;
+    reportCollected: ChecklistItem;
+    quizResultCollected: ChecklistItem;
+    certificateSigned: ChecklistItem;
+    resultsFiled: ChecklistItem;
+    instructorFeeReceiptCollected: ChecklistItem;
+    recordsArchived: ChecklistItem;
+    documentsArchived: ChecklistItem;
+  };
+  signOff: {
+    secretary?: { name: string; date: string };
+    hrManager?: { name: string; date: string };
+    handler?: { name: string; date: string };
+  };
 }
 
 export const TTQS_PHASES = [

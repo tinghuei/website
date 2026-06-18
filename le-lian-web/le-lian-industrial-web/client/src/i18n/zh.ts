@@ -8,6 +8,7 @@ const zh = {
     physicalTraining: '實體訓練記錄',
     instructorRoster: '講師/學員名冊',
     performanceTracking: '訓練績效追蹤',
+    vpDashboard: '經營層儀表板',
     currentUser: '目前登入',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

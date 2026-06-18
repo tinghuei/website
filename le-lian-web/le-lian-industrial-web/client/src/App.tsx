@@ -41,6 +41,7 @@ import AIAssistant from "./pages/training/AIAssistant";
 import PhysicalTraining from "./pages/training/PhysicalTraining";
 import InstructorRoster from "./pages/training/InstructorRoster";
 import PerformanceTracking from "./pages/training/PerformanceTracking";
+import VPDashboard from "./pages/training/VPDashboard";
 
 function Router() {
   return (
@@ -114,7 +115,7 @@ function Router() {
       </Route>
       <Route path={"/training/admin"}>
         {() => (
-          <TrainingLayout roles={['admin']}>
+          <TrainingLayout roles={['admin', 'hr']}>
             <TrainingAdminPanel />
           </TrainingLayout>
         )}
@@ -200,6 +201,13 @@ function Router() {
         {() => (
           <TrainingLayout>
             <PerformanceTracking />
+          </TrainingLayout>
+        )}
+      </Route>
+      <Route path={"/training/vp-dashboard"}>
+        {() => (
+          <TrainingLayout roles={['vp', 'admin']}>
+            <VPDashboard />
           </TrainingLayout>
         )}
       </Route>

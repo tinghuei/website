@@ -8,6 +8,7 @@ const id = {
     physicalTraining: 'Catatan Pelatihan Fisik',
     instructorRoster: 'Daftar Instruktur/Peserta',
     performanceTracking: 'Pelacakan Kinerja Pelatihan',
+    vpDashboard: 'Dasbor Eksekutif',
     currentUser: 'Masuk Sebagai',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

@@ -1,12 +1,51 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award, FileText, ClipboardCheck, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import {
-  type PhysicalRecord, type RoutineCourse, TTQS_PHASES,
+  type PhysicalRecord, type RoutineCourse, type CourseDesign, type EffectivenessTracking, TTQS_PHASES,
   loadRecords, saveRecords, loadRoutine, saveRoutine,
 } from '../../lib/physicalTrainingStorage';
+
+const NEED_SOURCES = ['年度教育訓練計畫', '稽核缺失改善', '客訴改善', '工安事故改善', '主管需求', '法規要求', '其他'];
+const COMPETENCY_OPTIONS = ['專業知識', '設備操作', '品質意識', '工安意識', '問題分析', '溝通能力', '管理能力', '其他'];
+const TEACHING_METHOD_OPTIONS = ['講授', '實作', '案例研討', '影片教學', '測驗', '分組討論'];
+const COURSE_CATEGORY_OPTIONS = ['新人', '專業', '管理', '工安', '其他'] as const;
+const JUDGMENT_OPTIONS = ['成效顯著', '符合預期', '部分達成', '需再訓練'] as const;
+
+const EMPTY_DESIGN: CourseDesign = {
+  category: '專業',
+  targetAudience: '',
+  needSources: [],
+  purpose: '',
+  competencies: [],
+  syllabus: [{ unit: '', content: '', hours: 0 }],
+  teachingMethods: [],
+  expectedBenefits: { qualityIssueReduction: 0, complaintReduction: 0, safetyViolationReduction: 0, efficiencyImprovement: 0 },
+  signOff: {},
+};
+
+const EMPTY_EFFECTIVENESS: EffectivenessTracking = {
+  trackingDate: '',
+  learningOutcome: { attendanceRate: 0, quizAvgScore: 0, passRate: 0, satisfaction: 0 },
+  managerEvaluation: { efficiencyImprovement: 3, qualityImprovement: 3, safetyAwarenessImprovement: 3, problemAnalysisImprovement: 3, attitudeImprovement: 3 },
+  kpiBefore: { qualityIssues: 0, complaints: 0, safetyViolations: 0, equipmentAnomalies: 0 },
+  kpiAfter30Days: { qualityIssues: 0, complaints: 0, safetyViolations: 0, equipmentAnomalies: 0 },
+  judgment: '符合預期',
+  suggestion: '',
+  filledBy: '',
+};
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function toggleInArray(arr: string[], value: string): string[] {
+  return arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value];
+}
 
 const DEPARTMENTS = [
   '總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課',
@@ -46,6 +85,103 @@ function StatusBadge({ status }: { status: PhysicalRecord['status'] }) {
       {status}
     </span>
   );
+}
+
+function printForm(title: string, bodyHtml: string) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.write(`
+    <html>
+      <head>
+        <title>${title}</title>
+        <meta charset="utf-8" />
+        <style>
+          body { font-family: 'Microsoft JhengHei', sans-serif; padding: 24px; color: #1f2937; }
+          h1 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+          h2 { font-size: 13px; margin: 16px 0 6px; border-left: 4px solid #4f46e5; padding-left: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 12px; }
+          th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
+          th { background: #f3f4f6; width: 140px; }
+          .checks span { display: inline-block; margin-right: 14px; }
+          .signrow { display: flex; gap: 12px; margin-top: 8px; }
+          .signbox { flex: 1; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; text-align: center; font-size: 12px; }
+        </style>
+      </head>
+      <body>${bodyHtml}</body>
+    </html>
+  `);
+  win.document.close();
+  win.onload = () => win.print();
+}
+
+function checkLine(options: string[], selected: string[]): string {
+  return `<div class="checks">${options.map(o => `<span>${selected.includes(o) ? '☑' : '☐'} ${o}</span>`).join('')}</div>`;
+}
+
+function exportDesignForm(rc: RoutineCourse, d: CourseDesign) {
+  const syllabusRows = d.syllabus.map(u => `<tr><td>${u.unit}</td><td>${u.content}</td><td>${u.hours}</td></tr>`).join('');
+  const sign = (label: string, s?: { name: string; date: string }) =>
+    `<div class="signbox"><div>${label}</div><div>${s ? `${s.name}<br/>${s.date}` : '（未簽核）'}</div></div>`;
+  const html = `
+    <h1>樂聯工業股份有限公司 教育訓練課程大綱表</h1>
+    <table>
+      <tr><th>課程名稱</th><td>${rc.courseName}</td><th>課程類別</th><td>${d.category}</td></tr>
+      <tr><th>申請部門</th><td>${rc.department}</td><th>講師</th><td>${rc.instructor}</td></tr>
+      <tr><th>課程時數</th><td>${rc.hours}</td><th>上課日期</th><td>${rc.date}</td></tr>
+      <tr><th>參訓對象</th><td colspan="3">${d.targetAudience}</td></tr>
+    </table>
+    <h2>課程需求來源</h2>${checkLine(NEED_SOURCES, d.needSources)}
+    <h2>課程目的</h2><p>${d.purpose || '（未填寫）'}</p>
+    <h2>職能對應</h2>${checkLine(COMPETENCY_OPTIONS, d.competencies)}
+    <h2>課程大綱</h2>
+    <table><tr><th>單元</th><th>內容</th><th>時數</th></tr>${syllabusRows}</table>
+    <h2>教學方式</h2>${checkLine(TEACHING_METHOD_OPTIONS, d.teachingMethods)}
+    <h2>預期效益</h2>
+    <table>
+      <tr><th>品質異常降低</th><td>${d.expectedBenefits.qualityIssueReduction}%</td><th>客訴降低</th><td>${d.expectedBenefits.complaintReduction}%</td></tr>
+      <tr><th>工安違規降低</th><td>${d.expectedBenefits.safetyViolationReduction}%</td><th>工作效率提升</th><td>${d.expectedBenefits.efficiencyImprovement}%</td></tr>
+    </table>
+    <h2>簽核</h2>
+    <div class="signrow">
+      ${sign('申請人', d.signOff.applicant)}
+      ${sign('部門主管', d.signOff.deptManager)}
+      ${sign('HR', d.signOff.hr)}
+      ${sign('副總', d.signOff.vp)}
+    </div>
+  `;
+  printForm(`課程大綱表-${rc.courseName}`, html);
+}
+
+function exportEffectivenessForm(rc: RoutineCourse, e: EffectivenessTracking) {
+  const html = `
+    <h1>樂聯工業股份有限公司 教育訓練成效追蹤表</h1>
+    <table>
+      <tr><th>課程名稱</th><td>${rc.courseName}</td><th>上課日期</th><td>${rc.date}</td></tr>
+      <tr><th>講師</th><td>${rc.instructor}</td><th>受訓人數</th><td>${rc.participants.length}</td></tr>
+      <tr><th>追蹤日期</th><td colspan="3">${e.trackingDate}</td></tr>
+    </table>
+    <h2>學習成果</h2>
+    <table>
+      <tr><th>出席率</th><td>${e.learningOutcome.attendanceRate}%</td><th>測驗平均分數</th><td>${e.learningOutcome.quizAvgScore}</td></tr>
+      <tr><th>合格率</th><td>${e.learningOutcome.passRate}%</td><th>滿意度</th><td>${e.learningOutcome.satisfaction} / 5</td></tr>
+    </table>
+    <h2>主管成效評估（1~5分）</h2>
+    <table>
+      <tr><th>工作效率提升</th><td>${e.managerEvaluation.efficiencyImprovement}</td><th>品質改善</th><td>${e.managerEvaluation.qualityImprovement}</td></tr>
+      <tr><th>工安意識提升</th><td>${e.managerEvaluation.safetyAwarenessImprovement}</td><th>問題分析能力提升</th><td>${e.managerEvaluation.problemAnalysisImprovement}</td></tr>
+      <tr><th>工作態度改善</th><td>${e.managerEvaluation.attitudeImprovement}</td><td></td><td></td></tr>
+    </table>
+    <h2>KPI改善追蹤</h2>
+    <table>
+      <tr><th></th><th>品質異常</th><th>客訴件數</th><th>工安違規</th><th>設備異常</th></tr>
+      <tr><th>課前</th><td>${e.kpiBefore.qualityIssues}</td><td>${e.kpiBefore.complaints}</td><td>${e.kpiBefore.safetyViolations}</td><td>${e.kpiBefore.equipmentAnomalies}</td></tr>
+      <tr><th>課後30天</th><td>${e.kpiAfter30Days.qualityIssues}</td><td>${e.kpiAfter30Days.complaints}</td><td>${e.kpiAfter30Days.safetyViolations}</td><td>${e.kpiAfter30Days.equipmentAnomalies}</td></tr>
+    </table>
+    <h2>成效判定</h2>${checkLine([...JUDGMENT_OPTIONS], [e.judgment])}
+    <h2>改善建議</h2><p>${e.suggestion || '（未填寫）'}</p>
+    <p style="margin-top:16px;font-size:12px;">填寫人：${e.filledBy}</p>
+  `;
+  printForm(`成效追蹤表-${rc.courseName}`, html);
 }
 
 function exportToExcel(records: PhysicalRecord[]) {
@@ -118,7 +254,7 @@ function PhotoUploadArea({ photos, onAdd, onRemove }: {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PhysicalTraining() {
-  const { enrollments, courses, users } = useTrainingAuth();
+  const { enrollments, courses, users, currentUser } = useTrainingAuth();
   const [records, setRecords] = useState<PhysicalRecord[]>(() => loadRecords());
   const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>(() => loadRoutine());
   const [activeTab, setActiveTab] = useState<'list' | 'add' | 'participants' | 'routine' | 'ttqs' | 'analysis'>('list');
@@ -135,6 +271,53 @@ export default function PhysicalTraining() {
   const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
   const [routineForm, setRoutineForm] = useState({ courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '' });
   const [routinePhotos, setRoutinePhotos] = useState<string[]>([]);
+
+  // 課程設計表（表單一）與成效追蹤表（表單二）
+  const [designModalFor, setDesignModalFor] = useState<string | null>(null);
+  const [designForm, setDesignForm] = useState<CourseDesign>({ ...EMPTY_DESIGN });
+  const [effModalFor, setEffModalFor] = useState<string | null>(null);
+  const [effForm, setEffForm] = useState<EffectivenessTracking>({ ...EMPTY_EFFECTIVENESS });
+
+  const role = currentUser?.role || '';
+  const canSignDeptManager = role === 'manager' || role === 'admin';
+  const canSignHr = role === 'hr' || role === 'admin';
+  const canSignVp = role === 'vp' || role === 'admin';
+  const canFillEffectiveness = role === 'manager' || role === 'admin' || role === 'hr' || role === 'vp';
+
+  function openDesignModal(rc: RoutineCourse) {
+    setDesignForm(rc.design ? { ...rc.design } : { ...EMPTY_DESIGN, targetAudience: rc.department });
+    setDesignModalFor(rc.id);
+  }
+
+  function saveDesign() {
+    if (!designModalFor) return;
+    setRoutineCourses(prev => prev.map(r => r.id === designModalFor ? { ...r, design: designForm } : r));
+    showToast('課程大綱表已儲存');
+    setDesignModalFor(null);
+  }
+
+  function signDesign(stage: keyof CourseDesign['signOff']) {
+    setDesignForm(f => ({
+      ...f,
+      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0] } },
+    }));
+  }
+
+  function openEffModal(rc: RoutineCourse) {
+    setEffForm(rc.effectiveness ? { ...rc.effectiveness } : {
+      ...EMPTY_EFFECTIVENESS,
+      trackingDate: new Date().toISOString().split('T')[0],
+      filledBy: currentUser?.name || '',
+    });
+    setEffModalFor(rc.id);
+  }
+
+  function saveEffectiveness() {
+    if (!effModalFor) return;
+    setRoutineCourses(prev => prev.map(r => r.id === effModalFor ? { ...r, effectiveness: effForm } : r));
+    showToast('成效追蹤表已儲存');
+    setEffModalFor(null);
+  }
 
   useEffect(() => { saveRecords(records); }, [records]);
   useEffect(() => { saveRoutine(routineCourses); }, [routineCourses]);
@@ -711,6 +894,8 @@ export default function PhysicalTraining() {
           <div className="space-y-3">
             {routineCourses.map(rc => {
               const s = ROUTINE_STATUS_LABELS[rc.status];
+              const effDueDate = rc.status === 'completed' && rc.date ? addDays(rc.date, 30) : null;
+              const effOverdue = !!effDueDate && !rc.effectiveness && new Date() > new Date(effDueDate);
               return (
                 <div key={rc.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div
@@ -722,6 +907,14 @@ export default function PhysicalTraining() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-gray-900 text-sm">{rc.courseName}</h3>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.color}`}>{s.label}</span>
+                          {rc.design && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">已有課程大綱</span>}
+                          {rc.effectiveness ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-teal-100 text-teal-700">已完成成效追蹤</span>
+                          ) : effDueDate ? (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${effOverdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {effOverdue ? '成效追蹤逾期' : `成效追蹤截止 ${effDueDate}`}
+                            </span>
+                          ) : null}
                         </div>
                         <p className="text-xs text-gray-500 mt-1">{rc.date} · {rc.hours}h · {rc.department} · 講師：{rc.instructor}</p>
                         <p className="text-xs text-gray-400 mt-0.5">學員：{rc.participants.join('、') || '尚未設定'}</p>
@@ -729,6 +922,22 @@ export default function PhysicalTraining() {
                       <div className="flex items-center gap-2 shrink-0">
                         {rc.photos && rc.photos.length > 0 && (
                           <span className="text-xs text-indigo-500 flex items-center gap-1"><Image size={12} />{rc.photos.length}張</span>
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); openDesignModal(rc); }}
+                          className="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-purple-200"
+                          title="課程大綱表（表單一）"
+                        >
+                          <FileText size={12} />課程大綱表
+                        </button>
+                        {rc.status === 'completed' && (
+                          <button
+                            onClick={e => { e.stopPropagation(); openEffModal(rc); }}
+                            className="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-teal-200"
+                            title="成效追蹤表（表單二）"
+                          >
+                            <ClipboardCheck size={12} />成效追蹤表
+                          </button>
                         )}
                         {rc.status === 'draft' && (
                           <button
@@ -876,6 +1085,246 @@ export default function PhysicalTraining() {
               </div>
             </div>
           )}
+
+          {/* 課程大綱表（表單一）modal */}
+          {designModalFor && (() => {
+            const rc = routineCourses.find(r => r.id === designModalFor);
+            if (!rc) return null;
+            return (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                  <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileText size={18} className="text-purple-600" />課程大綱表 — {rc.courseName}</h3>
+                    <button onClick={() => setDesignModalFor(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
+                  </div>
+                  <div className="p-5 space-y-5 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">課程類別</label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {COURSE_CATEGORY_OPTIONS.map(c => (
+                            <button key={c} onClick={() => setDesignForm(f => ({ ...f, category: c }))} className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${designForm.category === c ? 'bg-purple-600 text-white border-purple-600' : 'border-gray-200 text-gray-600 hover:border-purple-300'}`}>{c}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">參訓對象</label>
+                        <input type="text" value={designForm.targetAudience} onChange={e => setDesignForm(f => ({ ...f, targetAudience: e.target.value }))} placeholder="例如：製造課全體員工" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">課程需求來源</label>
+                      <div className="flex flex-wrap gap-2">
+                        {NEED_SOURCES.map(s => (
+                          <button key={s} onClick={() => setDesignForm(f => ({ ...f, needSources: toggleInArray(f.needSources, s) }))} className={`px-2.5 py-1 text-xs rounded-lg border ${designForm.needSources.includes(s) ? 'bg-purple-100 text-purple-700 border-purple-300' : 'border-gray-200 text-gray-500 hover:border-purple-300'}`}>{s}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">課程目的</label>
+                      <textarea value={designForm.purpose} onChange={e => setDesignForm(f => ({ ...f, purpose: e.target.value }))} rows={2} placeholder="說明本課程希望解決什麼問題，例如降低生產品質異常/提升主管管理能力/降低工安風險" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">職能對應</label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMPETENCY_OPTIONS.map(c => (
+                          <button key={c} onClick={() => setDesignForm(f => ({ ...f, competencies: toggleInArray(f.competencies, c) }))} className={`px-2.5 py-1 text-xs rounded-lg border ${designForm.competencies.includes(c) ? 'bg-purple-100 text-purple-700 border-purple-300' : 'border-gray-200 text-gray-500 hover:border-purple-300'}`}>{c}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-medium text-gray-600">課程大綱（單元 / 內容 / 時數）</label>
+                        <button onClick={() => setDesignForm(f => ({ ...f, syllabus: [...f.syllabus, { unit: '', content: '', hours: 0 }] }))} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1"><Plus size={12} />新增單元</button>
+                      </div>
+                      <div className="space-y-2">
+                        {designForm.syllabus.map((u, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input type="text" value={u.unit} onChange={e => setDesignForm(f => ({ ...f, syllabus: f.syllabus.map((row, i) => i === idx ? { ...row, unit: e.target.value } : row) }))} placeholder="單元" className="w-28 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                            <input type="text" value={u.content} onChange={e => setDesignForm(f => ({ ...f, syllabus: f.syllabus.map((row, i) => i === idx ? { ...row, content: e.target.value } : row) }))} placeholder="內容" className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                            <input type="number" min={0} value={u.hours} onChange={e => setDesignForm(f => ({ ...f, syllabus: f.syllabus.map((row, i) => i === idx ? { ...row, hours: Number(e.target.value) } : row) }))} placeholder="時數" className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                            <button onClick={() => setDesignForm(f => ({ ...f, syllabus: f.syllabus.filter((_, i) => i !== idx) }))} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">教學方式</label>
+                      <div className="flex flex-wrap gap-2">
+                        {TEACHING_METHOD_OPTIONS.map(m => (
+                          <button key={m} onClick={() => setDesignForm(f => ({ ...f, teachingMethods: toggleInArray(f.teachingMethods, m) }))} className={`px-2.5 py-1 text-xs rounded-lg border ${designForm.teachingMethods.includes(m) ? 'bg-purple-100 text-purple-700 border-purple-300' : 'border-gray-200 text-gray-500 hover:border-purple-300'}`}>{m}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">預期效益</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        {([
+                          ['qualityIssueReduction', '品質異常降低 (%)'],
+                          ['complaintReduction', '客訴降低 (%)'],
+                          ['safetyViolationReduction', '工安違規降低 (%)'],
+                          ['efficiencyImprovement', '工作效率提升 (%)'],
+                        ] as const).map(([key, label]) => (
+                          <div key={key}>
+                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                            <input type="number" min={0} max={100} value={designForm.expectedBenefits[key]} onChange={e => setDesignForm(f => ({ ...f, expectedBenefits: { ...f.expectedBenefits, [key]: Number(e.target.value) } }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-2">簽核</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {([
+                          ['applicant', '申請人', true],
+                          ['deptManager', '部門主管', canSignDeptManager],
+                          ['hr', 'HR', canSignHr],
+                          ['vp', '副總', canSignVp],
+                        ] as const).map(([key, label, canSign]) => {
+                          const signed = designForm.signOff[key];
+                          return (
+                            <div key={key} className="border border-gray-200 rounded-xl p-2 text-center">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
+                              {signed ? (
+                                <p className="text-xs text-green-600">✓ {signed.name}<br />{signed.date}</p>
+                              ) : canSign ? (
+                                <button onClick={() => signDesign(key)} className="text-xs text-purple-600 hover:underline">點擊簽核</button>
+                              ) : (
+                                <p className="text-xs text-gray-300">未簽核</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-5 border-t border-gray-100 flex gap-3 shrink-0">
+                    <button onClick={() => setDesignModalFor(null)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700">取消</button>
+                    <button onClick={() => exportDesignForm(rc, designForm)} className="px-4 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 flex items-center gap-1.5"><Printer size={15} />列印</button>
+                    <button onClick={saveDesign} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"><Save size={15} />儲存</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 成效追蹤表（表單二）modal */}
+          {effModalFor && (() => {
+            const rc = routineCourses.find(r => r.id === effModalFor);
+            if (!rc) return null;
+            return (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                  <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2"><ClipboardCheck size={18} className="text-teal-600" />成效追蹤表 — {rc.courseName}</h3>
+                    <button onClick={() => setEffModalFor(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
+                  </div>
+                  <div className="p-5 space-y-5 overflow-y-auto">
+                    {!canFillEffectiveness && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">此表單建議由主管填寫，您目前以檢視模式開啟。</div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">追蹤日期（建議課後30天）</label>
+                        <input type="date" disabled={!canFillEffectiveness} value={effForm.trackingDate} onChange={e => setEffForm(f => ({ ...f, trackingDate: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:bg-gray-50" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">填寫人</label>
+                        <input type="text" disabled={!canFillEffectiveness} value={effForm.filledBy} onChange={e => setEffForm(f => ({ ...f, filledBy: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:bg-gray-50" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">學習成果</label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {([
+                          ['attendanceRate', '出席率 (%)'],
+                          ['quizAvgScore', '測驗平均分數'],
+                          ['passRate', '合格率 (%)'],
+                          ['satisfaction', '滿意度 (1-5)'],
+                        ] as const).map(([key, label]) => (
+                          <div key={key}>
+                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                            <input type="number" disabled={!canFillEffectiveness} value={effForm.learningOutcome[key]} onChange={e => setEffForm(f => ({ ...f, learningOutcome: { ...f.learningOutcome, [key]: Number(e.target.value) } }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:bg-gray-50" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">主管成效評估（1~5分）</label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {([
+                          ['efficiencyImprovement', '工作效率提升'],
+                          ['qualityImprovement', '品質改善'],
+                          ['safetyAwarenessImprovement', '工安意識提升'],
+                          ['problemAnalysisImprovement', '問題分析能力提升'],
+                          ['attitudeImprovement', '工作態度改善'],
+                        ] as const).map(([key, label]) => (
+                          <div key={key}>
+                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                            <select disabled={!canFillEffectiveness} value={effForm.managerEvaluation[key]} onChange={e => setEffForm(f => ({ ...f, managerEvaluation: { ...f.managerEvaluation, [key]: Number(e.target.value) } }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:bg-gray-50 bg-white">
+                              {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">KPI改善追蹤</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        {([['kpiBefore', '課前'], ['kpiAfter30Days', '課後30天']] as const).map(([groupKey, groupLabel]) => (
+                          <div key={groupKey} className="border border-gray-200 rounded-xl p-3 space-y-2">
+                            <p className="text-xs font-semibold text-gray-500">{groupLabel}</p>
+                            {([
+                              ['qualityIssues', '品質異常'],
+                              ['complaints', '客訴件數'],
+                              ['safetyViolations', '工安違規'],
+                              ['equipmentAnomalies', '設備異常'],
+                            ] as const).map(([key, label]) => (
+                              <div key={key} className="flex items-center justify-between gap-2">
+                                <label className="text-xs text-gray-500">{label}</label>
+                                <input type="number" min={0} disabled={!canFillEffectiveness} value={effForm[groupKey][key]} onChange={e => setEffForm(f => ({ ...f, [groupKey]: { ...f[groupKey], [key]: Number(e.target.value) } }))} className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:bg-gray-50" />
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">成效判定</label>
+                      <div className="flex flex-wrap gap-2">
+                        {JUDGMENT_OPTIONS.map(j => (
+                          <button key={j} disabled={!canFillEffectiveness} onClick={() => setEffForm(f => ({ ...f, judgment: j }))} className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50 ${effForm.judgment === j ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-500 hover:border-teal-300'}`}>{j}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">改善建議（主管填寫）</label>
+                      <textarea disabled={!canFillEffectiveness} value={effForm.suggestion} onChange={e => setEffForm(f => ({ ...f, suggestion: e.target.value }))} rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 resize-none disabled:bg-gray-50" />
+                    </div>
+                  </div>
+                  <div className="p-5 border-t border-gray-100 flex gap-3 shrink-0">
+                    <button onClick={() => setEffModalFor(null)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700">取消</button>
+                    <button onClick={() => exportEffectivenessForm(rc, effForm)} className="px-4 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 flex items-center gap-1.5"><Printer size={15} />列印</button>
+                    {canFillEffectiveness && (
+                      <button onClick={saveEffectiveness} className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"><Save size={15} />儲存</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

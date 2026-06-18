@@ -178,7 +178,7 @@ export default function TrainingDashboard() {
         </h1>
         <p className="text-gray-500 mt-1 text-sm">
           {currentUser?.department} ·{' '}
-          {{ admin: '系統管理員', manager: '部門主管', employee: '員工' }[currentUser?.role || 'employee']}
+          {{ admin: '系統管理員', manager: '部門主管', employee: '員工', hr: '人資', vp: '副總' }[currentUser?.role || 'employee']}
         </p>
       </div>
 

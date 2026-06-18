@@ -8,6 +8,7 @@ const th = {
     physicalTraining: 'บันทึกการฝึกอบรม',
     instructorRoster: 'ทะเบียนวิทยากร/นักเรียน',
     performanceTracking: 'ติดตามผลการฝึกอบรม',
+    vpDashboard: 'แดชบอร์ดผู้บริหาร',
     currentUser: 'เข้าสู่ระบบในฐานะ',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

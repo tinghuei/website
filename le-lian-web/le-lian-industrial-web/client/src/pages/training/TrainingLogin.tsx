@@ -11,6 +11,7 @@ const TEST_ACCOUNTS = [
   { email: 'admin@company.com', name: 'Admin 管理員', photo: 'A', color: 'bg-purple-500', role: '管理員', dept: '總務課' },
   { email: 'hr@company.com',    name: '林人資',    photo: 'H', color: 'bg-rose-500',   role: '人資',   dept: '人資安全組' },
   { email: 'chen@company.com',  name: '陳小芳',    photo: 'C', color: 'bg-orange-400', role: '員工',   dept: '品保課' },
+  { email: 'vp@company.com',    name: '黃副總',    photo: 'V', color: 'bg-indigo-600', role: '副總',   dept: '總經理室' },
 ];
 
 // 公司所有單位清單（供新員工選擇所屬單位）

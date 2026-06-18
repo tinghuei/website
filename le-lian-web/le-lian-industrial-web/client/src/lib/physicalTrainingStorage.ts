@@ -37,6 +37,76 @@ export interface RoutineCourse {
   status: 'draft' | 'submitted' | 'approved' | 'completed';
   submittedBy: string;
   photos?: string[];
+  /** 表單一：教育訓練課程大綱表（TTQS Design 階段） */
+  design?: CourseDesign;
+  /** 表單二：教育訓練成效追蹤表（建議課後30天填寫，TTQS Review/Action 階段） */
+  effectiveness?: EffectivenessTracking;
+}
+
+/** 簽核狀態 */
+export interface SignOff {
+  applicant?: { name: string; date: string };
+  deptManager?: { name: string; date: string };
+  hr?: { name: string; date: string };
+  vp?: { name: string; date: string };
+}
+
+/** 課程大綱單元（單元/內容/時數） */
+export interface SyllabusUnit {
+  unit: string;
+  content: string;
+  hours: number;
+}
+
+/** 表單一：教育訓練課程大綱表 */
+export interface CourseDesign {
+  category: '新人' | '專業' | '管理' | '工安' | '其他';
+  targetAudience: string;
+  needSources: string[];
+  purpose: string;
+  competencies: string[];
+  syllabus: SyllabusUnit[];
+  teachingMethods: string[];
+  expectedBenefits: {
+    qualityIssueReduction: number;
+    complaintReduction: number;
+    safetyViolationReduction: number;
+    efficiencyImprovement: number;
+  };
+  signOff: SignOff;
+}
+
+/** 表單二：教育訓練成效追蹤表 */
+export interface EffectivenessTracking {
+  trackingDate: string;
+  learningOutcome: {
+    attendanceRate: number;
+    quizAvgScore: number;
+    passRate: number;
+    satisfaction: number;
+  };
+  managerEvaluation: {
+    efficiencyImprovement: number;
+    qualityImprovement: number;
+    safetyAwarenessImprovement: number;
+    problemAnalysisImprovement: number;
+    attitudeImprovement: number;
+  };
+  kpiBefore: {
+    qualityIssues: number;
+    complaints: number;
+    safetyViolations: number;
+    equipmentAnomalies: number;
+  };
+  kpiAfter30Days: {
+    qualityIssues: number;
+    complaints: number;
+    safetyViolations: number;
+    equipmentAnomalies: number;
+  };
+  judgment: '成效顯著' | '符合預期' | '部分達成' | '需再訓練';
+  suggestion: string;
+  filledBy: string;
 }
 
 export const TTQS_PHASES = [

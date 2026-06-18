@@ -8,6 +8,7 @@ const en = {
     physicalTraining: 'Physical Training',
     instructorRoster: 'Instructor/Student Roster',
     performanceTracking: 'Performance Tracking',
+    vpDashboard: 'Executive Dashboard',
     currentUser: 'Logged In As',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

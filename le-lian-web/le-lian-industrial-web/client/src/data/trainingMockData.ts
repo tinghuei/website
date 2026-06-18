@@ -3,7 +3,7 @@ export interface User {
   name: string;
   email: string;
   password: string;
-  role: 'employee' | 'manager' | 'admin' | 'hr';
+  role: 'employee' | 'manager' | 'admin' | 'hr' | 'vp';
   department: string;
   managerId?: string;
   avatar: string;
@@ -206,6 +206,16 @@ export const USERS: User[] = [
     department: '人資安全組',
     avatar: 'H',
     joinDate: '2021-09-01',
+  },
+  {
+    id: '7',
+    name: '黃副總',
+    email: 'vp@company.com',
+    password: '1234',
+    role: 'vp',
+    department: '總經理室',
+    avatar: 'V',
+    joinDate: '2019-05-01',
   },
 ];
 

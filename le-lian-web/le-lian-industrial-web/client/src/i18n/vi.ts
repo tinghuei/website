@@ -8,6 +8,7 @@ const vi = {
     physicalTraining: 'Hồ sơ đào tạo thực tế',
     instructorRoster: 'Danh sách giảng viên/học viên',
     performanceTracking: 'Theo dõi hiệu quả đào tạo',
+    vpDashboard: 'Bảng điều khiển điều hành',
     currentUser: 'Đăng nhập với tư cách',
   },
   lang: { zh: '繁體中文', en: 'English', th: 'ภาษาไทย', id: 'Bahasa Indonesia', vi: 'Tiếng Việt' },

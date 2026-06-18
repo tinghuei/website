@@ -18,29 +18,31 @@ import {
   ClipboardList,
   Users,
   TrendingUp,
+  Crown,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { Link, useLocation } from 'wouter';
 
 const navItems = [
-  { to: '/training/dashboard',          icon: LayoutDashboard, labelKey: 'nav.dashboard',    roles: ['employee', 'manager', 'admin', 'hr'] },
-  { to: '/training/courses',            icon: BookOpen,        labelKey: 'nav.courses',       roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/dashboard',          icon: LayoutDashboard, labelKey: 'nav.dashboard',    roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
+  { to: '/training/courses',            icon: BookOpen,        labelKey: 'nav.courses',       roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
   { to: '/training/my-courses',         icon: GraduationCap,   labelKey: 'nav.myCourses',     roles: ['employee'] },
-  { to: '/training/competency',         icon: Target,          labelKey: 'nav.competency',    roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/competency',         icon: Target,          labelKey: 'nav.competency',    roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
   { to: '/training/annual-plan',        icon: Calendar,        labelKey: 'nav.annualPlan',    roles: ['manager', 'admin', 'hr'] },
   { to: '/training/free-courses',       icon: Globe,           labelKey: 'nav.freeCourses',   roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/achievements',       icon: Trophy,          labelKey: 'nav.achievements',  roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/career',             icon: Map,             labelKey: 'nav.career',        roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/ai-assistant',       icon: MessageSquare,   labelKey: 'nav.aiAssistant',   roles: ['employee', 'manager', 'admin', 'hr'] },
-  { to: '/training/notifications',      icon: Bell,            labelKey: 'nav.notifications', roles: ['employee', 'manager', 'admin', 'hr'] },
-  { to: '/training/management-reports', icon: BarChart2,       labelKey: 'nav.reports',       roles: ['manager', 'admin', 'hr'] },
+  { to: '/training/notifications',      icon: Bell,            labelKey: 'nav.notifications', roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
+  { to: '/training/vp-dashboard',       icon: Crown,           labelKey: 'nav.vpDashboard',   roles: ['vp', 'admin'] },
+  { to: '/training/management-reports', icon: BarChart2,       labelKey: 'nav.reports',       roles: ['manager', 'admin', 'hr', 'vp'] },
   { to: '/training/fee-agreement',      icon: FileText,        labelKey: 'nav.feeAgreement',      roles: ['manager', 'admin', 'hr'] },
   { to: '/training/physical-training',  icon: ClipboardList,   labelKey: 'nav.physicalTraining',  roles: ['manager', 'admin', 'hr'] },
   { to: '/training/instructor-roster',  icon: Users,           labelKey: 'nav.instructorRoster',  roles: ['manager', 'admin', 'hr'] },
-  { to: '/training/performance-tracking', icon: TrendingUp,    labelKey: 'nav.performanceTracking', roles: ['employee', 'manager', 'admin', 'hr'] },
+  { to: '/training/performance-tracking', icon: TrendingUp,    labelKey: 'nav.performanceTracking', roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
   { to: '/training/review',             icon: ClipboardCheck,  labelKey: 'nav.review',            roles: ['manager', 'admin', 'hr'] },
-  { to: '/training/admin',              icon: Settings,        labelKey: 'nav.admin',         roles: ['admin'] },
+  { to: '/training/admin',              icon: Settings,        labelKey: 'nav.admin',         roles: ['admin', 'hr'] },
 ];
 
 export default function TrainingSidebar() {

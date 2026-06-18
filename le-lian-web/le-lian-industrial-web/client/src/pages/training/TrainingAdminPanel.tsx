@@ -25,23 +25,26 @@ import {
   Plus,
   Building2,
   Flag,
+  Tag,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
 import type { Course } from '../../data/trainingMockData';
 import OrgChart from './OrgChart';
+import { type JobTitleCategory, JOB_TITLE_CATEGORY_OPTIONS, loadJobTitles, saveJobTitles } from '../../lib/jobTitleStorage';
 
 const ADMIN_TABS = [
-  { id: 'courses', label: '課程管理', icon: BookOpen },
-  { id: 'users', label: '人員管理', icon: Users },
-  { id: 'upload', label: '上傳教材', icon: Upload },
-  { id: 'audit', label: '稽核日誌', icon: FileText },
-  { id: 'dispatch', label: '課程派發', icon: Send },
-  { id: 'dual-review', label: '雙重審核', icon: CheckCircle },
-  { id: 'satisfaction', label: '滿意度分析', icon: BarChart3 },
-  { id: 'routine', label: '例行課程管理', icon: ClipboardList },
-  { id: 'orgchart', label: '組織架構圖', icon: Building2 },
-  { id: 'question-reports', label: '測驗題目回報', icon: Flag },
-  { id: 'permissions', label: '權限管理', icon: Lock },
+  { id: 'courses', label: '課程管理', icon: BookOpen, roles: ['admin'] },
+  { id: 'users', label: '人員管理', icon: Users, roles: ['admin'] },
+  { id: 'upload', label: '上傳教材', icon: Upload, roles: ['admin'] },
+  { id: 'audit', label: '稽核日誌', icon: FileText, roles: ['admin'] },
+  { id: 'dispatch', label: '課程派發', icon: Send, roles: ['admin'] },
+  { id: 'dual-review', label: '雙重審核', icon: CheckCircle, roles: ['admin'] },
+  { id: 'satisfaction', label: '滿意度分析', icon: BarChart3, roles: ['admin'] },
+  { id: 'routine', label: '例行課程管理', icon: ClipboardList, roles: ['admin'] },
+  { id: 'jobtitles', label: '職稱類別管理', icon: Tag, roles: ['admin', 'hr'] },
+  { id: 'orgchart', label: '組織架構圖', icon: Building2, roles: ['admin'] },
+  { id: 'question-reports', label: '測驗題目回報', icon: Flag, roles: ['admin'] },
+  { id: 'permissions', label: '權限管理', icon: Lock, roles: ['admin'] },
 ];
 
 // Feature permission matrix (F-001 to F-020)
@@ -141,7 +144,49 @@ const roleColor: Record<string, string> = {
 
 export default function TrainingAdminPanel() {
   const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport } = useTrainingAuth();
-  const [activeTab, setActiveTab] = useState('courses');
+  const isHrOnly = currentUser?.role === 'hr';
+  const visibleTabs = ADMIN_TABS.filter(t => !currentUser || t.roles.includes(currentUser.role));
+  const [activeTab, setActiveTab] = useState(isHrOnly ? 'jobtitles' : 'courses');
+  const [jobTitles, setJobTitles] = useState<JobTitleCategory[]>(() => loadJobTitles());
+  const [newJobTitle, setNewJobTitle] = useState('');
+  const [newJobTitleCategory, setNewJobTitleCategory] = useState(JOB_TITLE_CATEGORY_OPTIONS[0]);
+  const [jobTitlesSaved, setJobTitlesSaved] = useState(false);
+
+  function updateJobTitleCategory(id: string, category: string) {
+    setJobTitles(prev => {
+      const next = prev.map(jt => jt.id === id ? { ...jt, category } : jt);
+      saveJobTitles(next);
+      return next;
+    });
+  }
+
+  function renameJobTitle(id: string, title: string) {
+    setJobTitles(prev => {
+      const next = prev.map(jt => jt.id === id ? { ...jt, title } : jt);
+      saveJobTitles(next);
+      return next;
+    });
+  }
+
+  function deleteJobTitle(id: string) {
+    setJobTitles(prev => {
+      const next = prev.filter(jt => jt.id !== id);
+      saveJobTitles(next);
+      return next;
+    });
+  }
+
+  function addJobTitle() {
+    if (!newJobTitle.trim()) return;
+    setJobTitles(prev => {
+      const next = [...prev, { id: `jt${Date.now()}`, title: newJobTitle.trim(), category: newJobTitleCategory }];
+      saveJobTitles(next);
+      return next;
+    });
+    setNewJobTitle('');
+    setJobTitlesSaved(true);
+    setTimeout(() => setJobTitlesSaved(false), 2500);
+  }
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiDone, setAiDone] = useState(false);
@@ -331,13 +376,13 @@ export default function TrainingAdminPanel() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">系統管理</h1>
-        <p className="text-gray-500 mt-1 text-sm">管理課程、人員、教材及系統稽核紀錄</p>
+        <h1 className="text-2xl font-bold text-gray-900">{isHrOnly ? '人資管理' : '系統管理'}</h1>
+        <p className="text-gray-500 mt-1 text-sm">{isHrOnly ? '管理職稱類別等人資相關設定' : '管理課程、人員、教材及系統稽核紀錄'}</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 overflow-x-auto">
-        {ADMIN_TABS.map(({ id, label, icon: Icon }) => (
+        {visibleTabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
@@ -1657,6 +1702,102 @@ export default function TrainingAdminPanel() {
             >
               儲存權限設定
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 職稱類別管理 */}
+      {activeTab === 'jobtitles' && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+            <p className="font-semibold mb-1">職稱類別管理</p>
+            <p>管理員與人資可在此維護全公司職稱與其所屬類別（如管理職／專業職／技術作業職），供組織圖、職能分析等功能參照使用。</p>
+          </div>
+
+          {jobTitlesSaved && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700 flex items-center gap-2">
+              <CheckCircle size={16} /> 已新增職稱
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">職稱</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 w-48">類別</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 w-20">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {jobTitles.map(jt => (
+                  <tr key={jt.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-2.5">
+                      <input
+                        type="text"
+                        value={jt.title}
+                        onChange={(e) => renameJobTitle(jt.id, e.target.value)}
+                        className="w-full border border-transparent hover:border-gray-200 focus:border-blue-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-transparent"
+                      />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <select
+                        value={jt.category}
+                        onChange={(e) => updateJobTitleCategory(jt.id, e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        {JOB_TITLE_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        onClick={() => deleteJobTitle(jt.id)}
+                        className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-500"
+                        title="刪除職稱"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {jobTitles.length === 0 && (
+                  <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">尚無職稱資料</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <h3 className="font-semibold text-gray-800 text-sm mb-3">新增職稱</h3>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-xs font-medium text-gray-700 mb-1">職稱名稱</label>
+                <input
+                  type="text"
+                  value={newJobTitle}
+                  onChange={(e) => setNewJobTitle(e.target.value)}
+                  placeholder="例如：資深工程師"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="min-w-[160px]">
+                <label className="block text-xs font-medium text-gray-700 mb-1">類別</label>
+                <select
+                  value={newJobTitleCategory}
+                  onChange={(e) => setNewJobTitleCategory(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {JOB_TITLE_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <button
+                onClick={addJobTitle}
+                disabled={!newJobTitle.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+              >
+                <Plus size={15} /> 新增
+              </button>
+            </div>
           </div>
         </div>
       )}

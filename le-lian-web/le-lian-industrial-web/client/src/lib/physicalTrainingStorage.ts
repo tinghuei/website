@@ -47,12 +47,21 @@ export interface RoutineCourse {
   executionCheck?: PreClassCheck;
 }
 
-/** 簽核狀態 */
+/** 簽核狀態（signature 為手寫簽名圖檔，base64 dataURL） */
 export interface SignOff {
-  applicant?: { name: string; date: string };
-  deptManager?: { name: string; date: string };
-  hr?: { name: string; date: string };
-  vp?: { name: string; date: string };
+  applicant?: { name: string; date: string; signature?: string };
+  deptManager?: { name: string; date: string; signature?: string };
+  hr?: { name: string; date: string; signature?: string };
+  vp?: { name: string; date: string; signature?: string };
+}
+
+/** 各簽核欄位指定簽核人之使用者 ID，建立表單時依部門主管/人資/副總自動指派，
+ *  確保僅該特定人員可簽核該欄位（而非任何同角色人員皆可簽） */
+export interface DesignatedSigners {
+  applicant?: string;
+  deptManager?: string;
+  hr?: string;
+  vp?: string;
 }
 
 /** 課程大綱單元（單元/內容/時數） */
@@ -78,6 +87,7 @@ export interface CourseDesign {
     efficiencyImprovement: number;
   };
   signOff: SignOff;
+  designatedSigners?: DesignatedSigners;
 }
 
 /** 表單二：教育訓練成效追蹤表 */
@@ -152,10 +162,17 @@ export interface TrainingApplication {
   };
   participants: ParticipantChange[];
   signOff: {
-    approver?: { name: string; date: string };
-    hrReview?: { name: string; date: string };
-    deptManager?: { name: string; date: string };
-    handler?: { name: string; date: string };
+    approver?: { name: string; date: string; signature?: string };
+    hrReview?: { name: string; date: string; signature?: string };
+    deptManager?: { name: string; date: string; signature?: string };
+    handler?: { name: string; date: string; signature?: string };
+  };
+  /** 各簽核欄位指定簽核人之使用者 ID（同 SignOff 註解說明） */
+  designatedSigners?: {
+    approver?: string;
+    hrReview?: string;
+    deptManager?: string;
+    handler?: string;
   };
 }
 
@@ -197,9 +214,14 @@ export interface PreClassCheck {
     documentsArchived: ChecklistItem;
   };
   signOff: {
-    secretary?: { name: string; date: string };
-    hrManager?: { name: string; date: string };
-    handler?: { name: string; date: string };
+    secretary?: { name: string; date: string; signature?: string };
+    hrManager?: { name: string; date: string; signature?: string };
+    handler?: { name: string; date: string; signature?: string };
+  };
+  /** 各簽核欄位指定簽核人之使用者 ID（同 SignOff 註解說明） */
+  designatedSigners?: {
+    hrManager?: string;
+    handler?: string;
   };
 }
 

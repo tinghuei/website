@@ -1,13 +1,23 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award, FileText, ClipboardCheck, Printer, FileSignature, ListChecks } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award, FileText, ClipboardCheck, Printer, FileSignature, ListChecks, PenLine } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import type { User } from '../../data/trainingMockData';
 import {
   type PhysicalRecord, type RoutineCourse, type CourseDesign, type EffectivenessTracking,
   type TrainingApplication, type PreClassCheck, type ChecklistItem, type ParticipantChange, TTQS_PHASES,
   loadRecords, saveRecords, loadRoutine, saveRoutine,
 } from '../../lib/physicalTrainingStorage';
+
+/** 找出指定部門的主管（角色為 manager 且部門相符），用於指派該部門例行課程的「部門主管」簽核人 */
+function findDeptManagerId(department: string, users: User[]): string | undefined {
+  return users.find(u => u.role === 'manager' && u.department === department)?.id;
+}
+/** 找出指定角色的使用者（用於指派人資審核 / 副總核准簽核人） */
+function findRoleUserId(role: User['role'], users: User[]): string | undefined {
+  return users.find(u => u.role === role)?.id;
+}
 
 const NEED_SOURCES = ['年度教育訓練計畫', '稽核缺失改善', '客訴改善', '工安事故改善', '主管需求', '法規要求', '其他'];
 const COMPETENCY_OPTIONS = ['專業知識', '設備操作', '品質意識', '工安意識', '問題分析', '溝通能力', '管理能力', '其他'];
@@ -378,9 +388,134 @@ function PhotoUploadArea({ photos, onAdd, onRemove }: {
   );
 }
 
+// ── 手寫簽名畫布 ──────────────────────────────────────────────────────────────
+function SignatureCanvas({ onSave }: { onSave: (dataUrl: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const [hasSignature, setHasSignature] = useState(false);
+
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }, []);
+
+  function getPos(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+    }
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  }
+
+  function startDraw(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+    isDrawingRef.current = true;
+    lastPointRef.current = getPos(e);
+  }
+
+  function draw(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+    if (!isDrawingRef.current || !canvasRef.current) return;
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx || !lastPointRef.current) return;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    lastPointRef.current = pos;
+    setHasSignature(true);
+  }
+
+  function stopDraw() {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
+  }
+
+  function clearCanvas() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 overflow-hidden" style={{ touchAction: 'none' }}>
+        <canvas
+          ref={canvasRef}
+          width={260}
+          height={90}
+          className="w-full block"
+          style={{ cursor: 'crosshair', maxHeight: 90 }}
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={stopDraw}
+          onMouseLeave={stopDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={stopDraw}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={clearCanvas} className="text-[10px] text-gray-400 hover:text-red-500">清除重簽</button>
+        <button
+          onClick={() => { if (canvasRef.current && hasSignature) onSave(canvasRef.current.toDataURL('image/png')); }}
+          disabled={!hasSignature}
+          className="text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1 rounded-lg"
+        >
+          確認簽名
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 簽核欄位控制元件：依「指定簽核人 ID」嚴格限制僅本人可簽核，並以手寫簽名取代點擊簽核 */
+function SignSlot({ label, signed, canSign, blockedReason, onSign }: {
+  label: string;
+  signed?: { name: string; date: string; signature?: string };
+  canSign: boolean;
+  blockedReason?: string;
+  onSign: (signature: string) => void;
+}) {
+  const [signing, setSigning] = useState(false);
+  return (
+    <div className="border border-gray-200 rounded-xl p-2 text-center">
+      <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
+      {signed ? (
+        <div>
+          {signed.signature ? (
+            <img src={signed.signature} alt={`${label}簽名`} className="h-10 w-auto mx-auto border border-gray-100 rounded bg-white" />
+          ) : (
+            <p className="text-xs text-green-600">✓ {signed.name}</p>
+          )}
+          <p className="text-[10px] text-gray-400 mt-0.5">{signed.name} · {signed.date}</p>
+        </div>
+      ) : signing ? (
+        <SignatureCanvas onSave={sig => { onSign(sig); setSigning(false); }} />
+      ) : canSign ? (
+        <button onClick={() => setSigning(true)} className="text-xs text-amber-600 hover:underline flex items-center justify-center gap-1 mx-auto">
+          <PenLine size={11} />親筆簽名
+        </button>
+      ) : (
+        <p className="text-xs text-gray-300" title={blockedReason}>未簽核</p>
+      )}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PhysicalTraining() {
-  const { enrollments, courses, users, currentUser } = useTrainingAuth();
+  const { enrollments, courses, users, currentUser, addNotification } = useTrainingAuth();
   const [records, setRecords] = useState<PhysicalRecord[]>(() => loadRecords());
   const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>(() => loadRoutine());
   const [activeTab, setActiveTab] = useState<'list' | 'add' | 'participants' | 'routine' | 'ttqs' | 'analysis'>('list');
@@ -392,10 +527,17 @@ export default function PhysicalTraining() {
   const [toast, setToast] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<string | null>(null);
 
-  // Routine course state
+  // Routine course state — 新增例行課程＝同時建立 CF-CM-HR-41 教育訓練申請/異動表
   const [showAddRoutine, setShowAddRoutine] = useState(false);
   const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
-  const [routineForm, setRoutineForm] = useState({ courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '' });
+  const [routineForm, setRoutineForm] = useState({
+    courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '',
+    applicantTitle: '', employeeId: '', hostUnit: '',
+    classMode: '實體課程' as TrainingApplication['classMode'],
+    applicationType: APPLICATION_TYPE_OPTIONS[0] as TrainingApplication['applicationType'],
+    courseCategory: '專業訓練' as TrainingApplication['courseCategory'],
+    expectedBenefit: '', courseCost: '', instructorFee: '', otherFee: '',
+  });
   const [routinePhotos, setRoutinePhotos] = useState<string[]>([]);
 
   // 課程設計表（表單一）與成效追蹤表（表單二）
@@ -412,29 +554,55 @@ export default function PhysicalTraining() {
   const [checkForm, setCheckForm] = useState<PreClassCheck>({ ...EMPTY_CHECK });
 
   const role = currentUser?.role || '';
-  const canSignDeptManager = role === 'manager' || role === 'admin';
-  const canSignHr = role === 'hr' || role === 'admin';
-  const canSignVp = role === 'vp' || role === 'admin';
-  const canSignApprover = role === 'vp' || role === 'admin';
   const canFillEffectiveness = role === 'manager' || role === 'admin' || role === 'hr' || role === 'vp';
+  // 執行檢查表（CF-CM-HR-40）僅人資與管理員可見可填，主管不需要看到
   const canFillCheck = role === 'hr' || role === 'admin';
 
+  /** 簽核欄位是否可由目前登入者簽核：管理員可代簽；其餘角色須符合允許角色，
+   *  且若該欄位已指定特定簽核人，則僅該位指定人本人可簽，非欄位人選不可簽核 */
+  function canSignSlot(designatedId: string | undefined, allowedRoles: Array<User['role']>): boolean {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    if (!allowedRoles.includes(currentUser.role)) return false;
+    return designatedId ? currentUser.id === designatedId : true;
+  }
+
+  /** 通知各指定簽核人有文件待簽核（排除自己），對應「文件需要簽核通知要跳出說有文件要簽核」 */
+  function notifySigners(ids: Array<string | undefined>, courseName: string, formLabel: string) {
+    const unique = Array.from(new Set(ids.filter((id): id is string => !!id && id !== currentUser?.id)));
+    unique.forEach(id => addNotification(id, 'sign_pending', `您有一份「${formLabel}」待簽核：${courseName}`));
+  }
+
   function openDesignModal(rc: RoutineCourse) {
-    setDesignForm(rc.design ? { ...rc.design } : { ...EMPTY_DESIGN, targetAudience: rc.department });
+    setDesignForm(rc.design ? { ...rc.design } : {
+      ...EMPTY_DESIGN,
+      targetAudience: rc.department,
+      designatedSigners: {
+        applicant: currentUser?.id,
+        deptManager: findDeptManagerId(rc.department, users),
+        hr: findRoleUserId('hr', users),
+        vp: findRoleUserId('vp', users),
+      },
+    });
     setDesignModalFor(rc.id);
   }
 
   function saveDesign() {
     if (!designModalFor) return;
+    const rc = routineCourses.find(r => r.id === designModalFor);
+    const isNew = !rc?.design;
     setRoutineCourses(prev => prev.map(r => r.id === designModalFor ? { ...r, design: designForm } : r));
+    if (isNew && rc) {
+      notifySigners(Object.values(designForm.designatedSigners || {}), rc.courseName, '教育訓練課程大綱表');
+    }
     showToast('課程大綱表已儲存');
     setDesignModalFor(null);
   }
 
-  function signDesign(stage: keyof CourseDesign['signOff']) {
+  function signDesign(stage: keyof CourseDesign['signOff'], signature: string) {
     setDesignForm(f => ({
       ...f,
-      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0] } },
+      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0], signature } },
     }));
   }
 
@@ -460,21 +628,32 @@ export default function PhysicalTraining() {
       department: rc.department,
       applyDate: new Date().toISOString().split('T')[0],
       applicantName: currentUser?.name || '',
+      designatedSigners: {
+        handler: findRoleUserId('hr', users),
+        deptManager: findDeptManagerId(rc.department, users),
+        hrReview: findRoleUserId('hr', users),
+        approver: findRoleUserId('vp', users),
+      },
     });
     setAppModalFor(rc.id);
   }
 
   function saveApplication() {
     if (!appModalFor) return;
+    const rc = routineCourses.find(r => r.id === appModalFor);
+    const isNew = !rc?.application;
     setRoutineCourses(prev => prev.map(r => r.id === appModalFor ? { ...r, application: appForm } : r));
+    if (isNew && rc) {
+      notifySigners(Object.values(appForm.designatedSigners || {}), rc.courseName, '教育訓練申請/異動表');
+    }
     showToast('教育訓練申請/異動表已儲存');
     setAppModalFor(null);
   }
 
-  function signApplication(stage: keyof TrainingApplication['signOff']) {
+  function signApplication(stage: keyof TrainingApplication['signOff'], signature: string) {
     setAppForm(f => ({
       ...f,
-      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0] } },
+      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0], signature } },
     }));
   }
 
@@ -491,13 +670,21 @@ export default function PhysicalTraining() {
   }
 
   function openCheckModal(rc: RoutineCourse) {
-    setCheckForm(rc.executionCheck ? { ...rc.executionCheck } : { ...EMPTY_CHECK });
+    setCheckForm(rc.executionCheck ? { ...rc.executionCheck } : {
+      ...EMPTY_CHECK,
+      designatedSigners: { handler: findRoleUserId('hr', users), hrManager: findRoleUserId('hr', users) },
+    });
     setCheckModalFor(rc.id);
   }
 
   function saveExecutionCheck() {
     if (!checkModalFor) return;
+    const rc = routineCourses.find(r => r.id === checkModalFor);
+    const isNew = !rc?.executionCheck;
     setRoutineCourses(prev => prev.map(r => r.id === checkModalFor ? { ...r, executionCheck: checkForm } : r));
+    if (isNew && rc) {
+      notifySigners(Object.values(checkForm.designatedSigners || {}), rc.courseName, '教育訓練課程執行檢查表');
+    }
     showToast('課程執行檢查表已儲存');
     setCheckModalFor(null);
   }
@@ -516,10 +703,10 @@ export default function PhysicalTraining() {
     });
   }
 
-  function signCheck(stage: keyof PreClassCheck['signOff']) {
+  function signCheck(stage: keyof PreClassCheck['signOff'], signature: string) {
     setCheckForm(f => ({
       ...f,
-      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0] } },
+      signOff: { ...f.signOff, [stage]: { name: currentUser?.name || '', date: new Date().toISOString().split('T')[0], signature } },
     }));
   }
 
@@ -1143,13 +1330,15 @@ export default function PhysicalTraining() {
                         >
                           <FileSignature size={12} />申請/異動表
                         </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); openCheckModal(rc); }}
-                          className="text-xs bg-cyan-50 hover:bg-cyan-100 text-cyan-700 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-cyan-200"
-                          title="教育訓練課程執行檢查表（CF-CM-HR-40）"
-                        >
-                          <ListChecks size={12} />執行檢查表
-                        </button>
+                        {canFillCheck && (
+                          <button
+                            onClick={e => { e.stopPropagation(); openCheckModal(rc); }}
+                            className="text-xs bg-cyan-50 hover:bg-cyan-100 text-cyan-700 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-cyan-200"
+                            title="教育訓練課程執行檢查表（CF-CM-HR-40，僅人資/管理員可見）"
+                          >
+                            <ListChecks size={12} />執行檢查表
+                          </button>
+                        )}
                         {rc.status === 'completed' && (
                           <button
                             onClick={e => { e.stopPropagation(); openEffModal(rc); }}
@@ -1224,15 +1413,18 @@ export default function PhysicalTraining() {
             )}
           </div>
 
-          {/* Add routine course modal */}
+          {/* Add routine course modal — 新增課程＝同步建立 CF-CM-HR-41 教育訓練申請/異動表 */}
           {showAddRoutine && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
                 <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="font-bold text-gray-900">新增例行課程記錄</h3>
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileSignature size={18} className="text-blue-600" />新增例行課程（建立教育訓練申請/異動表）</h3>
                   <button onClick={() => setShowAddRoutine(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} className="text-gray-500" /></button>
                 </div>
                 <div className="p-5 space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+                    填寫送出後，將同時建立例行課程記錄與 CF-CM-HR-41 教育訓練申請/異動表，並通知部門主管／人資／副總前往簽核。
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <label className="block text-xs font-medium text-gray-600 mb-1.5">課程名稱 *</label>
@@ -1252,7 +1444,10 @@ export default function PhysicalTraining() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1.5">部門</label>
-                      <input type="text" value={routineForm.department} onChange={e => setRoutineForm(f => ({ ...f, department: e.target.value }))} placeholder="受訓部門" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                      <select value={routineForm.department} onChange={e => setRoutineForm(f => ({ ...f, department: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white">
+                        <option value="">請選擇部門</option>
+                        {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
                     </div>
                     <div className="col-span-2">
                       <label className="block text-xs font-medium text-gray-600 mb-1.5">學員名單（逗號分隔）</label>
@@ -1271,11 +1466,101 @@ export default function PhysicalTraining() {
                       />
                     </div>
                   </div>
+
+                  <div className="border-t border-gray-100 pt-4 space-y-3">
+                    <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5"><FileSignature size={13} />申請表資訊（CF-CM-HR-41）</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">申請人職稱</label>
+                        <input type="text" value={routineForm.applicantTitle} onChange={e => setRoutineForm(f => ({ ...f, applicantTitle: e.target.value }))} placeholder="工程師" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">員工編號</label>
+                        <input type="text" value={routineForm.employeeId} onChange={e => setRoutineForm(f => ({ ...f, employeeId: e.target.value }))} placeholder="E001" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">主辦單位</label>
+                        <input type="text" value={routineForm.hostUnit} onChange={e => setRoutineForm(f => ({ ...f, hostUnit: e.target.value }))} placeholder="人資安全組" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">上課方式</label>
+                      <div className="flex gap-1.5">
+                        {(['實體課程', '線上課程'] as const).map(m => (
+                          <button key={m} onClick={() => setRoutineForm(f => ({ ...f, classMode: m }))} className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${routineForm.classMode === m ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-200 text-gray-600 hover:border-amber-300'}`}>{m}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">申請類別</label>
+                      <div className="flex flex-wrap gap-2">
+                        {APPLICATION_TYPE_OPTIONS.map(t => (
+                          <button key={t} onClick={() => setRoutineForm(f => ({ ...f, applicationType: t }))} className={`px-2.5 py-1 text-xs rounded-lg border ${routineForm.applicationType === t ? 'bg-amber-100 text-amber-700 border-amber-300' : 'border-gray-200 text-gray-500 hover:border-amber-300'}`}>{t}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">課程類別</label>
+                      <div className="flex flex-wrap gap-2">
+                        {APPLICATION_COURSE_CATEGORY_OPTIONS.map(c => (
+                          <button key={c} onClick={() => setRoutineForm(f => ({ ...f, courseCategory: c }))} className={`px-2.5 py-1 text-xs rounded-lg border ${routineForm.courseCategory === c ? 'bg-amber-100 text-amber-700 border-amber-300' : 'border-gray-200 text-gray-500 hover:border-amber-300'}`}>{c}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">預期效益</label>
+                      <textarea value={routineForm.expectedBenefit} onChange={e => setRoutineForm(f => ({ ...f, expectedBenefit: e.target.value }))} rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {([
+                        ['courseCost', '課程費用'],
+                        ['instructorFee', '講師費'],
+                        ['otherFee', '其他費用'],
+                      ] as const).map(([key, label]) => (
+                        <div key={key}>
+                          <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                          <input type="number" min={0} value={routineForm[key]} onChange={e => setRoutineForm(f => ({ ...f, [key]: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="flex gap-3 pt-2">
                     <button onClick={() => setShowAddRoutine(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700">取消</button>
                     <button
                       onClick={() => {
                         if (!routineForm.courseName) return;
+                        const designatedSigners = {
+                          handler: findRoleUserId('hr', users),
+                          deptManager: findDeptManagerId(routineForm.department, users),
+                          hrReview: findRoleUserId('hr', users),
+                          approver: findRoleUserId('vp', users),
+                        };
+                        const application: TrainingApplication = {
+                          ...EMPTY_APPLICATION,
+                          department: routineForm.department,
+                          applyDate: new Date().toISOString().split('T')[0],
+                          applicantName: currentUser?.name || '',
+                          applicantTitle: routineForm.applicantTitle,
+                          employeeId: routineForm.employeeId,
+                          hostUnit: routineForm.hostUnit,
+                          classMode: routineForm.classMode,
+                          applicationType: routineForm.applicationType,
+                          courseCategory: routineForm.courseCategory,
+                          expectedBenefit: routineForm.expectedBenefit,
+                          costs: {
+                            courseCost: Number(routineForm.courseCost) || 0,
+                            instructorFee: Number(routineForm.instructorFee) || 0,
+                            otherFee: Number(routineForm.otherFee) || 0,
+                          },
+                          changeReasons: {
+                            ...EMPTY_APPLICATION.changeReasons,
+                            courseName: routineForm.courseName,
+                            hours: routineForm.hours,
+                            instructor: routineForm.instructor,
+                          },
+                          designatedSigners,
+                        };
                         const newRc: RoutineCourse = {
                           id: `rc${Date.now()}`,
                           courseName: routineForm.courseName,
@@ -1286,19 +1571,26 @@ export default function PhysicalTraining() {
                           participants: routineForm.participants.split(',').map(s => s.trim()).filter(Boolean),
                           outline: routineForm.outline,
                           status: 'draft',
-                          submittedBy: '講師',
+                          submittedBy: currentUser?.name || '講師',
                           photos: routinePhotos,
+                          application,
                         };
                         setRoutineCourses(prev => [newRc, ...prev]);
-                        setRoutineForm({ courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '' });
+                        notifySigners(Object.values(designatedSigners), newRc.courseName, '教育訓練申請/異動表');
+                        setRoutineForm({
+                          courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '',
+                          applicantTitle: '', employeeId: '', hostUnit: '',
+                          classMode: '實體課程', applicationType: APPLICATION_TYPE_OPTIONS[0], courseCategory: '專業訓練',
+                          expectedBenefit: '', courseCost: '', instructorFee: '', otherFee: '',
+                        });
                         setRoutinePhotos([]);
                         setShowAddRoutine(false);
-                        showToast('例行課程記錄已建立');
+                        showToast('例行課程與申請/異動表已建立，已通知相關人員簽核');
                       }}
                       disabled={!routineForm.courseName}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold"
                     >
-                      建立記錄
+                      建立課程與申請表
                     </button>
                   </div>
                 </div>
@@ -1403,23 +1695,14 @@ export default function PhysicalTraining() {
                       <label className="block text-xs font-medium text-gray-600 mb-2">簽核</label>
                       <div className="grid grid-cols-4 gap-2">
                         {([
-                          ['applicant', '申請人', true],
-                          ['deptManager', '部門主管', canSignDeptManager],
-                          ['hr', 'HR', canSignHr],
-                          ['vp', '副總', canSignVp],
+                          ['applicant', '申請人', canSignSlot(designForm.designatedSigners?.applicant, ['employee', 'manager', 'admin', 'hr', 'vp'])],
+                          ['deptManager', '部門主管', canSignSlot(designForm.designatedSigners?.deptManager, ['manager'])],
+                          ['hr', 'HR', canSignSlot(designForm.designatedSigners?.hr, ['hr'])],
+                          ['vp', '副總', canSignSlot(designForm.designatedSigners?.vp, ['vp'])],
                         ] as const).map(([key, label, canSign]) => {
                           const signed = designForm.signOff[key];
                           return (
-                            <div key={key} className="border border-gray-200 rounded-xl p-2 text-center">
-                              <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
-                              {signed ? (
-                                <p className="text-xs text-green-600">✓ {signed.name}<br />{signed.date}</p>
-                              ) : canSign ? (
-                                <button onClick={() => signDesign(key)} className="text-xs text-purple-600 hover:underline">點擊簽核</button>
-                              ) : (
-                                <p className="text-xs text-gray-300">未簽核</p>
-                              )}
-                            </div>
+                            <SignSlot key={key} label={label} signed={signed} canSign={canSign} onSign={sig => signDesign(key, sig)} />
                           );
                         })}
                       </div>
@@ -1682,23 +1965,14 @@ export default function PhysicalTraining() {
                       <label className="block text-xs font-medium text-gray-600 mb-2">簽核</label>
                       <div className="grid grid-cols-4 gap-2">
                         {([
-                          ['handler', '承辦', canSignHr],
-                          ['deptManager', '部門主管', canSignDeptManager],
-                          ['hrReview', '人資審核', canSignHr],
-                          ['approver', '核准', canSignApprover],
+                          ['handler', '承辦', canSignSlot(appForm.designatedSigners?.handler, ['hr'])],
+                          ['deptManager', '部門主管', canSignSlot(appForm.designatedSigners?.deptManager, ['manager'])],
+                          ['hrReview', '人資審核', canSignSlot(appForm.designatedSigners?.hrReview, ['hr'])],
+                          ['approver', '核准', canSignSlot(appForm.designatedSigners?.approver, ['vp'])],
                         ] as const).map(([key, label, canSign]) => {
                           const signed = appForm.signOff[key];
                           return (
-                            <div key={key} className="border border-gray-200 rounded-xl p-2 text-center">
-                              <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
-                              {signed ? (
-                                <p className="text-xs text-green-600">✓ {signed.name}<br />{signed.date}</p>
-                              ) : canSign ? (
-                                <button onClick={() => signApplication(key)} className="text-xs text-amber-600 hover:underline">點擊簽核</button>
-                              ) : (
-                                <p className="text-xs text-gray-300">未簽核</p>
-                              )}
-                            </div>
+                            <SignSlot key={key} label={label} signed={signed} canSign={canSign} onSign={sig => signApplication(key, sig)} />
                           );
                         })}
                       </div>
@@ -1770,22 +2044,13 @@ export default function PhysicalTraining() {
                       <label className="block text-xs font-medium text-gray-600 mb-2">簽核</label>
                       <div className="grid grid-cols-3 gap-2">
                         {([
-                          ['handler', '承辦', canFillCheck],
-                          ['hrManager', '人資主管', canFillCheck],
+                          ['handler', '承辦', canSignSlot(checkForm.designatedSigners?.handler, ['hr'])],
+                          ['hrManager', '人資主管', canSignSlot(checkForm.designatedSigners?.hrManager, ['hr'])],
                           ['secretary', '總經理室祕書', canFillCheck],
                         ] as const).map(([key, label, canSign]) => {
                           const signed = checkForm.signOff[key];
                           return (
-                            <div key={key} className="border border-gray-200 rounded-xl p-2 text-center">
-                              <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
-                              {signed ? (
-                                <p className="text-xs text-green-600">✓ {signed.name}<br />{signed.date}</p>
-                              ) : canSign ? (
-                                <button onClick={() => signCheck(key)} className="text-xs text-cyan-600 hover:underline">點擊簽核</button>
-                              ) : (
-                                <p className="text-xs text-gray-300">未簽核</p>
-                              )}
-                            </div>
+                            <SignSlot key={key} label={label} signed={signed} canSign={canSign} onSign={sig => signCheck(key, sig)} />
                           );
                         })}
                       </div>

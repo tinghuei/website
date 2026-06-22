@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck, Pencil, History, X } from 'lucide-react';
+import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck, Pencil, History, X, FileSignature, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { loadRecords, loadRoutine, TTQS_PHASES } from '../../lib/physicalTrainingStorage';
@@ -256,6 +256,87 @@ function exportCourseMap() {
   ws['!cols'] = [{ wch: 20 }, ...COMPETENCY_COLS.map(() => ({ wch: 20 }))];
   XLSX.utils.book_append_sheet(wb, ws, '課程地圖');
   XLSX.writeFile(wb, '樂聯工業_課程地圖_2026.xlsx');
+}
+
+function printVarianceForm(entries: VarianceEntry[], signoff: VarianceSignoff) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  const checkbox = (checked: boolean, label: string) => `<span style="margin-right:14px;">${checked ? '☑' : '☐'} ${label}</span>`;
+  const blocks = entries.map((e) => `
+    <table>
+      <tr><th>年度</th><td>${e.year}</td><th>部門</th><td>${e.department}</td></tr>
+      <tr><th>課程類別</th><td>${e.category}</td><th>課程名稱</th><td>${e.courseName}</td></tr>
+      <tr><th>建議時數／實際時數</th><td>${e.plannedHours}h／${e.actualHours}h</td><th>預計人數／實際人數</th><td>${e.plannedCount}／${e.actualCount}</td></tr>
+      <tr><th>預計月份／實際月份</th><td>${e.plannedMonth}／${e.actualMonth}</td><th>出席率</th><td>${e.attendanceRate}%</td></tr>
+      <tr><th>成效</th><td>${e.judgment}</td><th>實際辦理日期</th><td>${e.actualDate || '（未填寫）'}</td></tr>
+      <tr><th>講師</th><td colspan="3">${e.instructor || '（未填寫）'}</td></tr>
+      <tr><th>與計劃差異</th><td colspan="3">${checkbox(e.varianceMethod, '課程辦理方式')}${checkbox(e.varianceHours, '時數')}${checkbox(e.varianceCount, '人數')}${checkbox(e.varianceNotHeld, '未辦')}${checkbox(e.varianceOther, '其他' + (e.varianceOtherNote ? `：${e.varianceOtherNote}` : ''))}</td></tr>
+      <tr><th>訓練費用／實際訓練費用</th><td colspan="3">NT$ ${e.plannedCost.toLocaleString()} ／ NT$ ${e.actualCost.toLocaleString()}</td></tr>
+      <tr><th>差異說明原因</th><td colspan="3">${e.diffReason || '（無）'}</td></tr>
+      <tr><th>改善或後續建議</th><td colspan="3">${e.improvement || '（無）'}</td></tr>
+    </table>
+  `).join('<div style="height:10px"></div>');
+  win.document.write(`
+    <html>
+      <head>
+        <title>教育訓練計畫與實際差異分析表</title>
+        <meta charset="utf-8" />
+        <style>
+          body { font-family: 'Microsoft JhengHei', sans-serif; padding: 24px; color: #1f2937; }
+          h1 { font-size: 18px; text-align: center; margin-bottom: 16px; }
+          h2 { font-size: 13px; margin: 16px 0 6px; border-left: 4px solid #4f46e5; padding-left: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 4px; font-size: 12px; }
+          th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
+          th { background: #f3f4f6; width: 140px; }
+          .signrow { display: flex; gap: 12px; margin-top: 8px; }
+          .signbox { flex: 1; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; text-align: center; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <h1>樂聯工業股份有限公司 教育訓練計畫與實際差異分析表</h1>
+        ${blocks || '<p style="text-align:center;color:#888;">尚無差異分析項目</p>'}
+        <h2>簽核</h2>
+        <div class="signrow">
+          <div class="signbox"><div>申請單位</div><div>${signoff.applicantUnit || '（未填寫）'}</div></div>
+          <div class="signbox"><div>管理部簽核</div><div>${signoff.adminName ? `${signoff.adminName}<br/>${signoff.adminDate}` : '（未簽核）'}</div></div>
+          <div class="signbox"><div>總經理覆核</div><div>${signoff.gmName ? `${signoff.gmName}<br/>${signoff.gmDate}` : '（未簽核）'}</div></div>
+        </div>
+      </body>
+    </html>
+  `);
+  win.document.close();
+  win.onload = () => win.print();
+}
+
+function exportVarianceForm(entries: VarianceEntry[], signoff: VarianceSignoff) {
+  const wb = XLSX.utils.book_new();
+  const header = ['年度', '部門', '課程類別', '課程名稱', '建議時數', '實際時數', '預計人數', '實際人數', '預計月份', '實際月份', '出席率(%)', '成效', '實際辦理日期', '講師', '與計劃差異', '訓練費用', '實際訓練費用', '差異說明原因', '改善或後續建議'];
+  const rows = entries.map((e) => {
+    const diffFlags = [
+      e.varianceMethod && '課程辦理方式',
+      e.varianceHours && '時數',
+      e.varianceCount && '人數',
+      e.varianceNotHeld && '未辦',
+      e.varianceOther && `其他${e.varianceOtherNote ? `：${e.varianceOtherNote}` : ''}`,
+    ].filter(Boolean).join('、');
+    return [
+      e.year, e.department, e.category, e.courseName, e.plannedHours, e.actualHours, e.plannedCount, e.actualCount,
+      e.plannedMonth, e.actualMonth, e.attendanceRate, e.judgment, e.actualDate, e.instructor, diffFlags || '無差異',
+      e.plannedCost, e.actualCost, e.diffReason, e.improvement,
+    ];
+  });
+  const data: (string | number)[][] = [
+    ['樂聯工業股份有限公司 教育訓練計畫與實際差異分析表 (CF-CM-HR-39)'],
+    [],
+    header,
+    ...rows,
+    [],
+    ['申請單位', signoff.applicantUnit, '', '管理部簽核', signoff.adminName, signoff.adminDate, '', '總經理覆核', signoff.gmName, signoff.gmDate],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = header.map(() => ({ wch: 14 }));
+  XLSX.utils.book_append_sheet(wb, ws, '差異分析表');
+  XLSX.writeFile(wb, '樂聯工業_教育訓練計畫與實際差異分析表_CFCMHR39.xlsx');
 }
 
 // ── Status badge helper ────────────────────────────────────────────────────────
@@ -533,6 +614,264 @@ function PlanRowEditModal({ row, onClose, onSave }: PlanRowEditModalProps) {
   );
 }
 
+// ── CF-CM-HR-39 教育訓練計畫與實際差異分析表 ──────────────────────────────────
+export interface VarianceEntry {
+  id: number;
+  year: string;
+  department: string;
+  category: string;
+  courseName: string;
+  plannedHours: number;
+  actualHours: number;
+  plannedCount: number;
+  actualCount: number;
+  plannedMonth: string;
+  actualMonth: string;
+  attendanceRate: number;
+  judgment: string;
+  actualDate: string;
+  instructor: string;
+  varianceMethod: boolean;
+  varianceHours: boolean;
+  varianceCount: boolean;
+  varianceNotHeld: boolean;
+  varianceOther: boolean;
+  varianceOtherNote: string;
+  plannedCost: number;
+  actualCost: number;
+  diffReason: string;
+  improvement: string;
+}
+
+export interface VarianceSignoff {
+  gmName: string;
+  gmDate: string;
+  adminName: string;
+  adminDate: string;
+  applicantUnit: string;
+}
+
+const VARIANCE_JUDGMENT_OPTIONS = ['成效顯著', '符合預期', '部分達成', '需再訓練'] as const;
+const VARIANCE_LS_KEY = 'cfcmhr39_variance_entries_v1';
+const VARIANCE_SIGNOFF_LS_KEY = 'cfcmhr39_variance_signoff_v1';
+const EMPTY_VARIANCE_SIGNOFF: VarianceSignoff = { gmName: '', gmDate: '', adminName: '', adminDate: '', applicantUnit: '' };
+
+function loadVarianceEntries(): VarianceEntry[] {
+  try {
+    const raw = localStorage.getItem(VARIANCE_LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveVarianceEntries(data: VarianceEntry[]) {
+  localStorage.setItem(VARIANCE_LS_KEY, JSON.stringify(data));
+}
+
+function loadVarianceSignoff(): VarianceSignoff {
+  try {
+    const raw = localStorage.getItem(VARIANCE_SIGNOFF_LS_KEY);
+    return raw ? JSON.parse(raw) : { ...EMPTY_VARIANCE_SIGNOFF };
+  } catch { return { ...EMPTY_VARIANCE_SIGNOFF }; }
+}
+
+function saveVarianceSignoff(data: VarianceSignoff) {
+  localStorage.setItem(VARIANCE_SIGNOFF_LS_KEY, JSON.stringify(data));
+}
+
+function makeVarianceEntry(row: PlanRow, year: string): VarianceEntry {
+  return {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    year,
+    department: row.target,
+    category: row.cat,
+    courseName: row.name,
+    plannedHours: row.hours,
+    actualHours: row.hours,
+    plannedCount: row.count,
+    actualCount: row.count,
+    plannedMonth: row.month,
+    actualMonth: row.month,
+    attendanceRate: 100,
+    judgment: VARIANCE_JUDGMENT_OPTIONS[0],
+    actualDate: '',
+    instructor: '',
+    varianceMethod: false,
+    varianceHours: false,
+    varianceCount: false,
+    varianceNotHeld: false,
+    varianceOther: false,
+    varianceOtherNote: '',
+    plannedCost: 0,
+    actualCost: 0,
+    diffReason: '',
+    improvement: '',
+  };
+}
+
+interface VarianceEntryModalProps {
+  entry: VarianceEntry;
+  onClose: () => void;
+  onSave: (updated: VarianceEntry) => void;
+}
+
+function VarianceEntryModal({ entry, onClose, onSave }: VarianceEntryModalProps) {
+  const [form, setForm] = useState<VarianceEntry>({ ...entry });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <h2 className="font-bold text-gray-900">差異分析項目 — {form.courseName}</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">部門</label>
+              <input type="text" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">課程類別</label>
+              <input type="text" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">建議時數</label>
+              <input type="number" min={0} value={form.plannedHours} onChange={(e) => setForm({ ...form, plannedHours: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">實際時數</label>
+              <input type="number" min={0} value={form.actualHours} onChange={(e) => setForm({ ...form, actualHours: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">預計人數</label>
+              <input type="number" min={0} value={form.plannedCount} onChange={(e) => setForm({ ...form, plannedCount: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">實際人數</label>
+              <input type="number" min={0} value={form.actualCount} onChange={(e) => setForm({ ...form, actualCount: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">預計月份</label>
+              <select value={form.plannedMonth} onChange={(e) => setForm({ ...form, plannedMonth: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
+                {PLAN_MONTH_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">實際月份</label>
+              <select value={form.actualMonth} onChange={(e) => setForm({ ...form, actualMonth: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
+                {PLAN_MONTH_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">出席率 (%)</label>
+              <input type="number" min={0} max={100} value={form.attendanceRate} onChange={(e) => setForm({ ...form, attendanceRate: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">實際辦理日期</label>
+              <input type="date" value={form.actualDate} onChange={(e) => setForm({ ...form, actualDate: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">講師</label>
+            <input type="text" value={form.instructor} onChange={(e) => setForm({ ...form, instructor: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">成效判定</label>
+            <div className="flex flex-wrap gap-2">
+              {VARIANCE_JUDGMENT_OPTIONS.map((j) => (
+                <button key={j} type="button" onClick={() => setForm({ ...form, judgment: j })} className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${form.judgment === j ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-200 text-gray-500 hover:border-amber-300'}`}>{j}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">與計劃差異</label>
+            <div className="flex flex-wrap gap-3">
+              {([
+                ['varianceMethod', '課程辦理方式'],
+                ['varianceHours', '時數'],
+                ['varianceCount', '人數'],
+                ['varianceNotHeld', '未辦'],
+                ['varianceOther', '其他'],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-1.5 text-sm text-gray-700">
+                  <input type="checkbox" checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })} className="rounded border-gray-300" />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {form.varianceOther && (
+              <input type="text" value={form.varianceOtherNote} onChange={(e) => setForm({ ...form, varianceOtherNote: e.target.value })} placeholder="請說明其他差異原因" className="mt-2 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">訓練費用 (NT$)</label>
+              <input type="number" min={0} value={form.plannedCost} onChange={(e) => setForm({ ...form, plannedCost: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">實際訓練費用 (NT$)</label>
+              <input type="number" min={0} value={form.actualCost} onChange={(e) => setForm({ ...form, actualCost: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">差異說明原因</label>
+            <textarea value={form.diffReason} onChange={(e) => setForm({ ...form, diffReason: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">改善或後續建議</label>
+            <textarea value={form.improvement} onChange={(e) => setForm({ ...form, improvement: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
+          <button onClick={() => onSave(form)} className="flex-1 py-2.5 bg-amber-600 text-white rounded-xl text-sm font-semibold hover:bg-amber-700">儲存</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CoursePickerModalProps {
+  rows: PlanRow[];
+  onClose: () => void;
+  onPick: (row: PlanRow) => void;
+}
+
+function CoursePickerModal({ rows, onClose, onPick }: CoursePickerModalProps) {
+  const [search, setSearch] = useState('');
+  const filtered = rows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100 shrink-0">
+          <h2 className="font-bold text-gray-900">選擇要分析的課程</h2>
+        </div>
+        <div className="p-4 shrink-0">
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜尋課程名稱..." className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+        </div>
+        <div className="overflow-y-auto px-4 pb-4 space-y-1.5">
+          {filtered.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-6">查無符合的課程</p>
+          ) : (
+            filtered.map((r) => (
+              <button key={r.id} onClick={() => onPick(r)} className="w-full text-left px-3 py-2 rounded-lg border border-gray-100 hover:border-amber-300 hover:bg-amber-50 transition-colors text-sm text-gray-700">
+                {r.name} <span className="text-xs text-gray-400">（{r.month}・{r.hours}h・{r.count}人）</span>
+              </button>
+            ))
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 shrink-0">
+          <button onClick={onClose} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 歷年成效查詢：年度送審簽核資料 ────────────────────────────────────────────
 export interface AnnualSignoff {
   hrSubmittedAt: string | null;
@@ -609,6 +948,37 @@ export default function AnnualTrainingPlan() {
   useEffect(() => {
     saveSignoffs(signoffs);
   }, [signoffs]);
+
+  // ── CF-CM-HR-39 教育訓練計畫與實際差異分析表 ──
+  const [varianceEntries, setVarianceEntries] = useState<VarianceEntry[]>(() => loadVarianceEntries());
+  const [varianceSignoff, setVarianceSignoff] = useState<VarianceSignoff>(() => loadVarianceSignoff());
+  const [showCoursePicker, setShowCoursePicker] = useState(false);
+  const [editingVarianceId, setEditingVarianceId] = useState<number | null>(null);
+
+  useEffect(() => {
+    saveVarianceEntries(varianceEntries);
+  }, [varianceEntries]);
+
+  useEffect(() => {
+    saveVarianceSignoff(varianceSignoff);
+  }, [varianceSignoff]);
+
+  function handlePickCourseForVariance(row: PlanRow) {
+    const entry = makeVarianceEntry(row, year);
+    setVarianceEntries((prev) => [...prev, entry]);
+    setShowCoursePicker(false);
+    setEditingVarianceId(entry.id);
+  }
+
+  function handleSaveVarianceEntry(updated: VarianceEntry) {
+    setVarianceEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    setEditingVarianceId(null);
+  }
+
+  function handleDeleteVarianceEntry(id: number) {
+    if (!window.confirm('確定要刪除此差異分析項目嗎？')) return;
+    setVarianceEntries((prev) => prev.filter((e) => e.id !== id));
+  }
 
   const tabs = ['年度計畫制定', '課程地圖', 'TTQS執行追蹤', '匯出報表', '歷年成效查詢'];
 
@@ -1081,8 +1451,114 @@ export default function AnnualTrainingPlan() {
               </table>
             </div>
           </div>
+
+          {/* CF-CM-HR-39 教育訓練計畫與實際差異分析表 */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+              <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                <FileSignature size={16} className="text-amber-600" />
+                教育訓練計畫與實際差異分析表（CF-CM-HR-39）
+              </h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => printVarianceForm(varianceEntries, varianceSignoff)} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50">
+                  <Printer size={13} /> 列印
+                </button>
+                {canManagePlan && (
+                  <button onClick={() => setShowCoursePicker(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm">
+                    <Plus size={13} /> 新增差異分析項目
+                  </button>
+                )}
+              </div>
+            </div>
+            {varianceEntries.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">尚無差異分析項目，請選取課程新增比較紀錄</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['課程名稱', '部門', '時數(計畫/實際)', '人數(計畫/實際)', '月份(計畫/實際)', '出席率', '成效', '與計劃差異', ...(canManagePlan ? ['操作'] : [])].map((h) => (
+                        <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {varianceEntries.map((e) => {
+                      const diffLabels = [
+                        e.varianceMethod && '辦理方式',
+                        e.varianceHours && '時數',
+                        e.varianceCount && '人數',
+                        e.varianceNotHeld && '未辦',
+                        e.varianceOther && '其他',
+                      ].filter(Boolean) as string[];
+                      return (
+                        <tr key={e.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2.5 font-medium text-gray-900 min-w-[160px]">{e.courseName}</td>
+                          <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{e.department}</td>
+                          <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{e.plannedHours}h／{e.actualHours}h</td>
+                          <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{e.plannedCount}／{e.actualCount}</td>
+                          <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{e.plannedMonth}／{e.actualMonth}</td>
+                          <td className="px-3 py-2.5 text-center text-gray-600">{e.attendanceRate}%</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`px-2 py-0.5 rounded text-xs ${e.judgment === '成效顯著' || e.judgment === '符合預期' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>{e.judgment}</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-xs text-gray-500">
+                            {diffLabels.length > 0 ? diffLabels.join('、') : <span className="text-gray-300">無差異</span>}
+                          </td>
+                          {canManagePlan && (
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => setEditingVarianceId(e.id)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors" title="編輯">
+                                  <Pencil size={14} />
+                                </button>
+                                <button onClick={() => handleDeleteVarianceEntry(e.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="刪除">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="px-6 py-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">申請單位</label>
+                <input type="text" disabled={!canManagePlan} value={varianceSignoff.applicantUnit} onChange={(e) => setVarianceSignoff((s) => ({ ...s, applicantUnit: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:bg-gray-50" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">管理部簽核</label>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="簽核人" disabled={!canManagePlan} value={varianceSignoff.adminName} onChange={(e) => setVarianceSignoff((s) => ({ ...s, adminName: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:bg-gray-50" />
+                  <input type="date" disabled={!canManagePlan} value={varianceSignoff.adminDate} onChange={(e) => setVarianceSignoff((s) => ({ ...s, adminDate: e.target.value }))} className="w-36 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:bg-gray-50" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">總經理覆核</label>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="簽核人" disabled={!canManagePlan} value={varianceSignoff.gmName} onChange={(e) => setVarianceSignoff((s) => ({ ...s, gmName: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:bg-gray-50" />
+                  <input type="date" disabled={!canManagePlan} value={varianceSignoff.gmDate} onChange={(e) => setVarianceSignoff((s) => ({ ...s, gmDate: e.target.value }))} className="w-36 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:bg-gray-50" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
+
+      {showCoursePicker && (
+        <CoursePickerModal rows={rows} onClose={() => setShowCoursePicker(false)} onPick={handlePickCourseForVariance} />
+      )}
+
+      {editingVarianceId !== null && (() => {
+        const entry = varianceEntries.find((e) => e.id === editingVarianceId);
+        if (!entry) return null;
+        return (
+          <VarianceEntryModal entry={entry} onClose={() => setEditingVarianceId(null)} onSave={handleSaveVarianceEntry} />
+        );
+      })()}
 
       {/* ── Tab 4: 匯出報表 ── */}
       {activeTab === 3 && (
@@ -1113,6 +1589,12 @@ export default function AnnualTrainingPlan() {
                 desc: '匯出各職等 × 職能類別的課程地圖矩陣表',
                 action: exportCourseMap,
                 color: 'bg-orange-600 hover:bg-orange-700',
+              },
+              {
+                label: '教育訓練計畫與實際差異分析表',
+                desc: '匯出 CF-CM-HR-39，含計畫與實際差異比較、費用對比及簽核紀錄',
+                action: () => exportVarianceForm(varianceEntries, varianceSignoff),
+                color: 'bg-amber-600 hover:bg-amber-700',
               },
             ].map((btn) => (
               <button

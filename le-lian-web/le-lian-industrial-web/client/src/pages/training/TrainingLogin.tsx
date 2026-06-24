@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { X, ChevronRight, ArrowLeft, Mail, User as UserIcon, Building2 } from 'lucide-react';
+import { X, ChevronRight, ArrowLeft, Mail, Lock, User as UserIcon, Building2 } from 'lucide-react';
 import { ORG_UNITS } from '../../data/orgChartData';
 
 // 測試帳號（僅供示範，員工應使用自己的公司信箱）
+// 注意：這些示範帳號需先在 Supabase 中以相同 email/密碼自行註冊（或由管理員於 Supabase Dashboard 建立）才能登入。
+const TEST_ACCOUNT_PASSWORD = 'demo1234';
 const TEST_ACCOUNTS = [
   { email: 'wang@company.com',  name: '王小明',    photo: 'W', color: 'bg-green-500',  role: '員工',   dept: '製造課' },
   { email: 'li@company.com',    name: '李主管',    photo: 'L', color: 'bg-blue-500',   role: '主管',   dept: '製造課' },
@@ -18,85 +20,81 @@ const TEST_ACCOUNTS = [
 const DEPT_OPTIONS = ORG_UNITS.map((u) => u.name);
 
 export default function TrainingLogin() {
-  const { login, users, addUser } = useTrainingAuth();
+  const { login, register, users } = useTrainingAuth();
   const [, navigate] = useLocation();
 
-  // Email 登入流程
+  // Email + 密碼登入流程
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [step, setStep] = useState<'email' | 'register'>('email');
   const [regName, setRegName] = useState('');
   const [regDept, setRegDept] = useState(DEPT_OPTIONS[0] ?? '');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // 測試帳號選擇器
   const [showTestPicker, setShowTestPicker] = useState(false);
-  const [testSigningIn, setTestSigningIn] = useState('');
 
-  function doLogin(emailToLogin: string) {
-    setSubmitting(true);
-    setTimeout(() => {
-      const user = login(emailToLogin);
-      if (user) {
-        navigate('/training/dashboard');
-      } else {
-        setError('登入失敗，請再試一次。');
-      }
-      setSubmitting(false);
-    }, 600);
-  }
-
-  function handleEmailSubmit(e: React.FormEvent) {
+  async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setInfo('');
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !trimmed.includes('@')) {
       setError('請輸入有效的電子郵件地址。');
       return;
     }
+    if (!password) {
+      setError('請輸入密碼。');
+      return;
+    }
     const existing = users.find((u) => u.email === trimmed);
     if (existing?.status === 'resigned') {
       setError('此帳號已停用，如有任何問題請洽人資。');
-    } else if (existing) {
-      doLogin(trimmed);
+      return;
+    }
+    if (existing) {
+      setSubmitting(true);
+      const user = await login(trimmed, password);
+      setSubmitting(false);
+      if (user) {
+        navigate('/training/dashboard');
+      } else {
+        setError('登入失敗，請確認電子郵件與密碼是否正確。');
+      }
     } else {
       setStep('register');
     }
   }
 
-  function handleRegister(e: React.FormEvent) {
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setInfo('');
     if (!regName.trim()) { setError('請輸入您的姓名。'); return; }
     if (!regDept) { setError('請選擇所屬單位。'); return; }
     setSubmitting(true);
-    setTimeout(() => {
-      const newUser = addUser({
-        name: regName.trim(),
-        email: email.trim().toLowerCase(),
-        password: '',
-        role: 'employee',
-        department: regDept,
-        avatar: regName.trim().slice(0, 1).toUpperCase(),
-        joinDate: new Date().toISOString().split('T')[0],
-      });
-      const logged = login(newUser.email);
-      if (logged) {
-        navigate('/training/dashboard');
-      } else {
-        setError('帳號建立後登入失敗，請重新整理頁面再試。');
-        setSubmitting(false);
-      }
-    }, 600);
+    const result = await register(email.trim().toLowerCase(), password, regName.trim(), regDept);
+    setSubmitting(false);
+    if (result.error) {
+      setError(result.error);
+    } else if (result.pendingConfirmation) {
+      setInfo('註冊成功！請至您的信箱完成驗證信件後再回來登入。');
+    } else if (result.user) {
+      navigate('/training/dashboard');
+    } else {
+      setError('帳號建立後登入失敗，請重新整理頁面再試。');
+    }
   }
 
   function handleTestSelect(testEmail: string) {
-    setTestSigningIn(testEmail);
-    setTimeout(() => {
-      const user = login(testEmail);
-      if (user) navigate('/training/dashboard');
-      setTestSigningIn('');
-    }, 700);
+    setShowTestPicker(false);
+    setStep('email');
+    setError('');
+    setInfo('');
+    setEmail(testEmail);
+    setPassword(TEST_ACCOUNT_PASSWORD);
   }
 
   return (
@@ -115,20 +113,20 @@ export default function TrainingLogin() {
               </button>
             </div>
             <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
-              <p className="text-xs text-amber-700">以下為示範用測試帳號，員工請使用公司信箱登入</p>
+              <p className="text-xs text-amber-700">
+                以下為示範用測試帳號，員工請使用公司信箱登入。點選後會自動帶入帳號密碼，仍需按下「繼續」才會登入；
+                該帳號須已於系統中完成註冊才可使用。
+              </p>
             </div>
             <div className="py-2">
               {TEST_ACCOUNTS.map((acc) => (
                 <button
                   key={acc.email}
                   onClick={() => handleTestSelect(acc.email)}
-                  disabled={!!testSigningIn}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-60 group"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group"
                 >
                   <div className={`w-10 h-10 ${acc.color} rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}>
-                    {testSigningIn === acc.email
-                      ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      : acc.photo}
+                    {acc.photo}
                   </div>
                   <div className="text-left flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{acc.name}</p>
@@ -156,12 +154,12 @@ export default function TrainingLogin() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-          {/* ── Step 1: Email 輸入 ── */}
+          {/* ── Step 1: Email + 密碼 ── */}
           {step === 'email' && (
             <>
               <h2 className="text-xl font-semibold text-gray-900 text-center mb-2">登入帳號</h2>
               <p className="text-sm text-gray-500 text-center mb-6">
-                輸入您的公司電子郵件地址
+                輸入您的公司電子郵件地址與密碼
               </p>
 
               <form onSubmit={handleEmailSubmit} className="space-y-4">
@@ -178,8 +176,23 @@ export default function TrainingLogin() {
                   />
                 </div>
 
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="密碼"
+                    required
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-300"
+                  />
+                </div>
+
                 {error && (
                   <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+                )}
+                {info && (
+                  <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{info}</p>
                 )}
 
                 <button
@@ -213,7 +226,7 @@ export default function TrainingLogin() {
           {step === 'register' && (
             <>
               <button
-                onClick={() => { setStep('email'); setError(''); }}
+                onClick={() => { setStep('email'); setError(''); setInfo(''); }}
                 className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-4 transition-colors"
               >
                 <ArrowLeft size={14} /> 返回
@@ -261,6 +274,9 @@ export default function TrainingLogin() {
 
                 {error && (
                   <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+                )}
+                {info && (
+                  <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{info}</p>
                 )}
 
                 <button

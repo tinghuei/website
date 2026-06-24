@@ -11,9 +11,13 @@ interface TrainingLayoutProps {
 }
 
 export default function TrainingLayout({ children, roles }: TrainingLayoutProps) {
-  const { currentUser } = useTrainingAuth();
+  const { currentUser, authLoading } = useTrainingAuth();
   const [location] = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  if (authLoading) {
+    return null;
+  }
 
   if (!currentUser) {
     return <Redirect to="/training/login" />;

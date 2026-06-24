@@ -14,7 +14,7 @@ export default function TrainingTakeQuiz() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [, navigate] = useLocation();
-  const { currentUser, courses, getEnrollmentForUser, submitQuiz, checkAndSetPendingReview, reportQuizQuestion } = useTrainingAuth();
+  const { currentUser, courses, getEnrollmentForUser, submitQuiz, getQuizAnswerKey, checkAndSetPendingReview, reportQuizQuestion } = useTrainingAuth();
   const [reportingQuestionId, setReportingQuestionId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
   const [reportComment, setReportComment] = useState('');
@@ -29,6 +29,7 @@ export default function TrainingTakeQuiz() {
   const [score, setScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [answerKey, setAnswerKey] = useState<Record<string, number>>({});
 
   if (!course || !enrollment) {
     return (
@@ -107,26 +108,24 @@ export default function TrainingTakeQuiz() {
     setTimeout(() => setReportToast(false), 3000);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!allAnswered) return;
     setLoading(true);
-    setTimeout(() => {
-      let correct = 0;
-      questions.forEach((q) => {
-        if (answers[q.id] === q.answerIndex) correct++;
-      });
-      const calculatedScore = Math.round((correct / totalQuestions) * 100);
+    try {
+      const calculatedScore = await submitQuiz(enrollment.id, course.id, answers);
+      const key = await getQuizAnswerKey(course.id);
+      setAnswerKey(key);
       setScore(calculatedScore);
       setSubmitted(true);
-      submitQuiz(enrollment.id, calculatedScore);
-      checkAndSetPendingReview(enrollment.id);
+      await checkAndSetPendingReview(enrollment.id);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   const passed = submitted && (score || 0) >= course.passingScore;
   const correctCount = submitted
-    ? questions.filter((q) => answers[q.id] === q.answerIndex).length
+    ? questions.filter((q) => answers[q.id] === answerKey[q.id]).length
     : 0;
 
   if (submitted) {
@@ -163,7 +162,7 @@ export default function TrainingTakeQuiz() {
             <div className="border-t border-gray-100 divide-y divide-gray-50">
               {questions.map((q, idx) => {
                 const userAnswer = answers[q.id];
-                const isCorrect = userAnswer === q.answerIndex;
+                const isCorrect = userAnswer === answerKey[q.id];
                 return (
                   <div key={q.id} className="p-5">
                     <div className="flex items-start gap-3 mb-3">
@@ -179,7 +178,7 @@ export default function TrainingTakeQuiz() {
                         <div
                           key={optIdx}
                           className={`p-2.5 rounded-lg text-sm ${
-                            optIdx === q.answerIndex
+                            optIdx === answerKey[q.id]
                               ? 'bg-green-50 text-green-700 border border-green-200 font-medium'
                               : optIdx === userAnswer && !isCorrect
                               ? 'bg-red-50 text-red-700 border border-red-200'
@@ -187,7 +186,7 @@ export default function TrainingTakeQuiz() {
                           }`}
                         >
                           {opt}
-                          {optIdx === q.answerIndex && ' ✓ 正確答案'}
+                          {optIdx === answerKey[q.id] && ' ✓ 正確答案'}
                           {optIdx === userAnswer && !isCorrect && ' ✗ 您的答案'}
                         </div>
                       ))}

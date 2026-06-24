@@ -715,11 +715,11 @@ export default function TrainingAdminPanel() {
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
                 <h3 className="font-bold text-gray-900 mb-1">新增使用者</h3>
-                <p className="text-xs text-gray-400 mb-4">新增使用者並設定初始角色</p>
+                <p className="text-xs text-gray-400 mb-4">建立邀請，待該員工以此信箱完成首次登入後自動套用角色與部門</p>
                 {addUserSuccess && (
                   <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                     <CheckCircle size={15} className="text-green-500" />
-                    <p className="text-sm text-green-700">使用者已新增成功！</p>
+                    <p className="text-sm text-green-700">邀請已建立，待該員工自行註冊後生效！</p>
                   </div>
                 )}
                 <div className="space-y-3">
@@ -776,7 +776,7 @@ export default function TrainingAdminPanel() {
                   <button
                     onClick={() => {
                       if (!addUserForm.name || !addUserForm.email) return;
-                      addUser({ name: addUserForm.name, email: addUserForm.email, password: '1234', role: addUserForm.role, department: addUserForm.department, avatar: addUserForm.name[0], joinDate: new Date().toISOString().split('T')[0] });
+                      addUser({ name: addUserForm.name, email: addUserForm.email, department: addUserForm.department, role: addUserForm.role });
                       setAddUserSuccess(true);
                       setAddUserForm({ name: '', email: '', department: '', role: 'employee' });
                       setTimeout(() => { setAddUserSuccess(false); setShowAddUser(false); }, 1500);

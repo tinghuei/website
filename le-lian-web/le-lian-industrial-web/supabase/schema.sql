@@ -66,20 +66,47 @@ drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();
 
+-- 管理員「新增使用者」時，當下還沒有對應的 auth.users 帳號（不能在前端用
+-- service_role 直接建立登入帳號），所以先把指派的角色/部門暫存在這裡，
+-- 等該員工之後自行以同一個 email 註冊時，由 handle_new_user() 自動套用並清除。
+create table if not exists public.pending_invites (
+  email text primary key,
+  name text,
+  department text,
+  role text not null default 'employee' check (role in ('employee', 'manager', 'admin', 'hr', 'vp')),
+  invited_by uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.pending_invites enable row level security;
+
+drop policy if exists pending_invites_all on public.pending_invites;
+create policy pending_invites_all on public.pending_invites for all
+  using (is_hr_or_admin()) with check (is_hr_or_admin());
+
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  inv record;
 begin
+  select * into inv from public.pending_invites where email = new.email;
+
   insert into public.profiles (id, name, email, role, department, avatar, join_date, status)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'name', new.email),
+    coalesce(inv.name, new.raw_user_meta_data->>'name', new.email),
     new.email,
-    coalesce(new.raw_user_meta_data->>'role', 'employee'),
-    new.raw_user_meta_data->>'department',
+    coalesce(inv.role, new.raw_user_meta_data->>'role', 'employee'),
+    coalesce(inv.department, new.raw_user_meta_data->>'department'),
     new.raw_user_meta_data->>'avatar',
     current_date,
     'active'
   );
+
+  if inv.email is not null then
+    delete from public.pending_invites where email = inv.email;
+  end if;
+
   return new;
 end;
 $$;
@@ -132,6 +159,14 @@ create or replace function public.get_quiz_questions(p_course_id text)
 returns table(id text, course_id text, question text, options jsonb)
 language sql stable security definer set search_path = public as $$
   select id, course_id, question, options from public.quiz_questions where course_id = p_course_id;
+$$;
+
+-- 測驗送出後，前端顯示「正確答案」用：僅回傳正解索引，不影響上方 get_quiz_questions
+-- 在作答階段不外洩正解的安全性（此函式僅供繳卷後的檢討畫面使用）。
+create or replace function public.get_quiz_answer_key(p_course_id text)
+returns table(id text, answer_index integer)
+language sql stable security definer set search_path = public as $$
+  select id, answer_index from public.quiz_questions where course_id = p_course_id;
 $$;
 
 create or replace function public.grade_quiz(p_course_id text, p_answers jsonb)
@@ -892,7 +927,7 @@ create policy notifications_update on public.notifications for update to authent
   using (user_id = auth.uid());
 drop policy if exists notifications_insert on public.notifications;
 create policy notifications_insert on public.notifications for insert to authenticated
-  with check (public.is_admin());
+  with check (public.is_manager_or_above() or user_id = auth.uid());
 drop policy if exists notifications_delete on public.notifications;
 create policy notifications_delete on public.notifications for delete to authenticated
   using (user_id = auth.uid());

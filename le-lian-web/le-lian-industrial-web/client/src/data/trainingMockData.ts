@@ -17,7 +17,9 @@ export interface QuizQuestion {
   id: string;
   question: string;
   options: string[];
-  answerIndex: number;
+  // 一般使用者作答階段透過 get_quiz_questions RPC 取得時不含正解，避免正解外洩到前端；
+  // 僅 admin/hr 直接查詢，或繳卷後透過 get_quiz_answer_key RPC 取得時才會有值。
+  answerIndex?: number;
 }
 
 export interface Course {

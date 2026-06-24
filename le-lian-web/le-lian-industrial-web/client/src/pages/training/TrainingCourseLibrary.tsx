@@ -468,7 +468,7 @@ export default function TrainingCourseLibrary() {
   }
 
   async function handleAddCourse(data: Partial<Course>, files: SaveFiles) {
-    const newCourse = addCourse({
+    const newCourse = await addCourse({
       ...data,
       status: 'active',
       localVideo: !!files.videoFile,

@@ -516,8 +516,9 @@ function SignSlot({ label, signed, canSign, blockedReason, onSign }: {
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PhysicalTraining() {
   const { enrollments, courses, users, currentUser, addNotification } = useTrainingAuth();
-  const [records, setRecords] = useState<PhysicalRecord[]>(() => loadRecords());
-  const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>(() => loadRoutine());
+  const [records, setRecords] = useState<PhysicalRecord[]>([]);
+  const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<'list' | 'add' | 'participants' | 'routine' | 'ttqs' | 'analysis'>('list');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<PhysicalRecord, 'id' | 'photos'>>({ ...EMPTY_FORM });
@@ -710,8 +711,16 @@ export default function PhysicalTraining() {
     }));
   }
 
-  useEffect(() => { saveRecords(records); }, [records]);
-  useEffect(() => { saveRoutine(routineCourses); }, [routineCourses]);
+  useEffect(() => {
+    Promise.all([loadRecords(), loadRoutine()]).then(([loadedRecords, loadedRoutine]) => {
+      setRecords(loadedRecords);
+      setRoutineCourses(loadedRoutine);
+      setDataLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => { if (dataLoaded) saveRecords(records); }, [records, dataLoaded]);
+  useEffect(() => { if (dataLoaded) saveRoutine(routineCourses); }, [routineCourses, dataLoaded]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -728,7 +737,7 @@ export default function PhysicalTraining() {
       showToast('已更新訓練記錄');
       setEditingId(null);
     } else {
-      setRecords(prev => [...prev, { ...form, id: `pt${Date.now()}`, photos: formPhotos }]);
+      setRecords(prev => [...prev, { ...form, id: crypto.randomUUID(), photos: formPhotos }]);
       showToast('已新增訓練記錄');
     }
     setForm({ ...EMPTY_FORM });
@@ -1562,7 +1571,7 @@ export default function PhysicalTraining() {
                           designatedSigners,
                         };
                         const newRc: RoutineCourse = {
-                          id: `rc${Date.now()}`,
+                          id: crypto.randomUUID(),
                           courseName: routineForm.courseName,
                           instructor: routineForm.instructor,
                           date: routineForm.date,

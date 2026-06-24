@@ -5,7 +5,7 @@ import {
 import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck, Pencil, History, X, FileSignature, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { loadRecords, loadRoutine, TTQS_PHASES } from '../../lib/physicalTrainingStorage';
+import { loadRecords, loadRoutine, TTQS_PHASES, type PhysicalRecord, type RoutineCourse } from '../../lib/physicalTrainingStorage';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface PlanRow {
@@ -940,8 +940,12 @@ export default function AnnualTrainingPlan() {
   const planAuditLogs = auditLogs.filter((l) => PLAN_AUDIT_ACTIONS.includes(l.action));
 
   // ── 歷年成效查詢 ──
-  const [physicalRecords] = useState(() => loadRecords());
-  const [routineCourses] = useState(() => loadRoutine());
+  const [physicalRecords, setPhysicalRecords] = useState<PhysicalRecord[]>([]);
+  const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>([]);
+  useEffect(() => {
+    loadRecords().then(setPhysicalRecords);
+    loadRoutine().then(setRoutineCourses);
+  }, []);
   const [historyYear, setHistoryYear] = useState('2026');
   const [signoffs, setSignoffs] = useState<Record<string, AnnualSignoff>>(() => loadSignoffs());
 

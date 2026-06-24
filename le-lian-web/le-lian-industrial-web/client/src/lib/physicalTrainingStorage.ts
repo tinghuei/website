@@ -1,6 +1,8 @@
 // 實體教育訓練記錄 / 例行課程 共用資料存取
-// 供「實體教育訓練記錄」頁面與「年度教育訓練計畫」頁面（歷年成效查詢）共用，
-// 統一存取 localStorage 中的訓練記錄與例行課程資料，避免重複定義初始資料。
+// 供「實體教育訓練記錄」頁面與「年度教育訓練計畫」/「副總儀表板」頁面（歷年成效查詢）共用，
+// 統一存取 Supabase 中的訓練記錄與例行課程資料（含巢狀表單一～表單四），避免重複定義初始資料。
+
+import { supabase } from './supabaseClient';
 
 export interface PhysicalRecord {
   id: string;
@@ -233,71 +235,367 @@ export const TTQS_PHASES = [
   { value: 'Action', label: '改善 (Action)', color: 'bg-orange-100 text-orange-700 border-orange-300' },
 ] as const;
 
-export const LS_KEY = 'physical_training_records_v1';
-export const LS_ROUTINE_KEY = 'routine_courses_v1';
-
-export function getInitialRecords(): PhysicalRecord[] {
-  return [
-    {
-      id: 'pt1', courseName: '防災研習--消防演練', trainingType: '內訓',
-      date: '2026-01-15', hours: 2, venue: '廠區集合廣場', instructor: '消防隊員 / 陳安全',
-      department: '全體員工', participants: 118,
-      ttqsPhase: 'Do', outcome: '全體員工完成演練，緊急疏散時間縮短至3分鐘以內',
-      evidence: '簽到表、現場照片、演練記錄表', status: '已審核', photos: [],
-    },
-    {
-      id: 'pt2', courseName: '性別平等教育', trainingType: '外訓',
-      date: '2026-01-22', hours: 3, venue: '會議室A', instructor: '外部講師',
-      department: '全體員工', participants: 120,
-      ttqsPhase: 'Do', outcome: '員工對性騷擾防治及申訴程序瞭解度提升',
-      evidence: '簽到表、測驗成績單、滿意度調查表', status: '已審核', photos: [],
-    },
-    {
-      id: 'pt3', courseName: '一般安全衛生教育訓練', trainingType: '外訓',
-      date: '2026-01-28', hours: 6, venue: '會議室B', instructor: '勞動部認可訓練機構',
-      department: '全體員工', participants: 120,
-      ttqsPhase: 'Do', outcome: '達成法定6小時安衛訓練要求，測驗平均通過率92%',
-      evidence: '簽到表、測驗成績單、結訓證書、機構訓練合格文件', status: '已審核', photos: [],
-    },
-  ];
+function toNum(v: unknown): number {
+  return typeof v === 'number' ? v : Number(v) || 0;
 }
 
-export function getInitialRoutine(): RoutineCourse[] {
-  return [
-    {
-      id: 'rc1', courseName: '新進員工職前訓練', instructor: '人資安全組',
-      date: '2026-01-08', hours: 8, department: '全體員工',
-      participants: ['王小明', '陳美玲'], outline: '公司規定、安全衛生、基本作業流程介紹',
-      status: 'completed', submittedBy: '人資安全組', photos: [],
-    },
-    {
-      id: 'rc2', courseName: '品質管理基礎訓練', instructor: '品保課 張品管',
-      date: '2026-02-10', hours: 3, department: '品保課',
-      participants: ['陳小芳', '林志偉', '黃品質'],
-      outline: '品質管理基本概念、ISO 9001要求、不合格品處理',
-      status: 'approved', submittedBy: '張品管', photos: [],
-    },
-  ];
+function mapRecordRow(row: Record<string, unknown>, photos: string[]): PhysicalRecord {
+  return {
+    id: row.id as string,
+    courseName: row.course_name as string,
+    trainingType: row.training_type as PhysicalRecord['trainingType'],
+    date: (row.date as string) || '',
+    hours: toNum(row.hours),
+    venue: (row.venue as string) || '',
+    instructor: (row.instructor as string) || '',
+    department: (row.department as string) || '',
+    participants: toNum(row.participants),
+    ttqsPhase: row.ttqs_phase as PhysicalRecord['ttqsPhase'],
+    outcome: (row.outcome as string) || '',
+    evidence: (row.evidence as string) || '',
+    status: row.status as PhysicalRecord['status'],
+    photos,
+    satisfactionScore: row.satisfaction_score != null ? toNum(row.satisfaction_score) : undefined,
+    quizAvgScore: row.quiz_avg_score != null ? toNum(row.quiz_avg_score) : undefined,
+    quizPassRate: row.quiz_pass_rate != null ? toNum(row.quiz_pass_rate) : undefined,
+  };
 }
 
-export function loadRecords(): PhysicalRecord[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : getInitialRecords();
-  } catch { return getInitialRecords(); }
+function recordToRow(r: PhysicalRecord) {
+  return {
+    id: r.id,
+    course_name: r.courseName,
+    training_type: r.trainingType,
+    date: r.date || null,
+    hours: r.hours,
+    venue: r.venue,
+    instructor: r.instructor,
+    department: r.department,
+    participants: r.participants,
+    ttqs_phase: r.ttqsPhase,
+    outcome: r.outcome,
+    evidence: r.evidence,
+    status: r.status,
+    satisfaction_score: r.satisfactionScore ?? null,
+    quiz_avg_score: r.quizAvgScore ?? null,
+    quiz_pass_rate: r.quizPassRate ?? null,
+  };
 }
 
-export function saveRecords(records: PhysicalRecord[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(records));
+export async function loadRecords(): Promise<PhysicalRecord[]> {
+  const [{ data: records, error: recordsErr }, { data: photoRows, error: photosErr }] = await Promise.all([
+    supabase.from('physical_records').select('*').order('created_at', { ascending: false }),
+    supabase.from('physical_record_photos').select('*').order('sort_order', { ascending: true }),
+  ]);
+  if (recordsErr) throw recordsErr;
+  if (photosErr) throw photosErr;
+  return (records || []).map((row) => {
+    const photos = (photoRows || [])
+      .filter((p) => p.record_id === row.id)
+      .map((p) => p.photo_url as string);
+    return mapRecordRow(row as Record<string, unknown>, photos);
+  });
 }
 
-export function loadRoutine(): RoutineCourse[] {
-  try {
-    const raw = localStorage.getItem(LS_ROUTINE_KEY);
-    return raw ? JSON.parse(raw) : getInitialRoutine();
-  } catch { return getInitialRoutine(); }
+export async function saveRecords(records: PhysicalRecord[]): Promise<void> {
+  const ids = records.map((r) => r.id);
+  const { data: existing, error: existingErr } = await supabase.from('physical_records').select('id');
+  if (existingErr) throw existingErr;
+  const toDelete = (existing || []).map((e) => e.id as string).filter((id) => !ids.includes(id));
+  if (toDelete.length) {
+    const { error } = await supabase.from('physical_records').delete().in('id', toDelete);
+    if (error) throw error;
+  }
+  if (records.length) {
+    const { error } = await supabase.from('physical_records').upsert(records.map(recordToRow));
+    if (error) throw error;
+  }
+  if (ids.length) {
+    const { error } = await supabase.from('physical_record_photos').delete().in('record_id', ids);
+    if (error) throw error;
+  }
+  const photoRows = records.flatMap((r) =>
+    (r.photos || []).map((url, idx) => ({ record_id: r.id, photo_url: url, sort_order: idx }))
+  );
+  if (photoRows.length) {
+    const { error } = await supabase.from('physical_record_photos').insert(photoRows);
+    if (error) throw error;
+  }
 }
 
-export function saveRoutine(list: RoutineCourse[]) {
-  localStorage.setItem(LS_ROUTINE_KEY, JSON.stringify(list));
+function mapRoutineRow(
+  row: Record<string, unknown>,
+  photos: string[],
+  design?: CourseDesign,
+  effectiveness?: EffectivenessTracking,
+  application?: TrainingApplication,
+  executionCheck?: PreClassCheck
+): RoutineCourse {
+  return {
+    id: row.id as string,
+    courseName: row.course_name as string,
+    instructor: (row.instructor as string) || '',
+    date: (row.date as string) || '',
+    hours: toNum(row.hours),
+    department: (row.department as string) || '',
+    participants: (row.participants as string[]) || [],
+    outline: (row.outline as string) || '',
+    status: row.status as RoutineCourse['status'],
+    submittedBy: (row.submitted_by as string) || '',
+    photos,
+    design,
+    effectiveness,
+    application,
+    executionCheck,
+  };
+}
+
+function mapDesignRow(row: Record<string, unknown>): CourseDesign {
+  return {
+    category: row.category as CourseDesign['category'],
+    targetAudience: (row.target_audience as string) || '',
+    needSources: (row.need_sources as string[]) || [],
+    purpose: (row.purpose as string) || '',
+    competencies: (row.competencies as string[]) || [],
+    syllabus: (row.syllabus as SyllabusUnit[]) || [],
+    teachingMethods: (row.teaching_methods as string[]) || [],
+    expectedBenefits: row.expected_benefits as CourseDesign['expectedBenefits'],
+    signOff: (row.sign_off as SignOff) || {},
+    designatedSigners: (row.designated_signers as DesignatedSigners) || {},
+  };
+}
+
+function designToRow(routineCourseId: string, d: CourseDesign) {
+  return {
+    routine_course_id: routineCourseId,
+    category: d.category,
+    target_audience: d.targetAudience,
+    need_sources: d.needSources,
+    purpose: d.purpose,
+    competencies: d.competencies,
+    syllabus: d.syllabus,
+    teaching_methods: d.teachingMethods,
+    expected_benefits: d.expectedBenefits,
+    sign_off: d.signOff,
+    designated_signers: d.designatedSigners || {},
+  };
+}
+
+function mapEffectivenessRow(row: Record<string, unknown>): EffectivenessTracking {
+  return {
+    trackingDate: (row.tracking_date as string) || '',
+    learningOutcome: row.learning_outcome as EffectivenessTracking['learningOutcome'],
+    managerEvaluation: row.manager_evaluation as EffectivenessTracking['managerEvaluation'],
+    kpiBefore: row.kpi_before as EffectivenessTracking['kpiBefore'],
+    kpiAfter30Days: row.kpi_after_30_days as EffectivenessTracking['kpiAfter30Days'],
+    judgment: row.judgment as EffectivenessTracking['judgment'],
+    suggestion: (row.suggestion as string) || '',
+    filledBy: (row.filled_by as string) || '',
+  };
+}
+
+function effectivenessToRow(routineCourseId: string, e: EffectivenessTracking) {
+  return {
+    routine_course_id: routineCourseId,
+    tracking_date: e.trackingDate || null,
+    learning_outcome: e.learningOutcome,
+    manager_evaluation: e.managerEvaluation,
+    kpi_before: e.kpiBefore,
+    kpi_after_30_days: e.kpiAfter30Days,
+    judgment: e.judgment,
+    suggestion: e.suggestion,
+    filled_by: e.filledBy,
+  };
+}
+
+function mapApplicationRow(row: Record<string, unknown>): TrainingApplication {
+  return {
+    department: (row.department as string) || '',
+    applyDate: (row.apply_date as string) || '',
+    applicantName: (row.applicant_name as string) || '',
+    applicantTitle: (row.applicant_title as string) || '',
+    employeeId: (row.employee_id as string) || '',
+    applicationType: row.application_type as TrainingApplication['applicationType'],
+    applicationTypeOther: (row.application_type_other as string) || '',
+    courseCategory: row.course_category as TrainingApplication['courseCategory'],
+    courseCategoryOther: (row.course_category_other as string) || '',
+    hostUnit: (row.host_unit as string) || '',
+    classMode: row.class_mode as TrainingApplication['classMode'],
+    changeReasons: row.change_reasons as TrainingApplication['changeReasons'],
+    expectedBenefit: (row.expected_benefit as string) || '',
+    costs: row.costs as TrainingApplication['costs'],
+    participants: (row.participants as ParticipantChange[]) || [],
+    signOff: (row.sign_off as TrainingApplication['signOff']) || {},
+    designatedSigners: (row.designated_signers as TrainingApplication['designatedSigners']) || {},
+  };
+}
+
+function applicationToRow(routineCourseId: string, a: TrainingApplication) {
+  return {
+    routine_course_id: routineCourseId,
+    department: a.department,
+    apply_date: a.applyDate || null,
+    applicant_name: a.applicantName,
+    applicant_title: a.applicantTitle,
+    employee_id: a.employeeId,
+    application_type: a.applicationType,
+    application_type_other: a.applicationTypeOther,
+    course_category: a.courseCategory,
+    course_category_other: a.courseCategoryOther,
+    host_unit: a.hostUnit,
+    class_mode: a.classMode,
+    change_reasons: a.changeReasons,
+    expected_benefit: a.expectedBenefit,
+    costs: a.costs,
+    participants: a.participants,
+    sign_off: a.signOff,
+    designated_signers: a.designatedSigners || {},
+  };
+}
+
+function mapCheckRow(row: Record<string, unknown>): PreClassCheck {
+  return {
+    preClass: row.pre_class as PreClassCheck['preClass'],
+    inClass: row.in_class as PreClassCheck['inClass'],
+    postClass: row.post_class as PreClassCheck['postClass'],
+    signOff: (row.sign_off as PreClassCheck['signOff']) || {},
+    designatedSigners: (row.designated_signers as PreClassCheck['designatedSigners']) || {},
+  };
+}
+
+function checkToRow(routineCourseId: string, c: PreClassCheck) {
+  return {
+    routine_course_id: routineCourseId,
+    pre_class: c.preClass,
+    in_class: c.inClass,
+    post_class: c.postClass,
+    sign_off: c.signOff,
+    designated_signers: c.designatedSigners || {},
+  };
+}
+
+export async function loadRoutine(): Promise<RoutineCourse[]> {
+  const [
+    { data: routine, error: routineErr },
+    { data: photoRows, error: photosErr },
+    { data: designs, error: designsErr },
+    { data: effectivenesses, error: effErr },
+    { data: applications, error: appErr },
+    { data: checks, error: checkErr },
+  ] = await Promise.all([
+    supabase.from('routine_courses').select('*').order('created_at', { ascending: false }),
+    supabase.from('routine_course_photos').select('*').order('sort_order', { ascending: true }),
+    supabase.from('course_designs').select('*'),
+    supabase.from('effectiveness_trackings').select('*'),
+    supabase.from('training_applications').select('*'),
+    supabase.from('pre_class_checks').select('*'),
+  ]);
+  if (routineErr) throw routineErr;
+  if (photosErr) throw photosErr;
+  if (designsErr) throw designsErr;
+  if (effErr) throw effErr;
+  if (appErr) throw appErr;
+  if (checkErr) throw checkErr;
+
+  return (routine || []).map((row) => {
+    const photos = (photoRows || [])
+      .filter((p) => p.routine_course_id === row.id)
+      .map((p) => p.photo_url as string);
+    const design = (designs || []).find((d) => d.routine_course_id === row.id);
+    const effectiveness = (effectivenesses || []).find((e) => e.routine_course_id === row.id);
+    const application = (applications || []).find((a) => a.routine_course_id === row.id);
+    const executionCheck = (checks || []).find((c) => c.routine_course_id === row.id);
+    return mapRoutineRow(
+      row as Record<string, unknown>,
+      photos,
+      design ? mapDesignRow(design as Record<string, unknown>) : undefined,
+      effectiveness ? mapEffectivenessRow(effectiveness as Record<string, unknown>) : undefined,
+      application ? mapApplicationRow(application as Record<string, unknown>) : undefined,
+      executionCheck ? mapCheckRow(executionCheck as Record<string, unknown>) : undefined
+    );
+  });
+}
+
+export async function saveRoutine(list: RoutineCourse[]): Promise<void> {
+  const ids = list.map((r) => r.id);
+  const { data: existing, error: existingErr } = await supabase.from('routine_courses').select('id');
+  if (existingErr) throw existingErr;
+  const toDelete = (existing || []).map((e) => e.id as string).filter((id) => !ids.includes(id));
+  if (toDelete.length) {
+    const { error } = await supabase.from('routine_courses').delete().in('id', toDelete);
+    if (error) throw error;
+  }
+  if (list.length) {
+    const { error } = await supabase.from('routine_courses').upsert(
+      list.map((r) => ({
+        id: r.id,
+        course_name: r.courseName,
+        instructor: r.instructor,
+        date: r.date || null,
+        hours: r.hours,
+        department: r.department,
+        participants: r.participants,
+        outline: r.outline,
+        status: r.status,
+        submitted_by: r.submittedBy,
+      }))
+    );
+    if (error) throw error;
+  }
+
+  if (ids.length) {
+    const { error } = await supabase.from('routine_course_photos').delete().in('routine_course_id', ids);
+    if (error) throw error;
+  }
+  const photoRows = list.flatMap((r) =>
+    (r.photos || []).map((url, idx) => ({ routine_course_id: r.id, photo_url: url, sort_order: idx }))
+  );
+  if (photoRows.length) {
+    const { error } = await supabase.from('routine_course_photos').insert(photoRows);
+    if (error) throw error;
+  }
+
+  const designs = list.filter((r) => r.design).map((r) => designToRow(r.id, r.design!));
+  if (designs.length) {
+    const { error } = await supabase.from('course_designs').upsert(designs, { onConflict: 'routine_course_id' });
+    if (error) throw error;
+  }
+  const designMissingIds = list.filter((r) => !r.design).map((r) => r.id);
+  if (designMissingIds.length) {
+    await supabase.from('course_designs').delete().in('routine_course_id', designMissingIds);
+  }
+
+  const effectivenesses = list.filter((r) => r.effectiveness).map((r) => effectivenessToRow(r.id, r.effectiveness!));
+  if (effectivenesses.length) {
+    const { error } = await supabase
+      .from('effectiveness_trackings')
+      .upsert(effectivenesses, { onConflict: 'routine_course_id' });
+    if (error) throw error;
+  }
+  const effMissingIds = list.filter((r) => !r.effectiveness).map((r) => r.id);
+  if (effMissingIds.length) {
+    await supabase.from('effectiveness_trackings').delete().in('routine_course_id', effMissingIds);
+  }
+
+  const applications = list.filter((r) => r.application).map((r) => applicationToRow(r.id, r.application!));
+  if (applications.length) {
+    const { error } = await supabase
+      .from('training_applications')
+      .upsert(applications, { onConflict: 'routine_course_id' });
+    if (error) throw error;
+  }
+  const appMissingIds = list.filter((r) => !r.application).map((r) => r.id);
+  if (appMissingIds.length) {
+    await supabase.from('training_applications').delete().in('routine_course_id', appMissingIds);
+  }
+
+  const checks = list.filter((r) => r.executionCheck).map((r) => checkToRow(r.id, r.executionCheck!));
+  if (checks.length) {
+    const { error } = await supabase.from('pre_class_checks').upsert(checks, { onConflict: 'routine_course_id' });
+    if (error) throw error;
+  }
+  const checkMissingIds = list.filter((r) => !r.executionCheck).map((r) => r.id);
+  if (checkMissingIds.length) {
+    await supabase.from('pre_class_checks').delete().in('routine_course_id', checkMissingIds);
+  }
 }

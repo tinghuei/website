@@ -377,10 +377,15 @@ create table if not exists public.routine_courses (
   participants text[],
   outline text,
   status text not null default 'draft' check (status in ('draft', 'submitted', 'approved', 'completed')),
-  submitted_by uuid references public.profiles(id),
+  submitted_by text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- submitted_by 為建立者顯示名稱（非帳號 id），避免要求每筆例行課程都對應到真實的 profiles 帳號；
+-- 若此表已先以舊版 uuid 型別建立，以下兩行確保重新執行本腳本時欄位型別會被修正。
+alter table public.routine_courses alter column submitted_by type text using submitted_by::text;
+alter table public.routine_courses drop constraint if exists routine_courses_submitted_by_fkey;
 
 drop trigger if exists set_routine_courses_updated_at on public.routine_courses;
 create trigger set_routine_courses_updated_at before update on public.routine_courses
@@ -969,4 +974,24 @@ create policy training_files_delete on storage.objects for delete to authenticat
   using (
     bucket_id in ('training-videos', 'training-presentations', 'training-photos', 'signatures')
     and (owner = auth.uid() or public.is_hr_or_admin())
+  );
+
+-- ============================================================================
+-- 12. 示範種子資料（沿用原本前端 mock 內容，固定 id 以便重複執行本腳本時不會重複新增）
+-- ============================================================================
+
+insert into public.physical_records
+  (id, course_name, training_type, date, hours, venue, instructor, department, participants, ttqs_phase, outcome, evidence, status)
+values
+  ('00000000-0000-4000-8000-000000000001', '防災研習--消防演練', '內訓', '2026-01-15', 2, '廠區集合廣場', '消防隊員 / 陳安全', '全體員工', 118, 'Do', '全體員工完成演練，緊急疏散時間縮短至3分鐘以內', '簽到表、現場照片、演練記錄表', '已審核'),
+  ('00000000-0000-4000-8000-000000000002', '性別平等教育', '外訓', '2026-01-22', 3, '會議室A', '外部講師', '全體員工', 120, 'Do', '員工對性騷擾防治及申訴程序瞭解度提升', '簽到表、測驗成績單、滿意度調查表', '已審核'),
+  ('00000000-0000-4000-8000-000000000003', '一般安全衛生教育訓練', '外訓', '2026-01-28', 6, '會議室B', '勞動部認可訓練機構', '全體員工', 120, 'Do', '達成法定6小時安衛訓練要求，測驗平均通過率92%', '簽到表、測驗成績單、結訓證書、機構訓練合格文件', '已審核')
+on conflict (id) do nothing;
+
+insert into public.routine_courses
+  (id, course_name, instructor, date, hours, department, participants, outline, status, submitted_by)
+values
+  ('00000000-0000-4000-8000-000000000011', '新進員工職前訓練', '人資安全組', '2026-01-08', 8, '全體員工', array['王小明', '陳美玲'], '公司規定、安全衛生、基本作業流程介紹', 'completed', '人資安全組'),
+  ('00000000-0000-4000-8000-000000000012', '品質管理基礎訓練', '品保課 張品管', '2026-02-10', 3, '品保課', array['陳小芳', '林志偉', '黃品質'], '品質管理基本概念、ISO 9001要求、不合格品處理', 'approved', '張品管')
+on conflict (id) do nothing;
   );

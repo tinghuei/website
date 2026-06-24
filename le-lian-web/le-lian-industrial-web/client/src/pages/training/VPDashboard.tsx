@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Crown, Building2, ShieldAlert, TrendingUp, Calculator, Download, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { loadRoutine, loadRecords, type RoutineCourse } from '../../lib/physicalTrainingStorage';
+import { loadRoutine, loadRecords, type RoutineCourse, type PhysicalRecord } from '../../lib/physicalTrainingStorage';
 
 const LS_ROI_KEY = 'training_roi_inputs_v1';
 
@@ -33,9 +33,14 @@ function avg(nums: number[]): number | null {
 
 export default function VPDashboard() {
   const { currentUser } = useTrainingAuth();
-  const [routineCourses] = useState<RoutineCourse[]>(() => loadRoutine());
-  const [records] = useState(() => loadRecords());
+  const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>([]);
+  const [records, setRecords] = useState<PhysicalRecord[]>([]);
   const [roi, setRoi] = useState<RoiInputs>(() => loadRoi());
+
+  useEffect(() => {
+    loadRoutine().then(setRoutineCourses);
+    loadRecords().then(setRecords);
+  }, []);
 
   useEffect(() => { localStorage.setItem(LS_ROI_KEY, JSON.stringify(roi)); }, [roi]);
 

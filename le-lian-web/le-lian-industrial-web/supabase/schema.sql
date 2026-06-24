@@ -915,10 +915,10 @@ create policy fee_agreements_select on public.fee_agreements for select to authe
   using (recipient_user_id = auth.uid() or sent_by = auth.uid() or public.is_hr_or_admin());
 drop policy if exists fee_agreements_insert on public.fee_agreements;
 create policy fee_agreements_insert on public.fee_agreements for insert to authenticated
-  with check (public.is_hr_or_admin());
+  with check (public.is_manager_or_above());
 drop policy if exists fee_agreements_update on public.fee_agreements;
 create policy fee_agreements_update on public.fee_agreements for update to authenticated
-  using (recipient_user_id = auth.uid() or public.is_hr_or_admin());
+  using (recipient_user_id = auth.uid() or sent_by = auth.uid() or public.is_manager_or_above());
 drop policy if exists fee_agreements_delete on public.fee_agreements;
 create policy fee_agreements_delete on public.fee_agreements for delete to authenticated
   using (public.is_admin());

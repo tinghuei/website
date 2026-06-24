@@ -2,6 +2,8 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { FileText, Printer, Download, Save, Eye, EyeOff, Send, Archive, CheckCircle, PenLine, Upload, Trash2, X } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { ALL_DEPARTMENTS, getUnitManager, getHRStaff } from '../../data/orgChartData';
+import { supabase } from '../../lib/supabaseClient';
+import type { FeeAgreementRow } from '../../types/database';
 
 const DEPARTMENTS = ALL_DEPARTMENTS;
 
@@ -61,19 +63,47 @@ interface SentAgreement {
   phone?: string;
 }
 
-const STORAGE_KEY = 'fee_agreements_v2';
-
-function loadAgreements(): SentAgreement[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+function mapRowToAgreement(row: FeeAgreementRow): SentAgreement {
+  return {
+    id: row.id,
+    employeeName: row.employee_name,
+    employeeId: row.employee_id || '',
+    joinDate: row.join_date || '',
+    department: row.department || '',
+    title: row.title || '',
+    grade: row.grade || '',
+    serviceYears: row.service_years || '',
+    courseName: row.course_name || '',
+    trainingType: row.training_type || '外部訓練',
+    institution: row.institution || '',
+    startDate: row.start_date || '',
+    endDate: row.end_date || '',
+    location: row.location || '',
+    totalFee: row.total_fee || 0,
+    beforeServiceYrs: row.before_service_yrs || 0,
+    beforeServiceMons: row.before_service_mons || 0,
+    addedServiceYrs: row.added_service_yrs || 0,
+    addedServiceMons: row.added_service_mons || 0,
+    afterServiceYrs: row.after_service_yrs || 0,
+    afterServiceMons: row.after_service_mons || 0,
+    sentAt: new Date(row.sent_at).toLocaleString('zh-TW'),
+    sentBy: row.sent_by || '',
+    status: row.status,
+    signedAt: row.signed_at ? new Date(row.signed_at).toLocaleString('zh-TW') : undefined,
+    signatureImage: row.signature_image || undefined,
+    idNumber: row.id_number || undefined,
+    address: row.address || undefined,
+    phone: row.phone || undefined,
+  };
 }
 
-function saveAgreements(list: SentAgreement[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+async function loadAgreements(): Promise<SentAgreement[]> {
+  const { data, error } = await supabase
+    .from('fee_agreements')
+    .select('*')
+    .order('sent_at', { ascending: false });
+  if (error || !data) return [];
+  return (data as FeeAgreementRow[]).map(mapRowToAgreement);
 }
 
 const INITIAL_FORM: FeeForm = {
@@ -523,14 +553,18 @@ function SigningModal({ agreement, onSign, onClose }: {
 }
 
 export default function FeeAgreement() {
-  const { currentUser } = useTrainingAuth();
+  const { currentUser, users } = useTrainingAuth();
   const [form, setForm] = useState<FeeForm>(INITIAL_FORM);
   const [showPreview, setShowPreview] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
-  const [agreements, setAgreements] = useState<SentAgreement[]>(() => loadAgreements());
+  const [agreements, setAgreements] = useState<SentAgreement[]>([]);
   const [viewingAgreement, setViewingAgreement] = useState<SentAgreement | null>(null);
   const [signingAgreement, setSigningAgreement] = useState<SentAgreement | null>(null);
   const [signSuccess, setSignSuccess] = useState(false);
+
+  useEffect(() => {
+    loadAgreements().then(setAgreements);
+  }, []);
 
   const totalFee = useMemo(
     () => form.courseFee + form.certFee + form.travelFee + form.otherFee,
@@ -551,46 +585,84 @@ export default function FeeAgreement() {
     setForm(prev => ({ ...prev, [key]: parseInt(raw.replace(/[^\d]/g, ''), 10) || 0 }));
   }
 
-  const handleSendToEmployee = () => {
+  const handleSendToEmployee = async () => {
     if (!form.employeeName || !form.courseName) {
       setSavedMessage('請填寫員工姓名與課程名稱');
       setTimeout(() => setSavedMessage(''), 3000);
       return;
     }
     const afterSvc = calcAfterService(form.beforeServiceYrs, form.beforeServiceMons, form.addedServiceYrs, form.addedServiceMons);
-    const newAgreement: SentAgreement = {
-      id: `fa-${Date.now()}`,
-      ...form,
-      totalFee,
-      afterServiceYrs: afterSvc.yrs,
-      afterServiceMons: afterSvc.mons,
-      sentAt: new Date().toLocaleString('zh-TW'),
-      sentBy: currentUser?.name || '系統管理員',
+    const recipient = users.find(u => u.name === form.employeeName);
+    const row: Omit<FeeAgreementRow, 'sent_at'> = {
+      id: crypto.randomUUID(),
+      recipient_user_id: recipient?.id || null,
+      employee_name: form.employeeName,
+      employee_id: form.employeeId || null,
+      join_date: form.joinDate || null,
+      department: form.department || null,
+      title: form.title || null,
+      grade: form.grade || null,
+      service_years: form.serviceYears || null,
+      course_name: form.courseName,
+      training_type: form.trainingType,
+      institution: form.institution || null,
+      start_date: form.startDate || null,
+      end_date: form.endDate || null,
+      location: form.location || null,
+      total_fee: totalFee,
+      before_service_yrs: form.beforeServiceYrs,
+      before_service_mons: form.beforeServiceMons,
+      added_service_yrs: form.addedServiceYrs,
+      added_service_mons: form.addedServiceMons,
+      after_service_yrs: afterSvc.yrs,
+      after_service_mons: afterSvc.mons,
+      sent_by: currentUser?.id || null,
       status: 'pending_sign',
+      signed_at: null,
+      signature_image: null,
+      id_number: null,
+      address: null,
+      phone: null,
     };
-    const updated = [newAgreement, ...agreements];
-    setAgreements(updated);
-    saveAgreements(updated);
+    const { data, error } = await supabase.from('fee_agreements').insert(row).select().single();
+    if (error || !data) {
+      setSavedMessage('發送失敗，請稍後再試');
+      setTimeout(() => setSavedMessage(''), 3000);
+      return;
+    }
+    setAgreements([mapRowToAgreement(data as FeeAgreementRow), ...agreements]);
     setSavedMessage(`同意書已發送給 ${form.employeeName}！`);
     setTimeout(() => setSavedMessage(''), 3000);
   };
 
-  const handleArchive = (id: string) => {
-    const updated = agreements.map(a => a.id === id ? { ...a, status: 'archived' as const } : a);
-    setAgreements(updated);
-    saveAgreements(updated);
+  const handleArchive = async (id: string) => {
+    const { error } = await supabase.from('fee_agreements').update({ status: 'archived' }).eq('id', id);
+    if (error) return;
+    setAgreements(agreements.map(a => a.id === id ? { ...a, status: 'archived' as const } : a));
     if (viewingAgreement?.id === id) setViewingAgreement({ ...viewingAgreement, status: 'archived' });
   };
 
-  const handleSign = (agreementId: string, sigData: { signatureImage: string; idNumber: string; address: string; phone: string }) => {
-    const now = new Date().toLocaleString('zh-TW');
+  const handleSign = async (agreementId: string, sigData: { signatureImage: string; idNumber: string; address: string; phone: string }) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('fee_agreements')
+      .update({
+        status: 'signed',
+        signed_at: now,
+        signature_image: sigData.signatureImage,
+        id_number: sigData.idNumber,
+        address: sigData.address,
+        phone: sigData.phone,
+      })
+      .eq('id', agreementId);
+    if (error) return;
+    const nowLabel = new Date(now).toLocaleString('zh-TW');
     const updated = agreements.map(a =>
       a.id === agreementId
-        ? { ...a, status: 'signed' as const, signedAt: now, ...sigData }
+        ? { ...a, status: 'signed' as const, signedAt: nowLabel, ...sigData }
         : a
     );
     setAgreements(updated);
-    saveAgreements(updated);
     setSigningAgreement(null);
     setViewingAgreement(updated.find(a => a.id === agreementId) || null);
     setSignSuccess(true);

@@ -963,11 +963,17 @@ create policy training_files_select on storage.objects for select to authenticat
 
 drop policy if exists training_files_insert on storage.objects;
 create policy training_files_insert on storage.objects for insert to authenticated
-  with check (bucket_id in ('training-videos', 'training-presentations', 'training-photos', 'signatures'));
+  with check (
+    bucket_id in ('training-photos', 'signatures')
+    or (bucket_id in ('training-videos', 'training-presentations') and public.is_hr_or_admin())
+  );
 
 drop policy if exists training_files_update on storage.objects;
 create policy training_files_update on storage.objects for update to authenticated
-  using (bucket_id in ('training-videos', 'training-presentations', 'training-photos', 'signatures'));
+  using (
+    bucket_id in ('training-photos', 'signatures')
+    or (bucket_id in ('training-videos', 'training-presentations') and public.is_hr_or_admin())
+  );
 
 drop policy if exists training_files_delete on storage.objects;
 create policy training_files_delete on storage.objects for delete to authenticated

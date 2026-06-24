@@ -36,8 +36,8 @@ export interface Course {
   createdAt: string;
   quizQuestions: QuizQuestion[];
   videoId?: string; // YouTube video ID (可由管理員在後台設定)
-  localVideo?: boolean; // 是否已上傳本機影片檔（儲存於目前瀏覽器的 IndexedDB）
-  localPresentation?: boolean; // 是否已上傳課程簡報/教材檔（儲存於目前瀏覽器的 IndexedDB）
+  localVideo?: boolean; // 是否已上傳影片檔（儲存於 Supabase Storage）
+  localPresentation?: boolean; // 是否已上傳課程簡報/教材檔（儲存於 Supabase Storage）
   presentationName?: string; // 簡報/教材檔案名稱
   videoTranscript?: string; // 影片內容文字稿/大綱，由課程建立者貼上，供 AI 測驗生成器依實際影片內容出題
   externalVideoUrl?: string; // 外部免費影片連結（例如 YouTube 完整網址），用於免費課程庫直接觀看

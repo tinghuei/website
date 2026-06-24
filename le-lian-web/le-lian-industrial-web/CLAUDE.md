@@ -1,9 +1,10 @@
 # 樂聯工業網站 — 開發注意事項
 
-React 19 + TypeScript + Tailwind CSS v4 + Vite 7 的靜態 SPA（部署於 GitHub Pages，無可用後端）。
-教育訓練模組位於 `client/src/pages/training/`，狀態管理在 `client/src/context/TrainingAuthContext.tsx`
-（純 React state，重新整理頁面會重置；本機影片/教材檔案另存於 IndexedDB，見 `client/src/lib/videoStorage.ts`、
-`client/src/lib/presentationStorage.ts`）。
+React 19 + TypeScript + Tailwind CSS v4 + Vite 7 的 SPA（部署於 GitHub Pages）。
+教育訓練模組位於 `client/src/pages/training/`，資料層已遷移至 Supabase（Postgres + Auth + Storage，
+見 `supabase/schema.sql`），狀態管理在 `client/src/context/TrainingAuthContext.tsx` 經由 Supabase
+讀寫並同步至所有裝置；影片/教材檔案儲存於 Supabase Storage，見 `client/src/lib/videoStorage.ts`、
+`client/src/lib/presentationStorage.ts`。
 
 ## 重要規則：不要覆寫使用者已手動更新的資料
 

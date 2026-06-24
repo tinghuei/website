@@ -87,7 +87,7 @@ export default function TrainingCourseDetail() {
 
   const videoId = course?.videoId;
 
-  // Local uploaded video file (stored in browser IndexedDB)
+  // Uploaded video file (stored in Supabase Storage)
   const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
   const [localVideoLoading, setLocalVideoLoading] = useState(false);
 
@@ -114,7 +114,7 @@ export default function TrainingCourseDetail() {
     };
   }, [course?.id, course?.localVideo]);
 
-  // Local uploaded presentation/教材 file (stored in browser IndexedDB)
+  // Uploaded presentation/教材 file (stored in Supabase Storage)
   const [presentationUrl, setPresentationUrl] = useState<string | null>(null);
   const [presentationIsPdf, setPresentationIsPdf] = useState(false);
 

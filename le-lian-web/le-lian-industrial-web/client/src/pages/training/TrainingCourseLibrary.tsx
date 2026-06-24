@@ -259,7 +259,7 @@ function EditCourseModal({ course, onSave, onClose }: {
             <label className="block text-xs font-medium text-gray-600 mb-1.5">上傳影片檔（選填）</label>
             {course.localVideo && !removeLocalVideo && !videoFile && (
               <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-2 text-sm">
-                <span className="flex items-center gap-1.5 text-green-700"><Film size={14} />已上傳本機影片檔</span>
+                <span className="flex items-center gap-1.5 text-green-700"><Film size={14} />已上傳影片檔</span>
                 <button type="button" onClick={() => setRemoveLocalVideo(true)} className="text-red-500 hover:text-red-600 flex items-center gap-1 text-xs">
                   <Trash2 size={12} />移除
                 </button>
@@ -288,7 +288,7 @@ function EditCourseModal({ course, onSave, onClose }: {
             )}
             {fileError && <p className="text-xs text-red-500 mt-1">{fileError}</p>}
             <p className="text-xs text-gray-400 mt-1">
-              影片檔將儲存在目前瀏覽器中（單檔上限 {maxVideoMB}MB），僅此裝置可播放、清除瀏覽器資料會遺失。若需所有人都能觀看，建議改用上方 YouTube 連結。若兩者皆設定，將優先播放已上傳的影片檔。
+              影片檔將上傳至雲端儲存（單檔上限 {maxVideoMB}MB），所有裝置皆可播放。若兩者皆設定，將優先播放已上傳的影片檔。
             </p>
           </div>
           <div>
@@ -327,7 +327,7 @@ function EditCourseModal({ course, onSave, onClose }: {
             )}
             {presentationError && <p className="text-xs text-red-500 mt-1">{presentationError}</p>}
             <p className="text-xs text-gray-400 mt-1">
-              教材檔將儲存在目前瀏覽器中（單檔上限 {maxPresentationMB}MB）。PDF 可直接於課程內容頁瀏覽，其他格式提供下載觀看。
+              教材檔將上傳至雲端儲存（單檔上限 {maxPresentationMB}MB）。PDF 可直接於課程內容頁瀏覽，其他格式提供下載觀看。
             </p>
           </div>
           <div className="flex items-center gap-2">

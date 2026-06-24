@@ -1,52 +1,35 @@
-// 課程影片本機儲存（IndexedDB）
-// 供管理員上傳已下載的影片檔，儲存於目前瀏覽器，課程內容播放時讀取使用。
-// 注意：此儲存僅存在於目前裝置/瀏覽器，清除瀏覽器資料後將會遺失，且不會同步到其他裝置。
+// 課程影片儲存（Supabase Storage）
+// 供管理員上傳已下載的影片檔，儲存於 Supabase Storage 的 training-videos bucket，
+// 課程內容播放時下載讀取使用，所有裝置皆可同步存取。
 
-const DB_NAME = 'lelian-training-videos';
-const STORE_NAME = 'videos';
-const DB_VERSION = 1;
+import { supabase } from './supabaseClient';
+
+const BUCKET = 'training-videos';
 
 export const MAX_VIDEO_SIZE = 300 * 1024 * 1024; // 300MB
 
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(STORE_NAME)) {
-        request.result.createObjectStore(STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+async function clearCourseVideo(courseId: string) {
+  const { data } = await supabase.storage.from(BUCKET).list(courseId);
+  if (data && data.length > 0) {
+    await supabase.storage.from(BUCKET).remove(data.map((f) => `${courseId}/${f.name}`));
+  }
 }
 
 export async function saveCourseVideo(courseId: string, file: File | Blob): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(file, courseId);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  await clearCourseVideo(courseId);
+  const name = file instanceof File ? file.name : 'video';
+  const { error } = await supabase.storage.from(BUCKET).upload(`${courseId}/${name}`, file, { upsert: true });
+  if (error) throw error;
 }
 
 export async function getCourseVideo(courseId: string): Promise<Blob | null> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).get(courseId);
-    req.onsuccess = () => resolve((req.result as Blob) || null);
-    req.onerror = () => reject(req.error);
-  });
+  const { data: list } = await supabase.storage.from(BUCKET).list(courseId);
+  if (!list || list.length === 0) return null;
+  const { data, error } = await supabase.storage.from(BUCKET).download(`${courseId}/${list[0].name}`);
+  if (error || !data) return null;
+  return data;
 }
 
 export async function deleteCourseVideo(courseId: string): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(courseId);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  await clearCourseVideo(courseId);
 }

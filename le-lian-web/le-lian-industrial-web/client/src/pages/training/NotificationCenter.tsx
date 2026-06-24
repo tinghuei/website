@@ -1,31 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Bell, CheckCheck, AlertCircle, CheckCircle, BookOpen, Megaphone, Clock, X, ChevronRight, Plus, Users, Eye, ArrowRight, Pencil, Trash2, History, EyeOff } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { usePersistentState } from '../../lib/persistentState';
-import { COMPANY_ANNOUNCEMENTS } from '../../data/trainingMockData';
-
-type NotifType = 'deadline_reminder' | 'review_result' | 'new_course' | 'system';
-
-interface MockNotification {
-  id: string;
-  type: NotifType;
-  isRead: boolean;
-  title: string;
-  message: string;
-  time: string;
-  course: string | null;
-  urgent: boolean;
-}
-
-const INITIAL_NOTIFICATIONS: MockNotification[] = [
-  { id: 'n1', type: 'deadline_reminder', isRead: false, title: '⚠️ 課程截止提醒', message: '「職業安全衛生法規研習」課程將於3天後(2026/06/01)截止，請盡速完成！', time: '10分鐘前', course: '職業安全衛生法規研習', urgent: true },
-  { id: 'n2', type: 'review_result', isRead: false, title: '✅ 審核通過通知', message: '您在「5S推行與現場管理」課程的心得報告已由李主管審核通過，完訓證書已發放！', time: '2小時前', course: '5S推行與現場管理', urgent: false },
-  { id: 'n3', type: 'new_course', isRead: false, title: '🆕 新課程上架', message: '「智慧製造導入實務」新課程已上架，此為您部門的必修課程，請於2026/07/31前完成。', time: '昨天', course: '智慧製造導入實務', urgent: false },
-  { id: 'n4', type: 'review_result', isRead: true, title: '❌ 審核退回通知', message: '您在「iCAP職能評估實務」課程的心得報告被退回，原因：內容過於簡短，請補充實務應用說明後重新提交。', time: '3天前', course: 'iCAP職能評估實務', urgent: false },
-  { id: 'n5', type: 'system', isRead: true, title: '📢 系統公告', message: '年度訓練計畫填報截止日期：2026年10月31日。請各部門主管於期限前完成次年度訓練計畫提報。', time: '1週前', course: null, urgent: false },
-  { id: 'n6', type: 'deadline_reminder', isRead: true, title: '⏰ 年度訓練時數提醒', message: '您今年度已完成18小時訓練，距離年度目標24小時尚差6小時，請加油！', time: '2週前', course: null, urgent: false },
-];
+import {
+  type Announcement as AnnouncementLocal,
+  loadAnnouncements,
+  saveAnnouncements,
+  confirmRead,
+} from '../../lib/announcementStorage';
+import {
+  type MockNotification,
+  type NotifType,
+  loadNotifications,
+  saveNotifications,
+} from '../../lib/notifCenterStorage';
 
 const UPCOMING_DEADLINES = [
   { date: '06/01', course: '職業安全衛生法規研習', daysLeft: 3, urgent: true },
@@ -46,32 +34,6 @@ const TABS: { id: FilterTab; label: string }[] = [
   { id: 'new_course', label: '新課程' },
   { id: 'system', label: '系統公告' },
 ];
-
-interface AnnEditLogEntry {
-  action: '建立' | '編輯' | '刪除' | '還原';
-  editedAt: string;
-  editedBy: string;
-  summary: string;
-}
-
-interface AnnouncementLocal {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  publishedAt: string;
-  publishedBy: string;
-  pinned: boolean;
-  important: boolean;
-  targetAudience: '全體員工' | '主管以上' | '特定部門';
-  targetDept: string;
-  requireConfirmation: boolean;
-  readBy: string[];
-  expiresAt?: string;
-  editHistory: AnnEditLogEntry[];
-  deletedAt?: string;
-  deletedBy?: string;
-}
 
 interface NewAnnForm {
   title: string;
@@ -137,23 +99,35 @@ function TypeIcon({ type, title }: { type: NotifType; title: string }) {
 export default function NotificationCenter() {
   const { currentUser, courses } = useTrainingAuth();
   const [, navigate] = useLocation();
-  const [notifications, setNotifications] = usePersistentState<MockNotification[]>('notifCenterNotifications', INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<MockNotification[]>([]);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
+  useEffect(() => {
+    loadNotifications().then((data) => {
+      setNotifications(data);
+      setNotificationsLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (notificationsLoaded) saveNotifications(notifications);
+  }, [notifications, notificationsLoaded]);
+
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [selectedNotif, setSelectedNotif] = useState<MockNotification | null>(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementLocal | null>(null);
   const [selectedDeadline, setSelectedDeadline] = useState<DeadlineItem | null>(null);
   const [mainTab, setMainTab] = useState<'notifications' | 'announcements'>('notifications');
 
-  const [announcements, setAnnouncements] = usePersistentState<AnnouncementLocal[]>('announcements', () =>
-    COMPANY_ANNOUNCEMENTS.map(a => ({
-      ...a,
-      targetAudience: '全體員工' as const,
-      targetDept: '',
-      requireConfirmation: false,
-      readBy: [],
-      editHistory: [{ action: '建立' as const, editedAt: a.publishedAt, editedBy: a.publishedBy, summary: '初始公告建立' }],
-    }))
-  );
+  const [announcements, setAnnouncements] = useState<AnnouncementLocal[]>([]);
+  const [announcementsLoaded, setAnnouncementsLoaded] = useState(false);
+  useEffect(() => {
+    loadAnnouncements().then((data) => {
+      setAnnouncements(data);
+      setAnnouncementsLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (announcementsLoaded) saveAnnouncements(announcements);
+  }, [announcements, announcementsLoaded]);
 
   const [showCreateAnn, setShowCreateAnn] = useState(false);
   const [annForm, setAnnForm] = useState<NewAnnForm>(DEFAULT_ANN_FORM);
@@ -282,6 +256,7 @@ export default function NotificationCenter() {
         ? { ...a, readBy: [...a.readBy, currentUser.id] }
         : a
     ));
+    confirmRead(annId, currentUser.id);
   };
 
   const hasConfirmed = (ann: AnnouncementLocal) =>

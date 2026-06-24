@@ -351,13 +351,17 @@ export default function CompetencyAnalysis() {
 
   const [positionName, setPositionName] = useState<string>(POSITION_NAMES[0]);
 
-  // 各職位的職能評分標準覆寫資料（依工作說明書辨識結果建立），以職位名稱為鍵獨立儲存於 localStorage
-  const [overrides, setOverrides] = useState<Record<string, PositionCompetencyOverride>>(() => loadOverrides());
-  useEffect(() => { saveOverrides(overrides); }, [overrides]);
+  // 各職位的職能評分標準覆寫資料（依工作說明書辨識結果建立），以職位名稱為鍵獨立儲存於 Supabase
+  const [overrides, setOverrides] = useState<Record<string, PositionCompetencyOverride>>({});
+  const [overridesLoaded, setOverridesLoaded] = useState(false);
+  useEffect(() => { loadOverrides().then((data) => { setOverrides(data); setOverridesLoaded(true); }); }, []);
+  useEffect(() => { if (overridesLoaded) saveOverrides(overrides); }, [overrides, overridesLoaded]);
 
-  // 每位員工的工作說明書記錄（以員工姓名為鍵，持久化至 localStorage）
-  const [employeeJDs, setEmployeeJDs] = useState<Record<string, EmployeeJDRecord>>(() => loadEmployeeJDs());
-  useEffect(() => { saveEmployeeJDs(employeeJDs); }, [employeeJDs]);
+  // 每位員工的工作說明書記錄（以員工姓名為鍵，持久化至 Supabase）
+  const [employeeJDs, setEmployeeJDs] = useState<Record<string, EmployeeJDRecord>>({});
+  const [employeeJDsLoaded, setEmployeeJDsLoaded] = useState(false);
+  useEffect(() => { loadEmployeeJDs().then((data) => { setEmployeeJDs(data); setEmployeeJDsLoaded(true); }); }, []);
+  useEffect(() => { if (employeeJDsLoaded) saveEmployeeJDs(employeeJDs); }, [employeeJDs, employeeJDsLoaded]);
 
   // 管理員／人資查看特定員工資料時，暫時覆寫職位職能標準（不影響職位共用的 overrides）
   const [viewingEmployeeName, setViewingEmployeeName] = useState<string | null>(null);

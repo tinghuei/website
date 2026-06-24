@@ -1,48 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Users, UserCheck, Download, Upload, Plus, Edit, Trash2, X, Search } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { usePersistentState } from '../../lib/persistentState';
+import { loadInstructors, saveInstructors, loadStudents, saveStudents, type Instructor, type Student } from '../../lib/instructorRosterStorage';
 import * as XLSX from 'xlsx';
-
-interface Instructor {
-  id: string;
-  name: string;
-  type: '內部' | '外部';
-  title: string;
-  department: string;
-  specialty: string;
-  phone: string;
-  email: string;
-  certifications: string;
-  totalCourses: number;
-}
-
-interface Student {
-  id: string;
-  name: string;
-  birthday: string;
-  department: string;
-  title: string;
-  employeeId: string;
-  joinDate: string;
-  email: string;
-}
-
-const INITIAL_INSTRUCTORS: Instructor[] = [
-  { id: 'ins1', name: '林志明', type: '內部', title: '安全衛生管理師', department: '管理部', specialty: '職業安全衛生、緊急應變', phone: '分機 201', email: 'lin.zhiming@company.com', certifications: '甲種職業安全衛生業務主管', totalCourses: 12 },
-  { id: 'ins2', name: '李大偉', type: '內部', title: '品保工程師', department: '品保課', specialty: 'ISO 9001、品質管制', phone: '分機 305', email: 'li.dawei@company.com', certifications: 'ISO 9001 內部稽核員', totalCourses: 8 },
-  { id: 'ins3', name: '陳美惠', type: '外部', title: '顧問講師', department: '外聘', specialty: '精實生產、IE工業工程', phone: '0912-345-678', email: 'chen.mh@consulting.com', certifications: 'Lean Six Sigma Black Belt', totalCourses: 5 },
-  { id: 'ins4', name: '王建志', type: '外部', title: '職業訓練師', department: '外聘', specialty: 'ERP系統、資訊管理', phone: '0923-456-789', email: 'wang.jz@erp-training.com', certifications: '職業訓練師證照', totalCourses: 3 },
-];
-
-const INITIAL_STUDENTS: Student[] = [
-  { id: 'stu1', name: '王小明', birthday: '1990-05-15', department: '組裝一線', title: '作業員', employeeId: 'E001', joinDate: '2020-03-01', email: 'wang.xm@company.com' },
-  { id: 'stu2', name: '陳美玲', birthday: '1988-11-20', department: '品保課', title: '品管員', employeeId: 'E002', joinDate: '2019-07-15', email: 'chen.ml@company.com' },
-  { id: 'stu3', name: '李大明', birthday: '1985-03-08', department: '品保課', title: '高級工程師', employeeId: 'M001', joinDate: '2018-01-10', email: 'li.dm@company.com' },
-  { id: 'stu4', name: '林志偉', birthday: '1992-07-22', department: '品保課', title: '工程師', employeeId: 'E003', joinDate: '2021-08-01', email: 'lin.zw@company.com' },
-  { id: 'stu5', name: '黃雅婷', birthday: '1991-12-30', department: '工程課', title: '技術員', employeeId: 'E004', joinDate: '2022-02-14', email: 'huang.yt@company.com' },
-  { id: 'stu6', name: '劉俊達', birthday: '1993-04-18', department: '生管課', title: '作業員', employeeId: 'E005', joinDate: '2022-09-01', email: 'liu.jd@company.com' },
-];
 
 type ActiveRoster = 'instructors' | 'students';
 
@@ -63,8 +23,29 @@ const DEPARTMENTS = ['總經理室', '品保課', '管理部', '總務課', '營
 export default function InstructorRoster() {
   const { currentUser } = useTrainingAuth();
   const [activeRoster, setActiveRoster] = useState<ActiveRoster>('instructors');
-  const [instructors, setInstructors] = usePersistentState<Instructor[]>('instructors', INITIAL_INSTRUCTORS);
-  const [students, setStudents] = usePersistentState<Student[]>('students', INITIAL_STUDENTS);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [instructorsLoaded, setInstructorsLoaded] = useState(false);
+  useEffect(() => {
+    loadInstructors().then((data) => {
+      setInstructors(data);
+      setInstructorsLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (instructorsLoaded) saveInstructors(instructors);
+  }, [instructors, instructorsLoaded]);
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentsLoaded, setStudentsLoaded] = useState(false);
+  useEffect(() => {
+    loadStudents().then((data) => {
+      setStudents(data);
+      setStudentsLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (studentsLoaded) saveStudents(students);
+  }, [students, studentsLoaded]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddIns, setShowAddIns] = useState(false);
   const [showAddStu, setShowAddStu] = useState(false);

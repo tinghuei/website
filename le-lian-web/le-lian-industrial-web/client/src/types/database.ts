@@ -191,6 +191,85 @@ export interface EmployeeJobDescriptionRow {
   uploaded_at: string;
 }
 
+export interface PositionCompetencyOverrideRow {
+  position_name: string;
+  department: string | null;
+  job_summary: string | null;
+  competencies: unknown;
+  standards: Record<string, number> | null;
+  training_needs: string[] | null;
+  source_file_name: string | null;
+  updated_at: string;
+}
+
+export interface OrgSnapshotRow {
+  id: string;
+  month_label: string;
+  created_date: string;
+  created_by: string | null;
+  leadership: unknown;
+  units: unknown;
+}
+
+export interface InstructorRow {
+  id: string;
+  name: string;
+  type: '內部' | '外部';
+  title: string | null;
+  department: string | null;
+  specialty: string | null;
+  phone: string | null;
+  email: string | null;
+  certifications: string | null;
+  total_courses: number | null;
+}
+
+export interface StudentRow {
+  id: string;
+  name: string;
+  birthday: string | null;
+  department: string | null;
+  title: string | null;
+  employee_id: string | null;
+  join_date: string | null;
+  email: string | null;
+}
+
+export interface AnnouncementRow {
+  id: string;
+  title: string;
+  content: string;
+  category: string | null;
+  published_at: string;
+  published_by: string | null;
+  pinned: boolean;
+  important: boolean;
+  target_audience: '全體員工' | '主管以上' | '特定部門';
+  target_dept: string | null;
+  require_confirmation: boolean;
+  expires_at: string | null;
+  edit_history: unknown;
+  deleted_at: string | null;
+  deleted_by: string | null;
+}
+
+export interface AnnouncementReadRow {
+  announcement_id: string;
+  user_id: string;
+  read_at: string;
+}
+
+export interface NotifCenterNotificationRow {
+  id: string;
+  type: 'deadline_reminder' | 'review_result' | 'new_course' | 'system';
+  is_read: boolean;
+  title: string;
+  message: string;
+  time: string | null;
+  course: string | null;
+  urgent: boolean;
+}
+
 export type TrainingType = '內訓' | '外訓';
 export type TtqsPhase = 'Plan' | 'Design' | 'Do' | 'Review' | 'Action';
 export type PhysicalRecordStatus = '待審核' | '已審核' | '已存檔';

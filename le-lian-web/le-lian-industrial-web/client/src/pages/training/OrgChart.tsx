@@ -1,20 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Plus, X, Trash2 } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-import { usePersistentState } from '../../lib/persistentState';
 import { LEADERSHIP, ORG_UNITS, type OrgMember, type OrgUnit } from '../../data/orgChartData';
-
-interface OrgSnapshot {
-  id: string;
-  monthLabel: string;
-  createdAt: string;
-  createdBy: string;
-  leadership: OrgMember[];
-  units: OrgUnit[];
-}
+import { loadSnapshots, saveSnapshots, type OrgSnapshot } from '../../lib/orgSnapshotStorage';
 
 // 以現有組織表資料作為第一份（基準）組織圖快照；之後 HR/管理員可於介面新增「當月組織圖」快照，
-// 不會更動 orgChartData.ts 內既有的手動維護資料。
+// 不會更動 orgChartData.ts 內既有的手動維護資料。本基準快照已預先寫入 Supabase（見 schema.sql 種子資料），
+// 此處保留作為資料尚未載入完成前的暫時顯示內容。
 const BASE_SNAPSHOT: OrgSnapshot = {
   id: 'snap-base',
   monthLabel: '2026年06月',
@@ -72,7 +64,15 @@ export default function OrgChart() {
   const { currentUser } = useTrainingAuth();
   const isHRAdmin = !!currentUser && ['admin', 'hr'].includes(currentUser.role);
 
-  const [snapshots, setSnapshots] = usePersistentState<OrgSnapshot[]>('orgSnapshots', [BASE_SNAPSHOT]);
+  const [snapshots, setSnapshots] = useState<OrgSnapshot[]>([BASE_SNAPSHOT]);
+  const [snapshotsLoaded, setSnapshotsLoaded] = useState(false);
+  useEffect(() => {
+    loadSnapshots().then((data) => {
+      setSnapshots(data.length > 0 ? data : [BASE_SNAPSHOT]);
+      setSnapshotsLoaded(true);
+    });
+  }, []);
+  useEffect(() => { if (snapshotsLoaded) saveSnapshots(snapshots); }, [snapshots, snapshotsLoaded]);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(BASE_SNAPSHOT.id);
   const selectedSnapshot = snapshots.find((s) => s.id === selectedSnapshotId) || snapshots[snapshots.length - 1];
 

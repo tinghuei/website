@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import {
   BookOpen,
@@ -147,10 +147,14 @@ export default function TrainingAdminPanel() {
   const isHrOnly = currentUser?.role === 'hr';
   const visibleTabs = ADMIN_TABS.filter(t => !currentUser || t.roles.includes(currentUser.role));
   const [activeTab, setActiveTab] = useState(isHrOnly ? 'jobtitles' : 'courses');
-  const [jobTitles, setJobTitles] = useState<JobTitleCategory[]>(() => loadJobTitles());
+  const [jobTitles, setJobTitles] = useState<JobTitleCategory[]>([]);
   const [newJobTitle, setNewJobTitle] = useState('');
   const [newJobTitleCategory, setNewJobTitleCategory] = useState(JOB_TITLE_CATEGORY_OPTIONS[0]);
   const [jobTitlesSaved, setJobTitlesSaved] = useState(false);
+
+  useEffect(() => {
+    loadJobTitles().then(setJobTitles);
+  }, []);
 
   function updateJobTitleCategory(id: string, category: string) {
     setJobTitles(prev => {

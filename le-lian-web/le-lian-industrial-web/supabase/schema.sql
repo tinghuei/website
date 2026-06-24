@@ -335,6 +335,93 @@ create table if not exists public.employee_job_descriptions (
   uploaded_at timestamptz not null default now()
 );
 
+-- 職位專屬職能評分標準覆寫（員工上傳工作職能書後，依職位名稱建立的客製化標準；
+-- 與 position_competency_frameworks 不同，後者為靜態 iCAP 框架，前者為使用者操作產生的覆寫資料）
+create table if not exists public.position_competency_overrides (
+  position_name text primary key,
+  department text,
+  job_summary text,
+  competencies jsonb,
+  standards jsonb,
+  training_needs text[],
+  source_file_name text,
+  updated_at timestamptz not null default now()
+);
+
+-- 組織圖月份快照（HR/管理員可於組織圖頁面新增「當月組織圖」，不影響 orgChartData.ts 既有基準資料）
+create table if not exists public.org_snapshots (
+  id text primary key,
+  month_label text not null,
+  created_date text not null,
+  created_by text,
+  leadership jsonb not null default '[]',
+  units jsonb not null default '[]'
+);
+
+-- 講師名冊 / 學員名冊
+create table if not exists public.instructors (
+  id text primary key,
+  name text not null,
+  type text not null check (type in ('內部', '外部')),
+  title text,
+  department text,
+  specialty text,
+  phone text,
+  email text,
+  certifications text,
+  total_courses integer default 0
+);
+
+create table if not exists public.students (
+  id text primary key,
+  name text not null,
+  birthday text,
+  department text,
+  title text,
+  employee_id text,
+  join_date text,
+  email text
+);
+
+-- 公司公告（通知中心）
+create table if not exists public.announcements (
+  id text primary key,
+  title text not null,
+  content text not null,
+  category text,
+  published_at text not null,
+  published_by text,
+  pinned boolean default false,
+  important boolean default false,
+  target_audience text not null default '全體員工' check (target_audience in ('全體員工', '主管以上', '特定部門')),
+  target_dept text,
+  require_confirmation boolean default false,
+  expires_at text,
+  edit_history jsonb not null default '[]',
+  deleted_at text,
+  deleted_by text
+);
+
+-- 公告已讀紀錄（員工自行確認已讀時新增一筆，與 announcements 分開以便個別授權）
+create table if not exists public.announcement_reads (
+  announcement_id text not null references public.announcements(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  primary key (announcement_id, user_id)
+);
+
+-- 通知中心個人通知（截止提醒、審核結果等）
+create table if not exists public.notif_center_notifications (
+  id text primary key,
+  type text not null check (type in ('deadline_reminder', 'review_result', 'new_course', 'system')),
+  is_read boolean default false,
+  title text not null,
+  message text not null,
+  time text,
+  course text,
+  urgent boolean default false
+);
+
 -- ============================================================================
 -- 6. TTQS 訓練紀錄、例行課程與其附屬表單（課程設計、成效追蹤、申請異動、執行檢查）
 -- ============================================================================
@@ -682,6 +769,13 @@ alter table public.org_leadership enable row level security;
 alter table public.job_title_categories enable row level security;
 alter table public.position_competency_frameworks enable row level security;
 alter table public.employee_job_descriptions enable row level security;
+alter table public.position_competency_overrides enable row level security;
+alter table public.org_snapshots enable row level security;
+alter table public.instructors enable row level security;
+alter table public.students enable row level security;
+alter table public.announcements enable row level security;
+alter table public.announcement_reads enable row level security;
+alter table public.notif_center_notifications enable row level security;
 alter table public.physical_records enable row level security;
 alter table public.physical_record_photos enable row level security;
 alter table public.routine_courses enable row level security;
@@ -817,13 +911,67 @@ drop policy if exists position_competency_frameworks_write on public.position_co
 create policy position_competency_frameworks_write on public.position_competency_frameworks for all to authenticated
   using (public.is_hr_or_admin()) with check (public.is_hr_or_admin());
 
--- employee_job_descriptions：本人或 hr/admin 可讀，僅 hr/admin 可寫
+-- employee_job_descriptions：本人或 manager/hr/admin 可讀；本人可上傳/更新自己的記錄，manager/hr/admin 可管理全部（含刪除他人記錄）
 drop policy if exists employee_job_descriptions_select on public.employee_job_descriptions;
 create policy employee_job_descriptions_select on public.employee_job_descriptions for select to authenticated
-  using (user_id = auth.uid() or public.is_hr_or_admin());
+  using (user_id = auth.uid() or public.is_manager_or_above());
 drop policy if exists employee_job_descriptions_write on public.employee_job_descriptions;
 create policy employee_job_descriptions_write on public.employee_job_descriptions for all to authenticated
+  using (user_id = auth.uid() or public.is_manager_or_above())
+  with check (user_id = auth.uid() or public.is_manager_or_above());
+
+-- position_competency_overrides：全員可讀；任何員工上傳工作職能書套用後皆可建立/更新/還原（無職位歸屬限制，與現行 UI 行為一致）
+drop policy if exists position_competency_overrides_select on public.position_competency_overrides;
+create policy position_competency_overrides_select on public.position_competency_overrides for select to authenticated using (true);
+drop policy if exists position_competency_overrides_write on public.position_competency_overrides;
+create policy position_competency_overrides_write on public.position_competency_overrides for all to authenticated
+  using (true) with check (true);
+
+-- org_snapshots：全員可讀，僅 hr/admin 可新增當月組織圖
+drop policy if exists org_snapshots_select on public.org_snapshots;
+create policy org_snapshots_select on public.org_snapshots for select to authenticated using (true);
+drop policy if exists org_snapshots_write on public.org_snapshots;
+create policy org_snapshots_write on public.org_snapshots for all to authenticated
   using (public.is_hr_or_admin()) with check (public.is_hr_or_admin());
+
+-- instructors / students（講師、學員名冊）：全員可讀，manager/hr/admin 可維護
+drop policy if exists instructors_select on public.instructors;
+create policy instructors_select on public.instructors for select to authenticated using (true);
+drop policy if exists instructors_write on public.instructors;
+create policy instructors_write on public.instructors for all to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
+drop policy if exists students_select on public.students;
+create policy students_select on public.students for select to authenticated using (true);
+drop policy if exists students_write on public.students;
+create policy students_write on public.students for all to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
+-- announcements：全員可讀，manager/hr/admin 可建立/編輯/刪除/還原
+drop policy if exists announcements_select on public.announcements;
+create policy announcements_select on public.announcements for select to authenticated using (true);
+drop policy if exists announcements_write on public.announcements;
+create policy announcements_write on public.announcements for all to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
+-- announcement_reads：全員可讀（顯示已讀名單），僅本人可新增自己的已讀紀錄
+drop policy if exists announcement_reads_select on public.announcement_reads;
+create policy announcement_reads_select on public.announcement_reads for select to authenticated using (true);
+drop policy if exists announcement_reads_insert on public.announcement_reads;
+create policy announcement_reads_insert on public.announcement_reads for insert to authenticated
+  with check (user_id = auth.uid());
+
+-- notif_center_notifications：全員可讀，可標記已讀；僅 manager/hr/admin 可新增/刪除（系統性通知）
+drop policy if exists notif_center_notifications_select on public.notif_center_notifications;
+create policy notif_center_notifications_select on public.notif_center_notifications for select to authenticated using (true);
+drop policy if exists notif_center_notifications_update on public.notif_center_notifications;
+create policy notif_center_notifications_update on public.notif_center_notifications for update to authenticated using (true);
+drop policy if exists notif_center_notifications_insert on public.notif_center_notifications;
+create policy notif_center_notifications_insert on public.notif_center_notifications for insert to authenticated
+  with check (public.is_manager_or_above());
+drop policy if exists notif_center_notifications_delete on public.notif_center_notifications;
+create policy notif_center_notifications_delete on public.notif_center_notifications for delete to authenticated
+  using (public.is_manager_or_above());
 
 -- physical_records / routine_courses：全員可讀（既有儀表板邏輯），建立者或 hr/admin 可寫
 drop policy if exists physical_records_select on public.physical_records;
@@ -1000,4 +1148,67 @@ values
   ('00000000-0000-4000-8000-000000000011', '新進員工職前訓練', '人資安全組', '2026-01-08', 8, '全體員工', array['王小明', '陳美玲'], '公司規定、安全衛生、基本作業流程介紹', 'completed', '人資安全組'),
   ('00000000-0000-4000-8000-000000000012', '品質管理基礎訓練', '品保課 張品管', '2026-02-10', 3, '品保課', array['陳小芳', '林志偉', '黃品質'], '品質管理基本概念、ISO 9001要求、不合格品處理', 'approved', '張品管')
 on conflict (id) do nothing;
-  );
+
+insert into public.job_title_categories (id, title, category) values
+  ('jt1', '董事長', '高階主管'),
+  ('jt2', '副董事長', '高階主管'),
+  ('jt3', '總經理', '高階主管'),
+  ('jt4', '執行副總', '高階主管'),
+  ('jt5', '經理', '管理職'),
+  ('jt6', '副理', '管理職'),
+  ('jt7', '課長', '管理職'),
+  ('jt8', '副課長', '管理職'),
+  ('jt9', '組長', '管理職'),
+  ('jt10', '副組長', '管理職'),
+  ('jt11', '代理組長', '管理職'),
+  ('jt12', '班長', '管理職'),
+  ('jt13', '工程師', '專業職'),
+  ('jt14', '專員', '專業職'),
+  ('jt15', '助理專員', '專業職'),
+  ('jt16', '秘書', '專業職'),
+  ('jt17', '助理', '技術/作業職'),
+  ('jt18', '技術員', '技術/作業職'),
+  ('jt19', '堆高機員', '技術/作業職'),
+  ('jt20', '作業員', '技術/作業職'),
+  ('jt21', '司機', '技術/作業職'),
+  ('jt22', '清潔員', '技術/作業職')
+on conflict (id) do nothing;
+
+insert into public.instructors (id, name, type, title, department, specialty, phone, email, certifications, total_courses) values
+  ('ins1', '林志明', '內部', '安全衛生管理師', '管理部', '職業安全衛生、緊急應變', '分機 201', 'lin.zhiming@company.com', '甲種職業安全衛生業務主管', 12),
+  ('ins2', '李大偉', '內部', '品保工程師', '品保課', 'ISO 9001、品質管制', '分機 305', 'li.dawei@company.com', 'ISO 9001 內部稽核員', 8),
+  ('ins3', '陳美惠', '外部', '顧問講師', '外聘', '精實生產、IE工業工程', '0912-345-678', 'chen.mh@consulting.com', 'Lean Six Sigma Black Belt', 5),
+  ('ins4', '王建志', '外部', '職業訓練師', '外聘', 'ERP系統、資訊管理', '0923-456-789', 'wang.jz@erp-training.com', '職業訓練師證照', 3)
+on conflict (id) do nothing;
+
+insert into public.students (id, name, birthday, department, title, employee_id, join_date, email) values
+  ('stu1', '王小明', '1990-05-15', '組裝一線', '作業員', 'E001', '2020-03-01', 'wang.xm@company.com'),
+  ('stu2', '陳美玲', '1988-11-20', '品保課', '品管員', 'E002', '2019-07-15', 'chen.ml@company.com'),
+  ('stu3', '李大明', '1985-03-08', '品保課', '高級工程師', 'M001', '2018-01-10', 'li.dm@company.com'),
+  ('stu4', '林志偉', '1992-07-22', '品保課', '工程師', 'E003', '2021-08-01', 'lin.zw@company.com'),
+  ('stu5', '黃雅婷', '1991-12-30', '工程課', '技術員', 'E004', '2022-02-14', 'huang.yt@company.com'),
+  ('stu6', '劉俊達', '1993-04-18', '生管課', '作業員', 'E005', '2022-09-01', 'liu.jd@company.com')
+on conflict (id) do nothing;
+
+insert into public.announcements (id, title, content, category, published_at, published_by, pinned, important, target_audience, target_dept, require_confirmation, edit_history) values
+  ('ann1', '2026年度訓練計畫公告', '本年度教育訓練計畫已完成制定，請各部門主管配合督導同仁於規定期限前完成各項必修課程。年度訓練時數目標：每人至少 24 小時。詳細課程排程請參閱年度計劃頁面。', '訓練通知', '2026-01-02', 'Admin管理員', true, true, '全體員工', null, false, '[{"action":"建立","editedAt":"2026-01-02","editedBy":"Admin管理員","summary":"初始公告建立"}]'),
+  ('ann2', '消防演練日期通知 (2026/01/15)', '本次全廠消防演練訂於 2026 年 1 月 15 日（三）下午 14:00 舉行，請全體員工屆時配合疏散至指定集合點。各部門主管請事先完成人員清點分組，疏散路線圖已張貼於各樓層。', '安全通知', '2026-01-08', 'Admin管理員', true, true, '全體員工', null, false, '[{"action":"建立","editedAt":"2026-01-08","editedBy":"Admin管理員","summary":"初始公告建立"}]'),
+  ('ann3', 'ERP系統導入訓練班開放報名', '企業全流程 ERP 管理需求課程（上）（下）已開放報名，課程分為兩梯次於 3 月份舉行，每梯次限額 30 名。有意參加之同仁請於 2/28 前向人資部報名，額滿為止。', '課程公告', '2026-02-01', 'Admin管理員', false, false, '全體員工', null, false, '[{"action":"建立","editedAt":"2026-02-01","editedBy":"Admin管理員","summary":"初始公告建立"}]'),
+  ('ann4', '年度績效考核制度更新說明', '2026 年起績效考核制度調整，訓練時數完成率納入個人年度考核項目，佔比 10%。年度訓練時數未達標者，考核等級上限為「符合預期」，敬請各同仁重視教育訓練參與。', '人事公告', '2026-01-15', 'Admin管理員', false, false, '全體員工', null, false, '[{"action":"建立","editedAt":"2026-01-15","editedBy":"Admin管理員","summary":"初始公告建立"}]'),
+  ('ann5', '外語職場溝通課程開放申請補助', '「外語職場溝通（英語）」課程符合勞動力發展署補助資格，員工可申請最高 70% 訓練費用補助。有意報名者請攜帶在職證明向人資部辦理，申請截止日期為 2026/11/30。', '補助資訊', '2026-01-20', 'Admin管理員', false, false, '全體員工', null, false, '[{"action":"建立","editedAt":"2026-01-20","editedBy":"Admin管理員","summary":"初始公告建立"}]')
+on conflict (id) do nothing;
+
+insert into public.notif_center_notifications (id, type, is_read, title, message, time, course, urgent) values
+  ('n1', 'deadline_reminder', false, '⚠️ 課程截止提醒', '「職業安全衛生法規研習」課程將於3天後(2026/06/01)截止，請盡速完成！', '10分鐘前', '職業安全衛生法規研習', true),
+  ('n2', 'review_result', false, '✅ 審核通過通知', '您在「5S推行與現場管理」課程的心得報告已由李主管審核通過，完訓證書已發放！', '2小時前', '5S推行與現場管理', false),
+  ('n3', 'new_course', false, '🆕 新課程上架', '「智慧製造導入實務」新課程已上架，此為您部門的必修課程，請於2026/07/31前完成。', '昨天', '智慧製造導入實務', false),
+  ('n4', 'review_result', true, '❌ 審核退回通知', '您在「iCAP職能評估實務」課程的心得報告被退回，原因：內容過於簡短，請補充實務應用說明後重新提交。', '3天前', 'iCAP職能評估實務', false),
+  ('n5', 'system', true, '📢 系統公告', '年度訓練計畫填報截止日期：2026年10月31日。請各部門主管於期限前完成次年度訓練計畫提報。', '1週前', null, false),
+  ('n6', 'deadline_reminder', true, '⏰ 年度訓練時數提醒', '您今年度已完成18小時訓練，距離年度目標24小時尚差6小時，請加油！', '2週前', null, false)
+on conflict (id) do nothing;
+
+insert into public.org_snapshots (id, month_label, created_date, created_by, leadership, units) values
+  ('snap-base', '2026年06月', '2026-04-29', '系統初始資料',
+   '[{"name":"鄭訊仁","title":"董事長"},{"name":"鄭景文","title":"副董事長"},{"name":"鄭景文","title":"總經理（兼任）"},{"name":"陳佳倫","title":"執行副總"}]',
+   '[{"id":"exec-office","name":"總經理室","parentId":null,"members":[{"name":"龔淑屏","title":"副理"},{"name":"黃士咸","title":"工程師"},{"name":"尹詩婷","title":"秘書"},{"name":"李庭慧","title":"秘書"}]},{"id":"qa-section","name":"品保課","parentId":null,"members":[{"name":"朱冠瑋","title":"課長"},{"name":"周清家","title":"專員"},{"name":"詹郁瑛","title":"助理"},{"name":"林依婷","title":"助理"}]},{"id":"facility-office","name":"廠務室","parentId":null,"members":[{"name":"曾夷璋","title":"工程師"},{"name":"陳家祥","title":"工程師"}]},{"id":"sales-dept","name":"營業部","parentId":null,"members":[{"name":"劉祐誠","title":"經理"}]},{"id":"sales-section","name":"業務課","parentId":"sales-dept","members":[{"name":"伍珈妏","title":"組長"},{"name":"鄭淑鐘","title":"助理專員"},{"name":"陳玉慧","title":"助理"}]},{"id":"rd-section","name":"研發課","parentId":"sales-dept","members":[{"name":"白惇維","title":"課長"},{"name":"王柳琦","title":"工程師"},{"name":"徐惠蘭","title":"助理"},{"name":"沙洋","title":"技術員"}]},{"id":"admin-dept","name":"管理部","parentId":null,"members":[{"name":"龔淑屏","title":"副理（兼任）"}]},{"id":"general-affairs-section","name":"總務課","parentId":"admin-dept","members":[]},{"id":"general-affairs-group","name":"庶務組","parentId":"general-affairs-section","members":[{"name":"張歆發","title":"專員"},{"name":"陳明軒","title":"專員"},{"name":"陳福郎","title":"助理專員"},{"name":"吳桂傳","title":"清潔員"}]},{"id":"hr-safety-group","name":"人資安全組","parentId":"general-affairs-section","members":[{"name":"蔡欣芸","title":"助理"},{"name":"吳彥儀","title":"助理"}]},{"id":"finance-dept","name":"財務部","parentId":null,"members":[{"name":"蔡佳玲","title":"副理"}]},{"id":"accounting","name":"會計","parentId":"finance-dept","members":[{"name":"孫素琴","title":"專員"},{"name":"王美婷","title":"專員"}]},{"id":"cashier","name":"出納","parentId":"finance-dept","members":[{"name":"陳盈如","title":"專員"}]},{"id":"facility-dept","name":"廠務部","parentId":null,"members":[{"name":"蔡政博","title":"經理"}]},{"id":"materials-section","name":"資材課","parentId":"facility-dept","members":[{"name":"王秀雯","title":"副課長"}]},{"id":"materials-mgmt-group","name":"物管組","parentId":"materials-section","members":[{"name":"石容萱","title":"組長"},{"name":"尤念萍","title":"班長"},{"name":"林德和","title":"堆高機員"},{"name":"羅文彥","title":"堆高機員"},{"name":"楊心恬","title":"助理"},{"name":"陳巧倫","title":"助理"}]},{"id":"production-control-group","name":"生管組","parentId":"materials-section","members":[{"name":"郭惠婷","title":"助理"}]},{"id":"purchasing-group","name":"採購組","parentId":"materials-section","members":[{"name":"陳惠萍","title":"組長"},{"name":"潘佩君","title":"班長（育嬰）"},{"name":"陳孟怡","title":"助理"},{"name":"尤宏菜","title":"助理"},{"name":"陳孟靖","title":"助理"}]},{"id":"warehouse-group","name":"成倉組","parentId":"materials-section","members":[{"name":"曾泓霖","title":"組長"},{"name":"戴禮璇","title":"助理"},{"name":"凍馬拉","title":"作業員"},{"name":"沙達","title":"作業員"},{"name":"張永盛","title":"司機"}]},{"id":"manufacturing-section","name":"製造課","parentId":"facility-dept","members":[{"name":"楊玉鳳","title":"副課長"},{"name":"鍾欣芳","title":"助理"}]},{"id":"press-group","name":"沖床組","parentId":"manufacturing-section","memberCount":"共6人","members":[{"name":"覃麗婷","title":"副組長"},{"name":"李昱鉉","title":"班長"}]},{"id":"processing-group","name":"加工組","parentId":"manufacturing-section","memberCount":"共27人","members":[{"name":"白惇維","title":"代理組長"},{"name":"沙空","title":"班長"},{"name":"張舒涵","title":"班長"},{"name":"阮祝玲","title":"班長"}]},{"id":"painting-group","name":"塗裝組","parentId":"manufacturing-section","memberCount":"共19人","members":[{"name":"郭惠燕","title":"組長"},{"name":"周安琪","title":"班長"},{"name":"威耐","title":"班長"}]},{"id":"group-1","name":"組一組","parentId":"manufacturing-section","memberCount":"共13人","members":[{"name":"陳怡珊","title":"副組長"}]},{"id":"group-2","name":"組二組","parentId":"manufacturing-section","memberCount":"共13人","members":[{"name":"吉宗達","title":"組長"},{"name":"紀佩欣","title":"副組長"}]},{"id":"group-3","name":"組三組","parentId":"manufacturing-section","memberCount":"共10人","members":[{"name":"蔡坤惠","title":"班長"}]}]')
+on conflict (id) do nothing;

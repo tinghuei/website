@@ -609,7 +609,7 @@ export default function FeeAgreement() {
   if (isEmployee) {
     return (
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <style>{`@media print { body > * { display: none !important; } #fee-agreement-print { display: block !important; position: fixed; top: 0; left: 0; width: 100%; } }`}</style>
+        <style>{`@media print { body * { visibility: hidden; } #fee-agreement-print, #fee-agreement-print * { visibility: visible; } #fee-agreement-print { position: absolute; top: 0; left: 0; width: 100%; } }`}</style>
 
         {signingAgreement && (
           <SigningModal
@@ -706,7 +706,7 @@ export default function FeeAgreement() {
   // ── Admin / manager / HR view ─────────────────────────────────────────────────
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <style>{`@media print { body > * { display: none !important; } #fee-agreement-print { display: block !important; position: fixed; top: 0; left: 0; width: 100%; } }`}</style>
+      <style>{`@media print { body * { visibility: hidden; } #fee-agreement-print, #fee-agreement-print * { visibility: visible; } #fee-agreement-print { position: absolute; top: 0; left: 0; width: 100%; } }`}</style>
 
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">

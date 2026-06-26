@@ -975,47 +975,39 @@ drop policy if exists notif_center_notifications_delete on public.notif_center_n
 create policy notif_center_notifications_delete on public.notif_center_notifications for delete to authenticated
   using (public.is_manager_or_above());
 
--- physical_records / routine_courses：全員可讀（既有儀表板邏輯），建立者或 hr/admin 可寫
+-- physical_records / routine_courses：全員可讀（既有儀表板邏輯），manager/hr/admin 可寫
+-- （此頁面路由本身僅限 manager/hr/admin 存取，UI 未再依「建立者本人」進一步限制；
+--  routine_courses.submitted_by 為建立者顯示名稱文字快照，非帳號 id，故不能與 auth.uid() 比較）
 drop policy if exists physical_records_select on public.physical_records;
 create policy physical_records_select on public.physical_records for select to authenticated using (true);
 drop policy if exists physical_records_write on public.physical_records;
 create policy physical_records_write on public.physical_records for all to authenticated
-  using (created_by = auth.uid() or public.is_hr_or_admin())
-  with check (created_by = auth.uid() or public.is_hr_or_admin());
+  using (public.is_manager_or_above())
+  with check (public.is_manager_or_above());
 
 drop policy if exists physical_record_photos_select on public.physical_record_photos;
 create policy physical_record_photos_select on public.physical_record_photos for select to authenticated using (true);
 drop policy if exists physical_record_photos_write on public.physical_record_photos;
 create policy physical_record_photos_write on public.physical_record_photos for all to authenticated
-  using (
-    exists (
-      select 1 from public.physical_records r
-      where r.id = record_id and (r.created_by = auth.uid() or public.is_hr_or_admin())
-    )
-  );
+  using (public.is_manager_or_above());
 
 drop policy if exists routine_courses_select on public.routine_courses;
 create policy routine_courses_select on public.routine_courses for select to authenticated using (true);
 drop policy if exists routine_courses_insert on public.routine_courses;
 create policy routine_courses_insert on public.routine_courses for insert to authenticated
-  with check (submitted_by = auth.uid() or public.is_manager_or_above());
+  with check (public.is_manager_or_above());
 drop policy if exists routine_courses_update on public.routine_courses;
 create policy routine_courses_update on public.routine_courses for update to authenticated
-  using (submitted_by = auth.uid() or public.is_hr_or_admin());
+  using (public.is_manager_or_above());
 drop policy if exists routine_courses_delete on public.routine_courses;
 create policy routine_courses_delete on public.routine_courses for delete to authenticated
-  using (public.is_admin());
+  using (public.is_manager_or_above());
 
 drop policy if exists routine_course_photos_select on public.routine_course_photos;
 create policy routine_course_photos_select on public.routine_course_photos for select to authenticated using (true);
 drop policy if exists routine_course_photos_write on public.routine_course_photos;
 create policy routine_course_photos_write on public.routine_course_photos for all to authenticated
-  using (
-    exists (
-      select 1 from public.routine_courses c
-      where c.id = routine_course_id and (c.submitted_by = auth.uid() or public.is_hr_or_admin())
-    )
-  );
+  using (public.is_manager_or_above());
 
 -- course_designs / effectiveness_trackings / training_applications：全員可讀
 -- （簽核欄位完整性由 trigger 把關，這裡只控制誰能新增/編輯整張表單）
@@ -1026,8 +1018,7 @@ create policy course_designs_insert on public.course_designs for insert to authe
 drop policy if exists course_designs_update on public.course_designs;
 create policy course_designs_update on public.course_designs for update to authenticated using (true);
 drop policy if exists course_designs_delete on public.course_designs;
-create policy course_designs_delete on public.course_designs for delete to authenticated
-  using (public.is_admin());
+create policy course_designs_delete on public.course_designs for delete to authenticated using (true);
 
 drop policy if exists effectiveness_trackings_select on public.effectiveness_trackings;
 create policy effectiveness_trackings_select on public.effectiveness_trackings for select to authenticated using (true);
@@ -1042,8 +1033,7 @@ create policy training_applications_insert on public.training_applications for i
 drop policy if exists training_applications_update on public.training_applications;
 create policy training_applications_update on public.training_applications for update to authenticated using (true);
 drop policy if exists training_applications_delete on public.training_applications;
-create policy training_applications_delete on public.training_applications for delete to authenticated
-  using (public.is_admin());
+create policy training_applications_delete on public.training_applications for delete to authenticated using (true);
 
 -- pre_class_checks：依需求「執行檢查表只有人資跟管理員可以看到，主管不需要看到」
 drop policy if exists pre_class_checks_select on public.pre_class_checks;
@@ -1057,7 +1047,7 @@ create policy pre_class_checks_update on public.pre_class_checks for update to a
   using (public.is_hr_or_admin());
 drop policy if exists pre_class_checks_delete on public.pre_class_checks;
 create policy pre_class_checks_delete on public.pre_class_checks for delete to authenticated
-  using (public.is_admin());
+  using (public.is_hr_or_admin());
 
 -- fee_agreements：受文員工本人、寄送者、hr/admin 可讀；簽署完整性由 trigger 把關
 drop policy if exists fee_agreements_select on public.fee_agreements;

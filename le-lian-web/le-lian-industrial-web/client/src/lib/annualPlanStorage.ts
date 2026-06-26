@@ -1,7 +1,10 @@
 // 年度訓練計畫「歷年成效查詢」送審簽核、CF-CM-HR-39 差異分析表資料存取，存於 Supabase，所有裝置同步。
 
 import { supabase } from './supabaseClient';
-import type { AnnualSignoffRow, VarianceEntryRow, VarianceSignoffRow } from '../types/database';
+import type {
+  AnnualSignoffRow, VarianceEntryRow, VarianceSignoffRow,
+  AnnualPlanRowRow, AnnualPlanCourseTrackRow,
+} from '../types/database';
 
 export interface AnnualSignoff {
   hrSubmittedAt: string | null;
@@ -192,4 +195,102 @@ export async function saveVarianceSignoff(signoff: VarianceSignoff): Promise<voi
     admin_date: signoff.adminDate,
     applicant_unit: signoff.applicantUnit,
   });
+}
+
+// ── 年度訓練計畫制定：課程清單 ──────────────────────────────────────────────
+export interface PlanRow {
+  id: number;
+  name: string;
+  cat: string;
+  type: string;
+  target: string;
+  hours: number;
+  month: string;
+  count: number;
+  note: string;
+}
+
+function mapPlanRow(row: AnnualPlanRowRow): PlanRow {
+  return {
+    id: row.id,
+    name: row.name,
+    cat: row.cat,
+    type: row.type,
+    target: row.target,
+    hours: row.hours,
+    month: row.month,
+    count: row.count,
+    note: row.note,
+  };
+}
+
+function planRowToRow(r: PlanRow) {
+  return {
+    id: r.id,
+    name: r.name,
+    cat: r.cat,
+    type: r.type,
+    target: r.target,
+    hours: r.hours,
+    month: r.month,
+    count: r.count,
+    note: r.note,
+  };
+}
+
+export async function loadAnnualPlanRows(): Promise<PlanRow[]> {
+  const { data, error } = await supabase.from('annual_plan_rows').select('*').order('id');
+  if (error || !data) return [];
+  return (data as AnnualPlanRowRow[]).map(mapPlanRow);
+}
+
+export async function saveAnnualPlanRows(list: PlanRow[]): Promise<void> {
+  const ids = list.map((r) => r.id);
+  const { data: existing } = await supabase.from('annual_plan_rows').select('id');
+  const toDelete = (existing || []).map((r) => r.id as number).filter((id) => !ids.includes(id));
+  if (toDelete.length) {
+    await supabase.from('annual_plan_rows').delete().in('id', toDelete);
+  }
+  if (list.length) {
+    await supabase.from('annual_plan_rows').upsert(list.map(planRowToRow));
+  }
+}
+
+// ── 年度訓練計畫「課程執行追蹤」(TTQS執行追蹤) ─────────────────────────────
+export interface CourseTrackItem {
+  name: string;
+  planned: number;
+  actual: number;
+  rate: number;
+  participants: number;
+  status: string;
+}
+
+function mapCourseTrackRow(row: AnnualPlanCourseTrackRow): CourseTrackItem {
+  return {
+    name: row.name,
+    planned: row.planned,
+    actual: row.actual,
+    rate: row.rate,
+    participants: row.participants,
+    status: row.status,
+  };
+}
+
+export async function loadCourseTrack(): Promise<CourseTrackItem[]> {
+  const { data, error } = await supabase.from('annual_plan_course_track').select('*');
+  if (error || !data) return [];
+  return (data as AnnualPlanCourseTrackRow[]).map(mapCourseTrackRow);
+}
+
+export async function saveCourseTrack(list: CourseTrackItem[]): Promise<void> {
+  const names = list.map((r) => r.name);
+  const { data: existing } = await supabase.from('annual_plan_course_track').select('name');
+  const toDelete = (existing || []).map((r) => r.name as string).filter((name) => !names.includes(name));
+  if (toDelete.length) {
+    await supabase.from('annual_plan_course_track').delete().in('name', toDelete);
+  }
+  if (list.length) {
+    await supabase.from('annual_plan_course_track').upsert(list);
+  }
 }

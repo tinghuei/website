@@ -836,6 +836,29 @@ create table if not exists public.training_roi_inputs (
   constraint training_roi_inputs_singleton check (id)
 );
 
+-- 年度訓練計畫制定（AnnualTrainingPlan 第一個 tab：課程清單，全域單一份，不分年度/部門）
+create table if not exists public.annual_plan_rows (
+  id bigint primary key,
+  name text not null default '',
+  cat text not null default '',
+  type text not null default '內部',
+  target text not null default '',
+  hours numeric not null default 0,
+  month text not null default '1月',
+  count integer not null default 0,
+  note text not null default ''
+);
+
+-- 年度訓練計畫「課程執行追蹤」（TTQS執行追蹤 tab）
+create table if not exists public.annual_plan_course_track (
+  name text primary key,
+  planned numeric not null default 0,
+  actual numeric not null default 0,
+  rate numeric not null default 0,
+  participants integer not null default 0,
+  status text not null default '未開始'
+);
+
 -- ============================================================================
 -- 9. 啟用 RLS
 -- ============================================================================
@@ -877,6 +900,8 @@ alter table public.annual_signoffs enable row level security;
 alter table public.variance_entries enable row level security;
 alter table public.variance_signoffs enable row level security;
 alter table public.training_roi_inputs enable row level security;
+alter table public.annual_plan_rows enable row level security;
+alter table public.annual_plan_course_track enable row level security;
 
 -- ============================================================================
 -- 10. RLS 政策
@@ -1214,6 +1239,20 @@ drop policy if exists training_roi_inputs_write on public.training_roi_inputs;
 create policy training_roi_inputs_write on public.training_roi_inputs for all to authenticated
   using (public.current_role_name() in ('vp', 'admin')) with check (public.current_role_name() in ('vp', 'admin'));
 
+-- annual_plan_rows / annual_plan_course_track：年度訓練計畫課程清單與執行追蹤，
+-- 全員可讀，新增/編輯/刪除僅 hr/admin 可操作（與前端 canManagePlan 一致）
+drop policy if exists annual_plan_rows_select on public.annual_plan_rows;
+create policy annual_plan_rows_select on public.annual_plan_rows for select to authenticated using (true);
+drop policy if exists annual_plan_rows_write on public.annual_plan_rows;
+create policy annual_plan_rows_write on public.annual_plan_rows for all to authenticated
+  using (public.is_hr_or_admin()) with check (public.is_hr_or_admin());
+
+drop policy if exists annual_plan_course_track_select on public.annual_plan_course_track;
+create policy annual_plan_course_track_select on public.annual_plan_course_track for select to authenticated using (true);
+drop policy if exists annual_plan_course_track_write on public.annual_plan_course_track;
+create policy annual_plan_course_track_write on public.annual_plan_course_track for all to authenticated
+  using (public.is_hr_or_admin()) with check (public.is_hr_or_admin());
+
 -- ============================================================================
 -- 11. Storage buckets（影片、教材、簽名、訓練照片）
 -- ============================================================================
@@ -1342,3 +1381,101 @@ on conflict (year) do nothing;
 insert into public.variance_signoffs (id) values (true) on conflict (id) do nothing;
 
 insert into public.training_roi_inputs (id) values (true) on conflict (id) do nothing;
+
+insert into public.annual_plan_rows (id, name, cat, type, target, hours, month, count, note) values
+  (1, '防災研習--消防演練', '行政職能課程', '內部', '全體員工', 2, '1月', 120, '全員必修，每年定期辦理'),
+  (2, '性別平等教育', '法令規範課程', '外部', '全體員工', 3, '1月', 120, '全員必修'),
+  (3, '資訊安全教育(防毒防駭)', '法令規範課程', '內部', '全體員工', 3, '1月', 120, '全員必修'),
+  (4, '一般安全衛生教育訓練', '法令規範課程', '外部', '全體員工', 6, '1月', 120, '法定必修 6 小時'),
+  (5, '新進員工職前訓練', '行政職能課程', '內部', '新進員工', 4, '1月', 12, '每月新進報到時辦理'),
+  (6, '勞動法令與人資管理實務', '法令規範課程', '外部', '主管/人資安全組', 6, '2月', 25, '人資安全組主辦'),
+  (7, '危險物品與化學品管理', '法令規範課程', '外部', '廠務部/塗裝組', 6, '2月', 30, 'GHS/SDS 法規必修'),
+  (8, '品質意識與客戶滿意', '核心提升課程', '內部', '全體員工', 4, '2月', 120, '全員品質意識強化'),
+  (9, '文件管理與記錄控制', '核心提升課程', '內部', '全體員工', 3, '2月', 80, 'ISO 文件系統必修'),
+  (10, '企業全流程認識ERP管理需求(上)', '核心提升課程', '外部', '全體員工', 6, '3月', 60, 'ERP 系統導入前置訓練'),
+  (11, '企業全流程認識ERP管理需求(下)', '核心提升課程', '外部', '全體員工', 6, '3月', 60, 'ERP 系統導入前置訓練'),
+  (12, '沖壓作業安全與品質管理', '專業領域課程', '內部', '沖床組', 7, '3月', 15, '沖床組必修'),
+  (13, '焊接技術與安全操作', '專業領域課程', '內部', '組一組/組二組/組三組', 7, '3月', 20, '焊接人員必修'),
+  (14, 'AI超能主管班：從溝通到帶人決策全方位', '核心提升課程', '外部', '主管級以上', 7, '4月', 20, '外部公開班'),
+  (15, 'AI職場加速術：高效應用×智慧工作', '核心提升課程', '外部', '全體員工', 14, '4月', 60, '14 小時 2 天課程'),
+  (16, 'ISO 9001/IATF 16949量測儀器校正管理實務', '專業領域課程', '外部', '品保課', 7, '4月', 10, '品保課必修'),
+  (17, 'QCC品管圈實務培訓班', '核心提升課程', '外部', '品保課/製造課', 6, '4月', 20, '品管改善活動'),
+  (18, '採購成本分析與價格管理', '核心提升課程', '外部', '管理部/業務課', 6, '5月', 15, '採購人員進修'),
+  (19, '顧客應對與客訴處理技巧', '核心提升課程', '外部', '業務課/營業部', 6, '5月', 15, '業務人員必修'),
+  (20, '塗裝品質管理與作業規範', '專業領域課程', '內部', '塗裝組', 7, '5月', 12, '塗裝組必修'),
+  (21, '精密加工技術與品質提升', '專業領域課程', '內部', '加工組', 7, '5月', 10, '加工組技術提升'),
+  (22, '生產線效率改善與精實生產', '核心提升課程', '外部', '製造課/廠務部', 6, '6月', 30, '精實生產推廣'),
+  (23, '財務報表解讀與管理應用', '核心提升課程', '外部', '財務部/主管', 7, '6月', 15, '財務管理必修'),
+  (24, '模具設計與製造實務', '專業領域課程', '外部', '研發課', 14, '7月', 8, '研發課專業培訓'),
+  (25, '設備保養與預防維護(TPM)', '核心提升課程', '外部', '廠務部/廠務室', 6, '7月', 20, 'TPM 全員保全'),
+  (26, 'Solid Edge 3D繪圖', '專業領域課程', '外部', '研發課', 32, '8月', 5, '32 小時 4 天課程'),
+  (27, '成本控制與預算管理實務', '核心提升課程', '外部', '財務部/各部主管', 6, '8月', 20, '預算管理必修'),
+  (28, 'IATF 16949內部稽核員訓練', '專業領域課程', '外部', '品保課', 7, '8月', 5, '稽核員認證'),
+  (29, '倉儲管理與物料控制', '核心提升課程', '外部', '管理部/廠務室', 6, '8月', 15, '物料管理提升'),
+  (30, '環境管理與節能減碳', '法令規範課程', '外部', '廠務部/全體', 6, '9月', 40, 'ISO 14001 相關'),
+  (31, '供應鏈管理與供應商評鑑', '核心提升課程', '外部', '管理部/業務課', 7, '9月', 12, '供應商管理強化'),
+  (32, '生產排程與物料需求計畫(MRP)', '專業領域課程', '外部', '製造課/管理部', 6, '9月', 12, 'MRP 系統導入'),
+  (33, '統計分析與SPC管制圖應用', '專業領域課程', '外部', '品保課/製造課', 7, '10月', 15, '統計品管必修'),
+  (34, '船務工作完全通', '核心提升課程', '外部', '業務課', 14, '10月', 8, '外貿業務必修 14H'),
+  (35, '職業安全衛生管理系統(ISO 45001)', '專業領域課程', '外部', '人資安全組', 7, '10月', 5, 'ISO 45001 認證'),
+  (36, '問題分析與解決(8D/A3方法論)', '核心提升課程', '外部', '全體員工', 6, '11月', 40, '問題解決方法論'),
+  (37, '數位轉型與工業4.0應用', '核心提升課程', '外部', '全體員工', 6, '11月', 50, '數位化知識普及'),
+  (38, '績效管理制度與面談技巧', '核心提升課程', '外部', '各部門主管', 6, '11月', 20, '主管管理技能'),
+  (39, '新進主管培訓班', '核心提升課程', '外部', '新任主管', 7, '12月', 8, '新任主管必修'),
+  (40, '領導力發展與高效團隊建立', '核心提升課程', '外部', '各部門主管', 7, '12月', 20, '領導力強化'),
+  (41, '簡報設計與表達技巧', '核心提升課程', '外部', '全體員工', 6, '12月', 40, '表達技巧提升'),
+  (42, '外語職場溝通（英語）', '核心提升課程', '外部', '業務課/研發課', 7, '12月', 15, '國際業務必修'),
+  (43, '跨部門溝通與協作', '核心提升課程', '外部', '全體員工', 6, '12月', 50, '跨部門合作'),
+  (44, '業務談判與銷售策略', '核心提升課程', '外部', '業務課/營業部', 7, '12月', 12, '業務技能提升'),
+  (45, '辦公室安全衛生與工作環境改善', '法令規範課程', '內部', '辦公室人員', 3, '12月', 40, '辦公室職安必修'),
+  (46, '專案管理基礎(PMP概念)', '核心提升課程', '外部', '工程師/主管', 7, '12月', 15, '專案管理能力')
+on conflict (id) do nothing;
+
+insert into public.annual_plan_course_track (name, planned, actual, rate, participants, status) values
+  ('防災研習--消防演練', 2, 2, 100, 118, '已完成'),
+  ('性別平等教育', 3, 3, 100, 120, '已完成'),
+  ('資訊安全教育(防毒防駭)', 3, 3, 100, 115, '已完成'),
+  ('一般安全衛生教育訓練', 6, 6, 100, 120, '已完成'),
+  ('新進員工職前訓練', 4, 4, 100, 10, '已完成'),
+  ('勞動法令與人資管理實務', 6, 6, 100, 24, '已完成'),
+  ('危險物品與化學品管理', 6, 6, 100, 28, '已完成'),
+  ('品質意識與客戶滿意', 4, 4, 100, 118, '已完成'),
+  ('文件管理與記錄控制', 3, 3, 100, 78, '已完成'),
+  ('企業全流程認識ERP管理需求(上)', 6, 6, 100, 58, '已完成'),
+  ('企業全流程認識ERP管理需求(下)', 6, 5, 83, 55, '已完成'),
+  ('沖壓作業安全與品質管理', 7, 7, 100, 14, '已完成'),
+  ('焊接技術與安全操作', 7, 5, 71, 18, '已完成'),
+  ('AI超能主管班：從溝通到帶人決策全方位', 7, 7, 100, 18, '已完成'),
+  ('AI職場加速術：高效應用×智慧工作', 14, 14, 100, 55, '已完成'),
+  ('ISO 9001/IATF 16949量測儀器校正管理實務', 7, 7, 100, 9, '已完成'),
+  ('QCC品管圈實務培訓班', 6, 6, 100, 18, '已完成'),
+  ('採購成本分析與價格管理', 6, 4, 67, 12, '進行中'),
+  ('顧客應對與客訴處理技巧', 6, 3, 50, 10, '進行中'),
+  ('塗裝品質管理與作業規範', 7, 7, 100, 11, '已完成'),
+  ('精密加工技術與品質提升', 7, 6, 86, 9, '進行中'),
+  ('生產線效率改善與精實生產', 6, 0, 0, 0, '未開始'),
+  ('財務報表解讀與管理應用', 7, 0, 0, 0, '未開始'),
+  ('模具設計與製造實務', 14, 0, 0, 0, '未開始'),
+  ('設備保養與預防維護(TPM)', 6, 0, 0, 0, '未開始'),
+  ('Solid Edge 3D繪圖', 32, 0, 0, 0, '未開始'),
+  ('成本控制與預算管理實務', 6, 0, 0, 0, '未開始'),
+  ('IATF 16949內部稽核員訓練', 7, 0, 0, 0, '未開始'),
+  ('倉儲管理與物料控制', 6, 0, 0, 0, '未開始'),
+  ('環境管理與節能減碳', 6, 0, 0, 0, '未開始'),
+  ('供應鏈管理與供應商評鑑', 7, 0, 0, 0, '未開始'),
+  ('生產排程與物料需求計畫(MRP)', 6, 0, 0, 0, '未開始'),
+  ('統計分析與SPC管制圖應用', 7, 0, 0, 0, '未開始'),
+  ('船務工作完全通', 14, 0, 0, 0, '未開始'),
+  ('職業安全衛生管理系統(ISO 45001)', 7, 0, 0, 0, '未開始'),
+  ('問題分析與解決(8D/A3方法論)', 6, 0, 0, 0, '未開始'),
+  ('數位轉型與工業4.0應用', 6, 0, 0, 0, '未開始'),
+  ('績效管理制度與面談技巧', 6, 0, 0, 0, '未開始'),
+  ('新進主管培訓班', 7, 0, 0, 0, '未開始'),
+  ('領導力發展與高效團隊建立', 7, 0, 0, 0, '未開始'),
+  ('簡報設計與表達技巧', 6, 0, 0, 0, '未開始'),
+  ('外語職場溝通（英語）', 7, 0, 0, 0, '未開始'),
+  ('跨部門溝通與協作', 6, 0, 0, 0, '未開始'),
+  ('業務談判與銷售策略', 7, 0, 0, 0, '未開始'),
+  ('辦公室安全衛生與工作環境改善', 3, 0, 0, 0, '未開始'),
+  ('專案管理基礎(PMP概念)', 7, 0, 0, 0, '未開始')
+on conflict (name) do nothing;

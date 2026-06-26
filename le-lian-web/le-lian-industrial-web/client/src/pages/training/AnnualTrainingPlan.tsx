@@ -10,82 +10,13 @@ import {
   loadAnnualSignoffs, saveAnnualSignoff, EMPTY_SIGNOFF, type AnnualSignoff,
   loadVarianceEntries, saveVarianceEntries, loadVarianceSignoff, saveVarianceSignoff,
   EMPTY_VARIANCE_SIGNOFF, type VarianceEntry, type VarianceSignoff,
+  loadAnnualPlanRows, saveAnnualPlanRows, type PlanRow,
+  loadCourseTrack, saveCourseTrack, type CourseTrackItem,
 } from '../../lib/annualPlanStorage';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-interface PlanRow {
-  id: number;
-  name: string;
-  cat: string;
-  type: string;
-  target: string;
-  hours: number;
-  month: string;
-  count: number;
-  note: string;
-}
-
-// ── 年度計畫真實課程資料 (來源：公司課程地圖 Excel) ────────────────────────────
-const INITIAL_ROWS: PlanRow[] = [
-  // ── Q1 一月 ─────────────────────────────────────────────────────────────────
-  { id: 1,  name: '防災研習--消防演練',                       cat: '行政職能課程', type: '內部', target: '全體員工',           hours: 2,  month: '1月',  count: 120, note: '全員必修，每年定期辦理' },
-  { id: 2,  name: '性別平等教育',                             cat: '法令規範課程', type: '外部', target: '全體員工',           hours: 3,  month: '1月',  count: 120, note: '全員必修' },
-  { id: 3,  name: '資訊安全教育(防毒防駭)',                   cat: '法令規範課程', type: '內部', target: '全體員工',           hours: 3,  month: '1月',  count: 120, note: '全員必修' },
-  { id: 4,  name: '一般安全衛生教育訓練',                     cat: '法令規範課程', type: '外部', target: '全體員工',           hours: 6,  month: '1月',  count: 120, note: '法定必修 6 小時' },
-  { id: 5,  name: '新進員工職前訓練',                         cat: '行政職能課程', type: '內部', target: '新進員工',           hours: 4,  month: '1月',  count: 12,  note: '每月新進報到時辦理' },
-  // ── Q1 二月 ─────────────────────────────────────────────────────────────────
-  { id: 6,  name: '勞動法令與人資管理實務',                   cat: '法令規範課程', type: '外部', target: '主管/人資安全組',     hours: 6,  month: '2月',  count: 25,  note: '人資安全組主辦' },
-  { id: 7,  name: '危險物品與化學品管理',                     cat: '法令規範課程', type: '外部', target: '廠務部/塗裝組',       hours: 6,  month: '2月',  count: 30,  note: 'GHS/SDS 法規必修' },
-  { id: 8,  name: '品質意識與客戶滿意',                       cat: '核心提升課程', type: '內部', target: '全體員工',           hours: 4,  month: '2月',  count: 120, note: '全員品質意識強化' },
-  { id: 9,  name: '文件管理與記錄控制',                       cat: '核心提升課程', type: '內部', target: '全體員工',           hours: 3,  month: '2月',  count: 80,  note: 'ISO 文件系統必修' },
-  // ── Q1 三月 ─────────────────────────────────────────────────────────────────
-  { id: 10, name: '企業全流程認識ERP管理需求(上)',             cat: '核心提升課程', type: '外部', target: '全體員工',           hours: 6,  month: '3月',  count: 60,  note: 'ERP 系統導入前置訓練' },
-  { id: 11, name: '企業全流程認識ERP管理需求(下)',             cat: '核心提升課程', type: '外部', target: '全體員工',           hours: 6,  month: '3月',  count: 60,  note: 'ERP 系統導入前置訓練' },
-  { id: 12, name: '沖壓作業安全與品質管理',                   cat: '專業領域課程', type: '內部', target: '沖床組',             hours: 7,  month: '3月',  count: 15,  note: '沖床組必修' },
-  { id: 13, name: '焊接技術與安全操作',                       cat: '專業領域課程', type: '內部', target: '組一組/組二組/組三組', hours: 7,  month: '3月',  count: 20,  note: '焊接人員必修' },
-  // ── Q2 四月 ─────────────────────────────────────────────────────────────────
-  { id: 14, name: 'AI超能主管班：從溝通到帶人決策全方位',     cat: '核心提升課程', type: '外部', target: '主管級以上',         hours: 7,  month: '4月',  count: 20,  note: '外部公開班' },
-  { id: 15, name: 'AI職場加速術：高效應用×智慧工作',          cat: '核心提升課程', type: '外部', target: '全體員工',           hours: 14, month: '4月',  count: 60,  note: '14 小時 2 天課程' },
-  { id: 16, name: 'ISO 9001/IATF 16949量測儀器校正管理實務',  cat: '專業領域課程', type: '外部', target: '品保課',             hours: 7,  month: '4月',  count: 10,  note: '品保課必修' },
-  { id: 17, name: 'QCC品管圈實務培訓班',                      cat: '核心提升課程', type: '外部', target: '品保課/製造課',       hours: 6,  month: '4月',  count: 20,  note: '品管改善活動' },
-  // ── Q2 五月 ─────────────────────────────────────────────────────────────────
-  { id: 18, name: '採購成本分析與價格管理',                   cat: '核心提升課程', type: '外部', target: '管理部/業務課',       hours: 6,  month: '5月',  count: 15,  note: '採購人員進修' },
-  { id: 19, name: '顧客應對與客訴處理技巧',                   cat: '核心提升課程', type: '外部', target: '業務課/營業部',       hours: 6,  month: '5月',  count: 15,  note: '業務人員必修' },
-  { id: 20, name: '塗裝品質管理與作業規範',                   cat: '專業領域課程', type: '內部', target: '塗裝組',             hours: 7,  month: '5月',  count: 12,  note: '塗裝組必修' },
-  { id: 21, name: '精密加工技術與品質提升',                   cat: '專業領域課程', type: '內部', target: '加工組',             hours: 7,  month: '5月',  count: 10,  note: '加工組技術提升' },
-  // ── Q2 六月 ─────────────────────────────────────────────────────────────────
-  { id: 22, name: '生產線效率改善與精實生產',                 cat: '核心提升課程', type: '外部', target: '製造課/廠務部',       hours: 6,  month: '6月',  count: 30,  note: '精實生產推廣' },
-  { id: 23, name: '財務報表解讀與管理應用',                   cat: '核心提升課程', type: '外部', target: '財務部/主管',         hours: 7,  month: '6月',  count: 15,  note: '財務管理必修' },
-  // ── Q3 七月 ─────────────────────────────────────────────────────────────────
-  { id: 24, name: '模具設計與製造實務',                       cat: '專業領域課程', type: '外部', target: '研發課',             hours: 14, month: '7月',  count: 8,   note: '研發課專業培訓' },
-  { id: 25, name: '設備保養與預防維護(TPM)',                   cat: '核心提升課程', type: '外部', target: '廠務部/廠務室',       hours: 6,  month: '7月',  count: 20,  note: 'TPM 全員保全' },
-  // ── Q3 八月 ─────────────────────────────────────────────────────────────────
-  { id: 26, name: 'Solid Edge 3D繪圖',                        cat: '專業領域課程', type: '外部', target: '研發課',             hours: 32, month: '8月',  count: 5,   note: '32 小時 4 天課程' },
-  { id: 27, name: '成本控制與預算管理實務',                   cat: '核心提升課程', type: '外部', target: '財務部/各部主管',     hours: 6,  month: '8月',  count: 20,  note: '預算管理必修' },
-  { id: 28, name: 'IATF 16949內部稽核員訓練',                  cat: '專業領域課程', type: '外部', target: '品保課',             hours: 7,  month: '8月',  count: 5,   note: '稽核員認證' },
-  { id: 29, name: '倉儲管理與物料控制',                       cat: '核心提升課程', type: '外部', target: '管理部/廠務室',       hours: 6,  month: '8月',  count: 15,  note: '物料管理提升' },
-  // ── Q3 九月 ─────────────────────────────────────────────────────────────────
-  { id: 30, name: '環境管理與節能減碳',                       cat: '法令規範課程', type: '外部', target: '廠務部/全體',         hours: 6,  month: '9月',  count: 40,  note: 'ISO 14001 相關' },
-  { id: 31, name: '供應鏈管理與供應商評鑑',                   cat: '核心提升課程', type: '外部', target: '管理部/業務課',       hours: 7,  month: '9月',  count: 12,  note: '供應商管理強化' },
-  { id: 32, name: '生產排程與物料需求計畫(MRP)',               cat: '專業領域課程', type: '外部', target: '製造課/管理部',       hours: 6,  month: '9月',  count: 12,  note: 'MRP 系統導入' },
-  // ── Q4 十月 ─────────────────────────────────────────────────────────────────
-  { id: 33, name: '統計分析與SPC管制圖應用',                  cat: '專業領域課程', type: '外部', target: '品保課/製造課',       hours: 7,  month: '10月', count: 15,  note: '統計品管必修' },
-  { id: 34, name: '船務工作完全通',                           cat: '核心提升課程', type: '外部', target: '業務課',             hours: 14, month: '10月', count: 8,   note: '外貿業務必修 14H' },
-  { id: 35, name: '職業安全衛生管理系統(ISO 45001)',           cat: '專業領域課程', type: '外部', target: '人資安全組',         hours: 7,  month: '10月', count: 5,   note: 'ISO 45001 認證' },
-  // ── Q4 十一月 ───────────────────────────────────────────────────────────────
-  { id: 36, name: '問題分析與解決(8D/A3方法論)',               cat: '核心提升課程', type: '外部', target: '全體員工',           hours: 6,  month: '11月', count: 40,  note: '問題解決方法論' },
-  { id: 37, name: '數位轉型與工業4.0應用',                    cat: '核心提升課程', type: '外部', target: '全體員工',           hours: 6,  month: '11月', count: 50,  note: '數位化知識普及' },
-  { id: 38, name: '績效管理制度與面談技巧',                   cat: '核心提升課程', type: '外部', target: '各部門主管',         hours: 6,  month: '11月', count: 20,  note: '主管管理技能' },
-  // ── Q4 十二月 ───────────────────────────────────────────────────────────────
-  { id: 39, name: '新進主管培訓班',                           cat: '核心提升課程', type: '外部', target: '新任主管',           hours: 7,  month: '12月', count: 8,   note: '新任主管必修' },
-  { id: 40, name: '領導力發展與高效團隊建立',                 cat: '核心提升課程', type: '外部', target: '各部門主管',         hours: 7,  month: '12月', count: 20,  note: '領導力強化' },
-  { id: 41, name: '簡報設計與表達技巧',                       cat: '核心提升課程', type: '外部', target: '全體員工',           hours: 6,  month: '12月', count: 40,  note: '表達技巧提升' },
-  { id: 42, name: '外語職場溝通（英語）',                     cat: '核心提升課程', type: '外部', target: '業務課/研發課',       hours: 7,  month: '12月', count: 15,  note: '國際業務必修' },
-  { id: 43, name: '跨部門溝通與協作',                         cat: '核心提升課程', type: '外部', target: '全體員工',           hours: 6,  month: '12月', count: 50,  note: '跨部門合作' },
-  { id: 44, name: '業務談判與銷售策略',                       cat: '核心提升課程', type: '外部', target: '業務課/營業部',       hours: 7,  month: '12月', count: 12,  note: '業務技能提升' },
-  { id: 45, name: '辦公室安全衛生與工作環境改善',             cat: '法令規範課程', type: '內部', target: '辦公室人員',         hours: 3,  month: '12月', count: 40,  note: '辦公室職安必修' },
-  { id: 46, name: '專案管理基礎(PMP概念)',                    cat: '核心提升課程', type: '外部', target: '工程師/主管',         hours: 7,  month: '12月', count: 15,  note: '專案管理能力' },
-];
+// 年度計畫真實課程資料 (來源：公司課程地圖 Excel) 已搬移至 Supabase 種子資料
+// (supabase/schema.sql 的 annual_plan_rows / annual_plan_course_track)，
+// 畫面初始值改由 loadAnnualPlanRows() / loadCourseTrack() 從資料庫載入。
 
 // 計畫時數 = 各月合計 (Q1:1月18+2月19+3月26 / Q2:4月34+5月26+6月13 / Q3:7月20+8月51+9月19 / Q4:10月28+11月18+12月50)
 const MONTHLY_DATA = [
@@ -101,55 +32,6 @@ const MONTHLY_DATA = [
   { month: '10月', 計畫: 28, 實際: 0  },
   { month: '11月', 計畫: 18, 實際: 0  },
   { month: '12月', 計畫: 50, 實際: 0  },
-];
-
-const COURSE_TRACK = [
-  { name: '防災研習--消防演練',                     planned: 2,  actual: 2,  rate: 100, participants: 118, status: '已完成' },
-  { name: '性別平等教育',                           planned: 3,  actual: 3,  rate: 100, participants: 120, status: '已完成' },
-  { name: '資訊安全教育(防毒防駭)',                 planned: 3,  actual: 3,  rate: 100, participants: 115, status: '已完成' },
-  { name: '一般安全衛生教育訓練',                   planned: 6,  actual: 6,  rate: 100, participants: 120, status: '已完成' },
-  { name: '新進員工職前訓練',                       planned: 4,  actual: 4,  rate: 100, participants: 10,  status: '已完成' },
-  { name: '勞動法令與人資管理實務',                 planned: 6,  actual: 6,  rate: 100, participants: 24,  status: '已完成' },
-  { name: '危險物品與化學品管理',                   planned: 6,  actual: 6,  rate: 100, participants: 28,  status: '已完成' },
-  { name: '品質意識與客戶滿意',                     planned: 4,  actual: 4,  rate: 100, participants: 118, status: '已完成' },
-  { name: '文件管理與記錄控制',                     planned: 3,  actual: 3,  rate: 100, participants: 78,  status: '已完成' },
-  { name: '企業全流程認識ERP管理需求(上)',           planned: 6,  actual: 6,  rate: 100, participants: 58,  status: '已完成' },
-  { name: '企業全流程認識ERP管理需求(下)',           planned: 6,  actual: 5,  rate: 83,  participants: 55,  status: '已完成' },
-  { name: '沖壓作業安全與品質管理',                 planned: 7,  actual: 7,  rate: 100, participants: 14,  status: '已完成' },
-  { name: '焊接技術與安全操作',                     planned: 7,  actual: 5,  rate: 71,  participants: 18,  status: '已完成' },
-  { name: 'AI超能主管班：從溝通到帶人決策全方位',   planned: 7,  actual: 7,  rate: 100, participants: 18,  status: '已完成' },
-  { name: 'AI職場加速術：高效應用×智慧工作',        planned: 14, actual: 14, rate: 100, participants: 55,  status: '已完成' },
-  { name: 'ISO 9001/IATF 16949量測儀器校正管理實務', planned: 7,  actual: 7,  rate: 100, participants: 9,   status: '已完成' },
-  { name: 'QCC品管圈實務培訓班',                    planned: 6,  actual: 6,  rate: 100, participants: 18,  status: '已完成' },
-  { name: '採購成本分析與價格管理',                 planned: 6,  actual: 4,  rate: 67,  participants: 12,  status: '進行中' },
-  { name: '顧客應對與客訴處理技巧',                 planned: 6,  actual: 3,  rate: 50,  participants: 10,  status: '進行中' },
-  { name: '塗裝品質管理與作業規範',                 planned: 7,  actual: 7,  rate: 100, participants: 11,  status: '已完成' },
-  { name: '精密加工技術與品質提升',                 planned: 7,  actual: 6,  rate: 86,  participants: 9,   status: '進行中' },
-  { name: '生產線效率改善與精實生產',               planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '財務報表解讀與管理應用',                 planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '模具設計與製造實務',                     planned: 14, actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '設備保養與預防維護(TPM)',                 planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: 'Solid Edge 3D繪圖',                      planned: 32, actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '成本控制與預算管理實務',                 planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: 'IATF 16949內部稽核員訓練',               planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '倉儲管理與物料控制',                     planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '環境管理與節能減碳',                     planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '供應鏈管理與供應商評鑑',                 planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '生產排程與物料需求計畫(MRP)',             planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '統計分析與SPC管制圖應用',                planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '船務工作完全通',                         planned: 14, actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '職業安全衛生管理系統(ISO 45001)',         planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '問題分析與解決(8D/A3方法論)',             planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '數位轉型與工業4.0應用',                  planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '績效管理制度與面談技巧',                 planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '新進主管培訓班',                         planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '領導力發展與高效團隊建立',               planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '簡報設計與表達技巧',                     planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '外語職場溝通（英語）',                   planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '跨部門溝通與協作',                       planned: 6,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '業務談判與銷售策略',                     planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '辦公室安全衛生與工作環境改善',           planned: 3,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
-  { name: '專案管理基礎(PMP概念)',                  planned: 7,  actual: 0,  rate: 0,   participants: 0,   status: '未開始' },
 ];
 
 // Course map data
@@ -192,10 +74,10 @@ const GRADE_ROWS = Object.keys(COURSE_MAP);
 const COMPETENCY_COLS = ['核心職能', '專業技能', '法規遵循', '管理能力', '安全衛生'];
 
 // ── XLSX export functions ──────────────────────────────────────────────────────
-function exportAnnualPlan() {
+function exportAnnualPlan(planRows: PlanRow[]) {
   const wb = XLSX.utils.book_new();
   const header = ['序號', '課程名稱', '訓練類別', '訓練類型', '目標對象', '計畫時數', '預定月份', '預計人數', '備註'];
-  const rows = INITIAL_ROWS.map((r) => [r.id, r.name, r.cat, r.type, r.target, r.hours, r.month, r.count, r.note]);
+  const rows = planRows.map((r) => [r.id, r.name, r.cat, r.type, r.target, r.hours, r.month, r.count, r.note]);
   const data = [
     ['樂聯工業股份有限公司 - 年度教育訓練計畫', '', '', '', '', '', '', '', ''],
     ['計畫年度:', '2026年', '', '製作單位:', '人力資源課', '', '', '', ''],
@@ -822,17 +704,23 @@ const HISTORY_YEAR_OPTIONS = ['2024', '2025', '2026', '2027'];
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AnnualTrainingPlan() {
   const { courses, enrollments, currentUser, auditLogs, addAuditLog, clearAuditLogsByActions } = useTrainingAuth();
-  const [courseTrack, setCourseTrack] = useState(() => [...COURSE_TRACK]);
+  const [courseTrack, setCourseTrack] = useState<CourseTrackItem[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   const [year, setYear] = useState('2026');
   const [department, setDepartment] = useState('製造課');
   const [planStatus, setPlanStatus] = useState<'草稿' | '提交' | '核准'>('草稿');
-  const [rows, setRows] = useState<PlanRow[]>(INITIAL_ROWS);
+  const [rows, setRows] = useState<PlanRow[]>([]);
+  const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [savedMsg, setSavedMsg] = useState('');
   const [showQuarterlyModal, setShowQuarterlyModal] = useState(false);
   const [editingRow, setEditingRow] = useState<PlanRow | null>(null);
   const [showPlanHistory, setShowPlanHistory] = useState(false);
   const [clearHistoryStep, setClearHistoryStep] = useState<1 | 2 | null>(null);
+
+  useEffect(() => {
+    loadAnnualPlanRows().then(setRows);
+    loadCourseTrack().then(setCourseTrack);
+  }, []);
 
   // 人資與管理員可編輯／刪除年度計畫課程；一般主管僅可檢視
   const canManagePlan = currentUser?.role === 'admin' || currentUser?.role === 'hr';
@@ -977,9 +865,11 @@ export default function AnnualTrainingPlan() {
   }
 
   function handleAddRow() {
-    const newId = Math.max(...rows.map((r) => r.id)) + 1;
+    const newId = (rows.length ? Math.max(...rows.map((r) => r.id)) : 0) + 1;
     const newRow: PlanRow = { id: newId, name: '', cat: '', type: '內部', target: '', hours: 0, month: '1月', count: 0, note: '' };
-    setRows((prev) => [...prev, newRow]);
+    const updated = [...rows, newRow];
+    setRows(updated);
+    saveAnnualPlanRows(updated);
     if (currentUser) {
       addAuditLog(currentUser.id, '新增年度訓練計畫課程', `#${newId}`, '新增一筆空白課程，待填寫並編輯');
     }
@@ -987,7 +877,9 @@ export default function AnnualTrainingPlan() {
 
   function handleSaveEditedRow(updated: PlanRow) {
     const before = rows.find((r) => r.id === updated.id);
-    setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    const updatedRows = rows.map((r) => (r.id === updated.id ? updated : r));
+    setRows(updatedRows);
+    saveAnnualPlanRows(updatedRows);
     if (currentUser) {
       addAuditLog(
         currentUser.id,
@@ -1001,10 +893,28 @@ export default function AnnualTrainingPlan() {
 
   function handleDeleteRow(row: PlanRow) {
     if (!window.confirm(`確定要刪除「${row.name || '#' + row.id}」課程嗎？此操作無法復原。`)) return;
-    setRows((prev) => prev.filter((r) => r.id !== row.id));
+    const updated = rows.filter((r) => r.id !== row.id);
+    setRows(updated);
+    saveAnnualPlanRows(updated);
+    setSelectedRowIds((prev) => prev.filter((id) => id !== row.id));
     if (currentUser) {
       addAuditLog(currentUser.id, '刪除年度訓練計畫課程', row.name || `#${row.id}`, `類別：${row.cat}／預定月份：${row.month}／時數：${row.hours}h`);
     }
+  }
+
+  function handleDeleteSelectedRows() {
+    const targets = rows.filter((r) => selectedRowIds.includes(r.id));
+    if (targets.length === 0) return;
+    if (!window.confirm(`確定要刪除選取的 ${targets.length} 門課程嗎？此操作無法復原。`)) return;
+    const updated = rows.filter((r) => !selectedRowIds.includes(r.id));
+    setRows(updated);
+    saveAnnualPlanRows(updated);
+    if (currentUser) {
+      targets.forEach((row) => {
+        addAuditLog(currentUser.id, '刪除年度訓練計畫課程', row.name || `#${row.id}`, `類別：${row.cat}／預定月份：${row.month}／時數：${row.hours}h`);
+      });
+    }
+    setSelectedRowIds([]);
   }
 
   function handleSave() {
@@ -1116,10 +1026,31 @@ export default function AnnualTrainingPlan() {
 
           {/* Table */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            {canManagePlan && selectedRowIds.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-100">
+                <span className="text-xs font-medium text-red-700">已選取 {selectedRowIds.length} 門課程</span>
+                <button
+                  onClick={handleDeleteSelectedRows}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors"
+                >
+                  <Trash2 size={13} /> 刪除選取
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    {canManagePlan && (
+                      <th className="px-3 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={rows.length > 0 && selectedRowIds.length === rows.length}
+                          onChange={(e) => setSelectedRowIds(e.target.checked ? rows.map((r) => r.id) : [])}
+                          className="rounded border-gray-300"
+                        />
+                      </th>
+                    )}
                     {['#', '課程名稱', '類別', '訓練類型', '目標對象', '時數', '預定月份', '預計人數', '備註', ...(canManagePlan ? ['操作'] : [])].map((h) => (
                       <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
                     ))}
@@ -1128,6 +1059,18 @@ export default function AnnualTrainingPlan() {
                 <tbody className="divide-y divide-gray-100">
                   {rows.map((row, idx) => (
                     <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                      {canManagePlan && (
+                        <td className="px-3 py-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedRowIds.includes(row.id)}
+                            onChange={(e) => setSelectedRowIds((prev) => (
+                              e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id)
+                            ))}
+                            className="rounded border-gray-300"
+                          />
+                        </td>
+                      )}
                       <td className="px-3 py-2.5 text-gray-400 text-xs">{idx + 1}</td>
                       <td className="px-3 py-2.5 font-medium text-gray-900 min-w-[160px]">{row.name}</td>
                       <td className="px-3 py-2.5">
@@ -1347,7 +1290,11 @@ export default function AnnualTrainingPlan() {
                       <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => setCourseTrack(prev => prev.filter(r => r.name !== row.name))}
+                          onClick={() => {
+                            const updated = courseTrack.filter(r => r.name !== row.name);
+                            setCourseTrack(updated);
+                            saveCourseTrack(updated);
+                          }}
                           className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="從追蹤清單中移除"
                         >
@@ -1478,7 +1425,7 @@ export default function AnnualTrainingPlan() {
               {
                 label: '年度教育訓練計畫表',
                 desc: '匯出完整年度計畫，含課程清單、時數、月份與人數規劃',
-                action: exportAnnualPlan,
+                action: () => exportAnnualPlan(rows),
                 color: 'bg-blue-600 hover:bg-blue-700',
               },
               {
@@ -1805,8 +1752,9 @@ export default function AnnualTrainingPlan() {
         <QuarterlyModal
           onClose={() => setShowQuarterlyModal(false)}
           onConfirm={(yr, q, courses) => {
+            const baseId = rows.length ? Math.max(...rows.map((r) => r.id)) : 0;
             const newRows = courses.map((c, i) => ({
-              id: Math.max(...rows.map((r) => r.id)) + i + 1,
+              id: baseId + i + 1,
               name: c,
               cat: '法規遵循',
               type: '內部',
@@ -1816,7 +1764,9 @@ export default function AnnualTrainingPlan() {
               count: 50,
               note: `${yr}年${q}必修`,
             }));
-            setRows((prev) => [...prev, ...newRows]);
+            const updated = [...rows, ...newRows];
+            setRows(updated);
+            saveAnnualPlanRows(updated);
             setSavedMsg(`已新增 ${courses.length} 門季度必修課程`);
             setTimeout(() => setSavedMsg(''), 2500);
           }}

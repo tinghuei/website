@@ -517,3 +517,24 @@ export interface TrainingRoiInputsRow {
   safety_improvement_savings: number;
   efficiency_gains: number;
 }
+
+export interface AnnualPlanRowRow {
+  id: number;
+  name: string;
+  cat: string;
+  type: string;
+  target: string;
+  hours: number;
+  month: string;
+  count: number;
+  note: string;
+}
+
+export interface AnnualPlanCourseTrackRow {
+  name: string;
+  planned: number;
+  actual: number;
+  rate: number;
+  participants: number;
+  status: string;
+}

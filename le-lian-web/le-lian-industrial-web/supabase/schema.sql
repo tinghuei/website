@@ -12,30 +12,6 @@ create extension if not exists pgcrypto;
 -- 1. 共用 Helper Functions（角色判斷）
 -- ============================================================================
 
-create or replace function public.current_role_name()
-returns text
-language sql stable security definer set search_path = public as $$
-  select role from public.profiles where id = auth.uid();
-$$;
-
-create or replace function public.is_admin()
-returns boolean
-language sql stable security definer set search_path = public as $$
-  select coalesce((select role = 'admin' from public.profiles where id = auth.uid()), false);
-$$;
-
-create or replace function public.is_hr_or_admin()
-returns boolean
-language sql stable security definer set search_path = public as $$
-  select coalesce((select role in ('admin', 'hr') from public.profiles where id = auth.uid()), false);
-$$;
-
-create or replace function public.is_manager_or_above()
-returns boolean
-language sql stable security definer set search_path = public as $$
-  select coalesce((select role in ('admin', 'hr', 'manager', 'vp') from public.profiles where id = auth.uid()), false);
-$$;
-
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -65,6 +41,32 @@ create table if not exists public.profiles (
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();
+
+-- 角色判斷 helper functions（須在 profiles 資料表建立後才能定義 ——
+-- language sql 函式在建立時就會檢查所參照的資料表是否存在，與 plpgsql 不同）
+create or replace function public.current_role_name()
+returns text
+language sql stable security definer set search_path = public as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select role = 'admin' from public.profiles where id = auth.uid()), false);
+$$;
+
+create or replace function public.is_hr_or_admin()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select role in ('admin', 'hr') from public.profiles where id = auth.uid()), false);
+$$;
+
+create or replace function public.is_manager_or_above()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select role in ('admin', 'hr', 'manager', 'vp') from public.profiles where id = auth.uid()), false);
+$$;
 
 -- 管理員「新增使用者」時，當下還沒有對應的 auth.users 帳號（不能在前端用
 -- service_role 直接建立登入帳號），所以先把指派的角色/部門暫存在這裡，

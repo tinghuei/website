@@ -98,7 +98,7 @@ begin
     new.id,
     coalesce(inv.name, new.raw_user_meta_data->>'name', new.email),
     new.email,
-    coalesce(inv.role, new.raw_user_meta_data->>'role', 'employee'),
+    coalesce(inv.role, 'employee'),
     coalesce(inv.department, new.raw_user_meta_data->>'department'),
     new.raw_user_meta_data->>'avatar',
     current_date,

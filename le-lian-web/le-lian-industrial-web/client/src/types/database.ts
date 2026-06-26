@@ -446,3 +446,74 @@ export interface AuditLogRow {
   details: string | null;
   created_at: string;
 }
+
+export interface CareerGoalRow {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  target_position: string;
+  target_date: string;
+  motivation: string;
+  status: 'proposed' | 'approved' | 'rejected' | 'revised';
+  manager_comment: string;
+  manager_id: string | null;
+  manager_name: string | null;
+  proposed_at: string;
+  reviewed_at: string | null;
+}
+
+export interface AnnualSignoffRow {
+  year: string;
+  hr_submitted_at: string | null;
+  vp_approved: boolean;
+  vp_approved_at: string | null;
+  vp_comment: string;
+  gm_approved: boolean;
+  gm_approved_at: string | null;
+  gm_comment: string;
+}
+
+export interface VarianceEntryRow {
+  id: number;
+  year: string;
+  department: string;
+  category: string;
+  course_name: string;
+  planned_hours: number;
+  actual_hours: number;
+  planned_count: number;
+  actual_count: number;
+  planned_month: string | null;
+  actual_month: string | null;
+  attendance_rate: number;
+  judgment: string;
+  actual_date: string | null;
+  instructor: string | null;
+  variance_method: boolean;
+  variance_hours: boolean;
+  variance_count: boolean;
+  variance_not_held: boolean;
+  variance_other: boolean;
+  variance_other_note: string;
+  planned_cost: number;
+  actual_cost: number;
+  diff_reason: string;
+  improvement: string;
+}
+
+export interface VarianceSignoffRow {
+  id: true;
+  gm_name: string;
+  gm_date: string;
+  admin_name: string;
+  admin_date: string;
+  applicant_unit: string;
+}
+
+export interface TrainingRoiInputsRow {
+  id: true;
+  training_cost: number;
+  quality_loss_reduction: number;
+  safety_improvement_savings: number;
+  efficiency_gains: number;
+}

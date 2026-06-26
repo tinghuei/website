@@ -3,29 +3,7 @@ import { Crown, Building2, ShieldAlert, TrendingUp, Calculator, Download, AlertT
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { loadRoutine, loadRecords, type RoutineCourse, type PhysicalRecord } from '../../lib/physicalTrainingStorage';
-
-const LS_ROI_KEY = 'training_roi_inputs_v1';
-
-interface RoiInputs {
-  trainingCost: number;
-  qualityLossReduction: number;
-  safetyImprovementSavings: number;
-  efficiencyGains: number;
-}
-
-const DEFAULT_ROI: RoiInputs = {
-  trainingCost: 50,
-  qualityLossReduction: 120,
-  safetyImprovementSavings: 30,
-  efficiencyGains: 40,
-};
-
-function loadRoi(): RoiInputs {
-  try {
-    const raw = localStorage.getItem(LS_ROI_KEY);
-    return raw ? { ...DEFAULT_ROI, ...JSON.parse(raw) } : { ...DEFAULT_ROI };
-  } catch { return { ...DEFAULT_ROI }; }
-}
+import { loadRoi, saveRoi, DEFAULT_ROI, type RoiInputs } from '../../lib/roiStorage';
 
 function avg(nums: number[]): number | null {
   return nums.length ? nums.reduce((s, n) => s + n, 0) / nums.length : null;
@@ -35,14 +13,19 @@ export default function VPDashboard() {
   const { currentUser } = useTrainingAuth();
   const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>([]);
   const [records, setRecords] = useState<PhysicalRecord[]>([]);
-  const [roi, setRoi] = useState<RoiInputs>(() => loadRoi());
+  const [roi, setRoi] = useState<RoiInputs>(DEFAULT_ROI);
+  const [roiLoaded, setRoiLoaded] = useState(false);
 
   useEffect(() => {
     loadRoutine().then(setRoutineCourses);
     loadRecords().then(setRecords);
+    loadRoi().then((r) => { setRoi(r); setRoiLoaded(true); });
   }, []);
 
-  useEffect(() => { localStorage.setItem(LS_ROI_KEY, JSON.stringify(roi)); }, [roi]);
+  useEffect(() => {
+    if (!roiLoaded) return;
+    saveRoi(roi);
+  }, [roi, roiLoaded]);
 
   if (!currentUser || !['vp', 'admin'].includes(currentUser.role)) {
     return (

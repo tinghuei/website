@@ -10,34 +10,7 @@ import {
 } from 'recharts';
 import { Map, Target, ClipboardList, BrainCircuit, ChevronRight, CheckCircle, AlertCircle, XCircle, Send, History, UserCheck, Clock, MessageSquare } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
-
-// ── Career Goal Types ───────────────────────────────────────────────────────────
-interface CareerGoalRecord {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  targetPosition: string;
-  targetDate: string;
-  motivation: string;
-  status: 'proposed' | 'approved' | 'rejected' | 'revised';
-  managerComment: string;
-  managerId: string;
-  managerName: string;
-  proposedAt: string;
-  reviewedAt?: string;
-}
-
-const CAREER_GOAL_STORAGE_KEY = 'career_goals_v1';
-
-function loadGoals(): CareerGoalRecord[] {
-  try {
-    return JSON.parse(localStorage.getItem(CAREER_GOAL_STORAGE_KEY) || '[]');
-  } catch { return []; }
-}
-
-function saveGoals(goals: CareerGoalRecord[]) {
-  localStorage.setItem(CAREER_GOAL_STORAGE_KEY, JSON.stringify(goals));
-}
+import { loadCareerGoals, proposeCareerGoal, reviewCareerGoal, type CareerGoalRecord } from '../../lib/careerGoalsStorage';
 
 // ── Data ────────────────────────────────────────────────────────────────────────
 
@@ -220,7 +193,8 @@ function GoalSettingSection() {
   const { currentUser } = useTrainingAuth();
   const isManager = currentUser?.role === 'manager' || currentUser?.role === 'admin';
 
-  const [goals, setGoals] = useState<CareerGoalRecord[]>(() => loadGoals());
+  const [goals, setGoals] = useState<CareerGoalRecord[]>([]);
+  useEffect(() => { loadCareerGoals().then(setGoals); }, []);
   const [showHistory, setShowHistory] = useState(false);
   const [showPropose, setShowPropose] = useState(false);
   const [reviewingGoal, setReviewingGoal] = useState<CareerGoalRecord | null>(null);
@@ -256,9 +230,8 @@ function GoalSettingSection() {
       managerName: '李主管',
       proposedAt: new Date().toLocaleString('zh-TW'),
     };
-    const updated = [...goals, newGoal];
-    setGoals(updated);
-    saveGoals(updated);
+    setGoals((prev) => [...prev, newGoal]);
+    proposeCareerGoal(newGoal);
     setMotivation('');
     setShowPropose(false);
     setProposeSaved(true);
@@ -267,13 +240,16 @@ function GoalSettingSection() {
 
   function handleReview() {
     if (!reviewingGoal) return;
-    const updated = goals.map((g) =>
-      g.id === reviewingGoal.id
-        ? { ...g, status: reviewStatus, managerComment, managerId: currentUser?.id || '2', managerName: currentUser?.name || '主管', reviewedAt: new Date().toLocaleString('zh-TW') }
-        : g
-    );
-    setGoals(updated);
-    saveGoals(updated);
+    const updated: CareerGoalRecord = {
+      ...reviewingGoal,
+      status: reviewStatus,
+      managerComment,
+      managerId: currentUser?.id || '2',
+      managerName: currentUser?.name || '主管',
+      reviewedAt: new Date().toLocaleString('zh-TW'),
+    };
+    setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+    reviewCareerGoal(updated);
     setReviewingGoal(null);
     setManagerComment('');
   }

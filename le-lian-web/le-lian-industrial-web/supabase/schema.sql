@@ -754,6 +754,89 @@ create table if not exists public.audit_logs (
 );
 
 -- ============================================================================
+-- 8b. 職涯目標設定、年度訓練計畫差異分析與簽核、教育訓練 ROI 設定
+-- ============================================================================
+
+-- 職涯目標設定（CareerPlanning：員工提案 → 主管核准）
+create table if not exists public.career_goals (
+  id text primary key,
+  employee_id uuid not null references public.profiles(id),
+  employee_name text not null,
+  target_position text not null,
+  target_date text not null,
+  motivation text not null default '',
+  status text not null default 'proposed' check (status in ('proposed', 'approved', 'rejected', 'revised')),
+  manager_comment text not null default '',
+  manager_id uuid references public.profiles(id),
+  manager_name text,
+  proposed_at text not null,
+  reviewed_at text,
+  created_at timestamptz not null default now()
+);
+
+-- 年度訓練計畫歷年成效查詢：各年度送審簽核狀態
+create table if not exists public.annual_signoffs (
+  year text primary key,
+  hr_submitted_at text,
+  vp_approved boolean not null default false,
+  vp_approved_at text,
+  vp_comment text not null default '',
+  gm_approved boolean not null default false,
+  gm_approved_at text,
+  gm_comment text not null default ''
+);
+
+-- CF-CM-HR-39 教育訓練計畫與實際差異分析表
+create table if not exists public.variance_entries (
+  id bigint primary key,
+  year text not null,
+  department text not null,
+  category text not null,
+  course_name text not null,
+  planned_hours numeric not null default 0,
+  actual_hours numeric not null default 0,
+  planned_count integer not null default 0,
+  actual_count integer not null default 0,
+  planned_month text,
+  actual_month text,
+  attendance_rate numeric not null default 0,
+  judgment text not null default '成效顯著',
+  actual_date text,
+  instructor text,
+  variance_method boolean not null default false,
+  variance_hours boolean not null default false,
+  variance_count boolean not null default false,
+  variance_not_held boolean not null default false,
+  variance_other boolean not null default false,
+  variance_other_note text not null default '',
+  planned_cost numeric not null default 0,
+  actual_cost numeric not null default 0,
+  diff_reason text not null default '',
+  improvement text not null default ''
+);
+
+-- 差異分析表簽核（沿用既有前端行為：單一全域表單，不分年度/部門）
+create table if not exists public.variance_signoffs (
+  id boolean primary key default true,
+  gm_name text not null default '',
+  gm_date text not null default '',
+  admin_name text not null default '',
+  admin_date text not null default '',
+  applicant_unit text not null default '',
+  constraint variance_signoffs_singleton check (id)
+);
+
+-- 教育訓練投資報酬率（VPDashboard ROI 計算器，單一全域設定）
+create table if not exists public.training_roi_inputs (
+  id boolean primary key default true,
+  training_cost numeric not null default 50,
+  quality_loss_reduction numeric not null default 120,
+  safety_improvement_savings numeric not null default 30,
+  efficiency_gains numeric not null default 40,
+  constraint training_roi_inputs_singleton check (id)
+);
+
+-- ============================================================================
 -- 9. 啟用 RLS
 -- ============================================================================
 
@@ -789,6 +872,11 @@ alter table public.pre_class_checks enable row level security;
 alter table public.fee_agreements enable row level security;
 alter table public.notifications enable row level security;
 alter table public.audit_logs enable row level security;
+alter table public.career_goals enable row level security;
+alter table public.annual_signoffs enable row level security;
+alter table public.variance_entries enable row level security;
+alter table public.variance_signoffs enable row level security;
+alter table public.training_roi_inputs enable row level security;
 
 -- ============================================================================
 -- 10. RLS 政策
@@ -1085,6 +1173,47 @@ drop policy if exists audit_logs_select on public.audit_logs;
 create policy audit_logs_select on public.audit_logs for select to authenticated
   using (public.is_hr_or_admin());
 
+-- career_goals：全員可讀（含主管審核列表）；員工僅可新增自己的提案；
+-- 審核（核准/退回/需修改）僅 manager/admin 可更新
+drop policy if exists career_goals_select on public.career_goals;
+create policy career_goals_select on public.career_goals for select to authenticated using (true);
+drop policy if exists career_goals_insert on public.career_goals;
+create policy career_goals_insert on public.career_goals for insert to authenticated
+  with check (employee_id = auth.uid());
+drop policy if exists career_goals_update on public.career_goals;
+create policy career_goals_update on public.career_goals for update to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
+-- annual_signoffs：全員可讀，manager/hr/admin 可送審/核准
+-- （/training/annual-plan 路由僅限 manager/admin/hr 進入）
+drop policy if exists annual_signoffs_select on public.annual_signoffs;
+create policy annual_signoffs_select on public.annual_signoffs for select to authenticated using (true);
+drop policy if exists annual_signoffs_write on public.annual_signoffs;
+create policy annual_signoffs_write on public.annual_signoffs for all to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
+-- variance_entries / variance_signoffs：CF-CM-HR-39 差異分析表，全員可讀，
+-- 新增/編輯/刪除僅 hr/admin 可操作（與前端 canManagePlan 一致）
+drop policy if exists variance_entries_select on public.variance_entries;
+create policy variance_entries_select on public.variance_entries for select to authenticated using (true);
+drop policy if exists variance_entries_write on public.variance_entries;
+create policy variance_entries_write on public.variance_entries for all to authenticated
+  using (public.is_hr_or_admin()) with check (public.is_hr_or_admin());
+
+drop policy if exists variance_signoffs_select on public.variance_signoffs;
+create policy variance_signoffs_select on public.variance_signoffs for select to authenticated using (true);
+drop policy if exists variance_signoffs_write on public.variance_signoffs;
+create policy variance_signoffs_write on public.variance_signoffs for all to authenticated
+  using (public.is_hr_or_admin()) with check (public.is_hr_or_admin());
+
+-- training_roi_inputs：僅 vp/admin 可讀寫（與 VPDashboard 頁面權限一致）
+drop policy if exists training_roi_inputs_select on public.training_roi_inputs;
+create policy training_roi_inputs_select on public.training_roi_inputs for select to authenticated
+  using (public.current_role_name() in ('vp', 'admin'));
+drop policy if exists training_roi_inputs_write on public.training_roi_inputs;
+create policy training_roi_inputs_write on public.training_roi_inputs for all to authenticated
+  using (public.current_role_name() in ('vp', 'admin')) with check (public.current_role_name() in ('vp', 'admin'));
+
 -- ============================================================================
 -- 11. Storage buckets（影片、教材、簽名、訓練照片）
 -- ============================================================================
@@ -1204,3 +1333,12 @@ insert into public.org_snapshots (id, month_label, created_date, created_by, lea
    '[{"name":"鄭訊仁","title":"董事長"},{"name":"鄭景文","title":"副董事長"},{"name":"鄭景文","title":"總經理（兼任）"},{"name":"陳佳倫","title":"執行副總"}]',
    '[{"id":"exec-office","name":"總經理室","parentId":null,"members":[{"name":"龔淑屏","title":"副理"},{"name":"黃士咸","title":"工程師"},{"name":"尹詩婷","title":"秘書"},{"name":"李庭慧","title":"秘書"}]},{"id":"qa-section","name":"品保課","parentId":null,"members":[{"name":"朱冠瑋","title":"課長"},{"name":"周清家","title":"專員"},{"name":"詹郁瑛","title":"助理"},{"name":"林依婷","title":"助理"}]},{"id":"facility-office","name":"廠務室","parentId":null,"members":[{"name":"曾夷璋","title":"工程師"},{"name":"陳家祥","title":"工程師"}]},{"id":"sales-dept","name":"營業部","parentId":null,"members":[{"name":"劉祐誠","title":"經理"}]},{"id":"sales-section","name":"業務課","parentId":"sales-dept","members":[{"name":"伍珈妏","title":"組長"},{"name":"鄭淑鐘","title":"助理專員"},{"name":"陳玉慧","title":"助理"}]},{"id":"rd-section","name":"研發課","parentId":"sales-dept","members":[{"name":"白惇維","title":"課長"},{"name":"王柳琦","title":"工程師"},{"name":"徐惠蘭","title":"助理"},{"name":"沙洋","title":"技術員"}]},{"id":"admin-dept","name":"管理部","parentId":null,"members":[{"name":"龔淑屏","title":"副理（兼任）"}]},{"id":"general-affairs-section","name":"總務課","parentId":"admin-dept","members":[]},{"id":"general-affairs-group","name":"庶務組","parentId":"general-affairs-section","members":[{"name":"張歆發","title":"專員"},{"name":"陳明軒","title":"專員"},{"name":"陳福郎","title":"助理專員"},{"name":"吳桂傳","title":"清潔員"}]},{"id":"hr-safety-group","name":"人資安全組","parentId":"general-affairs-section","members":[{"name":"蔡欣芸","title":"助理"},{"name":"吳彥儀","title":"助理"}]},{"id":"finance-dept","name":"財務部","parentId":null,"members":[{"name":"蔡佳玲","title":"副理"}]},{"id":"accounting","name":"會計","parentId":"finance-dept","members":[{"name":"孫素琴","title":"專員"},{"name":"王美婷","title":"專員"}]},{"id":"cashier","name":"出納","parentId":"finance-dept","members":[{"name":"陳盈如","title":"專員"}]},{"id":"facility-dept","name":"廠務部","parentId":null,"members":[{"name":"蔡政博","title":"經理"}]},{"id":"materials-section","name":"資材課","parentId":"facility-dept","members":[{"name":"王秀雯","title":"副課長"}]},{"id":"materials-mgmt-group","name":"物管組","parentId":"materials-section","members":[{"name":"石容萱","title":"組長"},{"name":"尤念萍","title":"班長"},{"name":"林德和","title":"堆高機員"},{"name":"羅文彥","title":"堆高機員"},{"name":"楊心恬","title":"助理"},{"name":"陳巧倫","title":"助理"}]},{"id":"production-control-group","name":"生管組","parentId":"materials-section","members":[{"name":"郭惠婷","title":"助理"}]},{"id":"purchasing-group","name":"採購組","parentId":"materials-section","members":[{"name":"陳惠萍","title":"組長"},{"name":"潘佩君","title":"班長（育嬰）"},{"name":"陳孟怡","title":"助理"},{"name":"尤宏菜","title":"助理"},{"name":"陳孟靖","title":"助理"}]},{"id":"warehouse-group","name":"成倉組","parentId":"materials-section","members":[{"name":"曾泓霖","title":"組長"},{"name":"戴禮璇","title":"助理"},{"name":"凍馬拉","title":"作業員"},{"name":"沙達","title":"作業員"},{"name":"張永盛","title":"司機"}]},{"id":"manufacturing-section","name":"製造課","parentId":"facility-dept","members":[{"name":"楊玉鳳","title":"副課長"},{"name":"鍾欣芳","title":"助理"}]},{"id":"press-group","name":"沖床組","parentId":"manufacturing-section","memberCount":"共6人","members":[{"name":"覃麗婷","title":"副組長"},{"name":"李昱鉉","title":"班長"}]},{"id":"processing-group","name":"加工組","parentId":"manufacturing-section","memberCount":"共27人","members":[{"name":"白惇維","title":"代理組長"},{"name":"沙空","title":"班長"},{"name":"張舒涵","title":"班長"},{"name":"阮祝玲","title":"班長"}]},{"id":"painting-group","name":"塗裝組","parentId":"manufacturing-section","memberCount":"共19人","members":[{"name":"郭惠燕","title":"組長"},{"name":"周安琪","title":"班長"},{"name":"威耐","title":"班長"}]},{"id":"group-1","name":"組一組","parentId":"manufacturing-section","memberCount":"共13人","members":[{"name":"陳怡珊","title":"副組長"}]},{"id":"group-2","name":"組二組","parentId":"manufacturing-section","memberCount":"共13人","members":[{"name":"吉宗達","title":"組長"},{"name":"紀佩欣","title":"副組長"}]},{"id":"group-3","name":"組三組","parentId":"manufacturing-section","memberCount":"共10人","members":[{"name":"蔡坤惠","title":"班長"}]}]')
 on conflict (id) do nothing;
+
+insert into public.annual_signoffs (year, hr_submitted_at, vp_approved, vp_approved_at, vp_comment, gm_approved, gm_approved_at, gm_comment) values
+  ('2024', '2024-10-03', true, '2024-10-10', '同意，請持續關注實體訓練滿意度與測驗及格率。', true, '2024-10-17', '核准，整體成效良好，請依計畫持續執行。'),
+  ('2025', '2025-10-06', true, '2025-10-13', '同意，線上課程完訓率與測驗及格率均達標。', true, '2025-10-21', '核准，請持續推動數位學習並追蹤後續成效。')
+on conflict (year) do nothing;
+
+insert into public.variance_signoffs (id) values (true) on conflict (id) do nothing;
+
+insert into public.training_roi_inputs (id) values (true) on conflict (id) do nothing;

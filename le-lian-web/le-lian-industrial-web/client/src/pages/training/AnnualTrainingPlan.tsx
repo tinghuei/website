@@ -6,6 +6,11 @@ import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2,
 import * as XLSX from 'xlsx';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { loadRecords, loadRoutine, TTQS_PHASES, type PhysicalRecord, type RoutineCourse } from '../../lib/physicalTrainingStorage';
+import {
+  loadAnnualSignoffs, saveAnnualSignoff, EMPTY_SIGNOFF, type AnnualSignoff,
+  loadVarianceEntries, saveVarianceEntries, loadVarianceSignoff, saveVarianceSignoff,
+  EMPTY_VARIANCE_SIGNOFF, type VarianceEntry, type VarianceSignoff,
+} from '../../lib/annualPlanStorage';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface PlanRow {
@@ -615,68 +620,7 @@ function PlanRowEditModal({ row, onClose, onSave }: PlanRowEditModalProps) {
 }
 
 // ── CF-CM-HR-39 教育訓練計畫與實際差異分析表 ──────────────────────────────────
-export interface VarianceEntry {
-  id: number;
-  year: string;
-  department: string;
-  category: string;
-  courseName: string;
-  plannedHours: number;
-  actualHours: number;
-  plannedCount: number;
-  actualCount: number;
-  plannedMonth: string;
-  actualMonth: string;
-  attendanceRate: number;
-  judgment: string;
-  actualDate: string;
-  instructor: string;
-  varianceMethod: boolean;
-  varianceHours: boolean;
-  varianceCount: boolean;
-  varianceNotHeld: boolean;
-  varianceOther: boolean;
-  varianceOtherNote: string;
-  plannedCost: number;
-  actualCost: number;
-  diffReason: string;
-  improvement: string;
-}
-
-export interface VarianceSignoff {
-  gmName: string;
-  gmDate: string;
-  adminName: string;
-  adminDate: string;
-  applicantUnit: string;
-}
-
 const VARIANCE_JUDGMENT_OPTIONS = ['成效顯著', '符合預期', '部分達成', '需再訓練'] as const;
-const VARIANCE_LS_KEY = 'cfcmhr39_variance_entries_v1';
-const VARIANCE_SIGNOFF_LS_KEY = 'cfcmhr39_variance_signoff_v1';
-const EMPTY_VARIANCE_SIGNOFF: VarianceSignoff = { gmName: '', gmDate: '', adminName: '', adminDate: '', applicantUnit: '' };
-
-function loadVarianceEntries(): VarianceEntry[] {
-  try {
-    const raw = localStorage.getItem(VARIANCE_LS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveVarianceEntries(data: VarianceEntry[]) {
-  localStorage.setItem(VARIANCE_LS_KEY, JSON.stringify(data));
-}
-
-function loadVarianceSignoff(): VarianceSignoff {
-  try {
-    const raw = localStorage.getItem(VARIANCE_SIGNOFF_LS_KEY);
-    return raw ? JSON.parse(raw) : { ...EMPTY_VARIANCE_SIGNOFF };
-  } catch { return { ...EMPTY_VARIANCE_SIGNOFF }; }
-}
-
-function saveVarianceSignoff(data: VarianceSignoff) {
-  localStorage.setItem(VARIANCE_SIGNOFF_LS_KEY, JSON.stringify(data));
-}
 
 function makeVarianceEntry(row: PlanRow, year: string): VarianceEntry {
   return {
@@ -873,50 +817,6 @@ function CoursePickerModal({ rows, onClose, onPick }: CoursePickerModalProps) {
 }
 
 // ── 歷年成效查詢：年度送審簽核資料 ────────────────────────────────────────────
-export interface AnnualSignoff {
-  hrSubmittedAt: string | null;
-  vpApproved: boolean;
-  vpApprovedAt: string | null;
-  vpComment: string;
-  gmApproved: boolean;
-  gmApprovedAt: string | null;
-  gmComment: string;
-}
-
-const SIGNOFF_LS_KEY = 'annual_review_signoff_v1';
-
-const EMPTY_SIGNOFF: AnnualSignoff = {
-  hrSubmittedAt: null, vpApproved: false, vpApprovedAt: null, vpComment: '',
-  gmApproved: false, gmApprovedAt: null, gmComment: '',
-};
-
-function getInitialSignoffs(): Record<string, AnnualSignoff> {
-  return {
-    '2024': {
-      hrSubmittedAt: '2024-10-03',
-      vpApproved: true, vpApprovedAt: '2024-10-10', vpComment: '同意，請持續關注實體訓練滿意度與測驗及格率。',
-      gmApproved: true, gmApprovedAt: '2024-10-17', gmComment: '核准，整體成效良好，請依計畫持續執行。',
-    },
-    '2025': {
-      hrSubmittedAt: '2025-10-06',
-      vpApproved: true, vpApprovedAt: '2025-10-13', vpComment: '同意，線上課程完訓率與測驗及格率均達標。',
-      gmApproved: true, gmApprovedAt: '2025-10-21', gmComment: '核准，請持續推動數位學習並追蹤後續成效。',
-    },
-    '2026': { ...EMPTY_SIGNOFF },
-  };
-}
-
-function loadSignoffs(): Record<string, AnnualSignoff> {
-  try {
-    const raw = localStorage.getItem(SIGNOFF_LS_KEY);
-    return raw ? JSON.parse(raw) : getInitialSignoffs();
-  } catch { return getInitialSignoffs(); }
-}
-
-function saveSignoffs(data: Record<string, AnnualSignoff>) {
-  localStorage.setItem(SIGNOFF_LS_KEY, JSON.stringify(data));
-}
-
 const HISTORY_YEAR_OPTIONS = ['2024', '2025', '2026', '2027'];
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -947,41 +847,47 @@ export default function AnnualTrainingPlan() {
     loadRoutine().then(setRoutineCourses);
   }, []);
   const [historyYear, setHistoryYear] = useState('2026');
-  const [signoffs, setSignoffs] = useState<Record<string, AnnualSignoff>>(() => loadSignoffs());
-
-  useEffect(() => {
-    saveSignoffs(signoffs);
-  }, [signoffs]);
+  const [signoffs, setSignoffs] = useState<Record<string, AnnualSignoff>>({});
+  useEffect(() => { loadAnnualSignoffs().then(setSignoffs); }, []);
 
   // ── CF-CM-HR-39 教育訓練計畫與實際差異分析表 ──
-  const [varianceEntries, setVarianceEntries] = useState<VarianceEntry[]>(() => loadVarianceEntries());
-  const [varianceSignoff, setVarianceSignoff] = useState<VarianceSignoff>(() => loadVarianceSignoff());
+  const [varianceEntries, setVarianceEntries] = useState<VarianceEntry[]>([]);
+  const [varianceSignoff, setVarianceSignoff] = useState<VarianceSignoff>(EMPTY_VARIANCE_SIGNOFF);
+  const [varianceLoaded, setVarianceLoaded] = useState(false);
   const [showCoursePicker, setShowCoursePicker] = useState(false);
   const [editingVarianceId, setEditingVarianceId] = useState<number | null>(null);
 
   useEffect(() => {
-    saveVarianceEntries(varianceEntries);
-  }, [varianceEntries]);
+    loadVarianceEntries().then(setVarianceEntries);
+    loadVarianceSignoff().then((s) => { setVarianceSignoff(s); setVarianceLoaded(true); });
+  }, []);
 
   useEffect(() => {
+    if (!varianceLoaded) return;
     saveVarianceSignoff(varianceSignoff);
-  }, [varianceSignoff]);
+  }, [varianceSignoff, varianceLoaded]);
 
   function handlePickCourseForVariance(row: PlanRow) {
     const entry = makeVarianceEntry(row, year);
-    setVarianceEntries((prev) => [...prev, entry]);
+    const updated = [...varianceEntries, entry];
+    setVarianceEntries(updated);
+    saveVarianceEntries(updated);
     setShowCoursePicker(false);
     setEditingVarianceId(entry.id);
   }
 
-  function handleSaveVarianceEntry(updated: VarianceEntry) {
-    setVarianceEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+  function handleSaveVarianceEntry(updatedEntry: VarianceEntry) {
+    const updated = varianceEntries.map((e) => (e.id === updatedEntry.id ? updatedEntry : e));
+    setVarianceEntries(updated);
+    saveVarianceEntries(updated);
     setEditingVarianceId(null);
   }
 
   function handleDeleteVarianceEntry(id: number) {
     if (!window.confirm('確定要刪除此差異分析項目嗎？')) return;
-    setVarianceEntries((prev) => prev.filter((e) => e.id !== id));
+    const updated = varianceEntries.filter((e) => e.id !== id);
+    setVarianceEntries(updated);
+    saveVarianceEntries(updated);
   }
 
   const tabs = ['年度計畫制定', '課程地圖', 'TTQS執行追蹤', '匯出報表', '歷年成效查詢'];
@@ -1053,10 +959,9 @@ export default function AnnualTrainingPlan() {
   const isOctoberOrLater = new Date().getMonth() >= 9; // getMonth() 為 0-indexed，9 = 10月
 
   function updateSignoff(updates: Partial<AnnualSignoff>) {
-    setSignoffs((prev) => ({
-      ...prev,
-      [historyYear]: { ...(prev[historyYear] || EMPTY_SIGNOFF), ...updates },
-    }));
+    const updated = { ...(signoffs[historyYear] || EMPTY_SIGNOFF), ...updates };
+    setSignoffs((prev) => ({ ...prev, [historyYear]: updated }));
+    saveAnnualSignoff(historyYear, updated);
   }
 
   function handleHrSubmit() {

@@ -38,6 +38,10 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- 員工自助填寫工號／職稱（TrainingDashboard.tsx 入職資料表單），additive 欄位，預設為 null 不影響既有資料
+alter table public.profiles add column if not exists employee_id text;
+alter table public.profiles add column if not exists title text;
+
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();
@@ -859,6 +863,97 @@ create table if not exists public.annual_plan_course_track (
   status text not null default '未開始'
 );
 
+-- 成就獎勵中心：積分兌換項目（獎項管理 tab，全域單一份兌換目錄）
+create table if not exists public.achievement_redeem_items (
+  id text primary key,
+  name text not null default '',
+  icon text not null default '🎁',
+  points integer not null default 0,
+  stock integer not null default 0,
+  desc text not null default ''
+);
+
+-- 成就獎勵中心：個人兌換紀錄
+create table if not exists public.achievement_redeem_records (
+  id text primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  item_id text not null,
+  item_name text not null default '',
+  item_icon text not null default '',
+  points integer not null default 0,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'cancelled')),
+  redeemed_at text not null default ''
+);
+
+-- 成就獎勵中心：個人可兌換積分餘額
+create table if not exists public.achievement_points (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  available_points integer not null default 0
+);
+
+-- 系統管理／例行課程管理 tab：例行課程送簽人資審核工作流程
+-- （與 PhysicalTraining.tsx 既有的 routine_courses 為不同功能、不同欄位結構，故另建資料表避免混用）
+create table if not exists public.admin_routine_courses (
+  id text primary key,
+  course_name text not null default '',
+  instructor text not null default '',
+  date text not null default '',
+  hours numeric not null default 0,
+  department text not null default '',
+  participants text[] not null default '{}',
+  outline text not null default '',
+  status text not null default 'draft' check (status in ('draft', 'pending_hr', 'hr_approved', 'sign_in_sent', 'completed')),
+  submitted_by text not null default '',
+  submitted_at text not null default '',
+  hr_comment text,
+  signed_participants text[],
+  survey_count integer
+);
+
+-- 系統管理／權限管理 tab：功能權限矩陣（全域單一份設定）
+create table if not exists public.permission_matrix (
+  id boolean primary key default true,
+  matrix jsonb not null default '{}'::jsonb,
+  constraint permission_matrix_singleton check (id)
+);
+
+-- 績效追蹤（PerformanceTracking.tsx）L3 行為應用追蹤：完訓後由員工填寫實際應用情形，
+-- 經主管／部門最高主管簽核。attachments / managerApproval / deptHeadApproval 為巢狀結構，以 jsonb 儲存。
+create table if not exists public.perf_l3_records (
+  id text primary key,
+  enrollment_id text not null default '',
+  user_id text not null default '',
+  course_id text not null default '',
+  course_name text not null default '',
+  user_name text not null default '',
+  quarter text not null default '',
+  application_content text not null default '',
+  confirmed_at text,
+  status text not null default 'not_due',
+  kpi_note text not null default '',
+  due_date text,
+  attachments jsonb,
+  submitted_at text,
+  manager_approval jsonb,
+  dept_head_approval jsonb
+);
+
+-- 績效追蹤 L4 課程成效評估計畫，entries 為每季實際數值清單，以 jsonb 儲存
+create table if not exists public.perf_l4_campaigns (
+  id text primary key,
+  course_id text not null default '',
+  course_name text not null default '',
+  department text not null default '',
+  kpi_type text not null default '',
+  unit text not null default '',
+  baseline_value numeric not null default 0,
+  target_value numeric not null default 0,
+  higher_is_better boolean not null default false,
+  entries jsonb not null default '[]'::jsonb,
+  created_by text not null default '',
+  created_at text not null default ''
+);
+
 -- ============================================================================
 -- 9. 啟用 RLS
 -- ============================================================================
@@ -902,6 +997,13 @@ alter table public.variance_signoffs enable row level security;
 alter table public.training_roi_inputs enable row level security;
 alter table public.annual_plan_rows enable row level security;
 alter table public.annual_plan_course_track enable row level security;
+alter table public.achievement_redeem_items enable row level security;
+alter table public.achievement_redeem_records enable row level security;
+alter table public.achievement_points enable row level security;
+alter table public.admin_routine_courses enable row level security;
+alter table public.permission_matrix enable row level security;
+alter table public.perf_l3_records enable row level security;
+alter table public.perf_l4_campaigns enable row level security;
 
 -- ============================================================================
 -- 10. RLS 政策
@@ -1253,6 +1355,66 @@ drop policy if exists annual_plan_course_track_write on public.annual_plan_cours
 create policy annual_plan_course_track_write on public.annual_plan_course_track for all to authenticated
   using (public.is_hr_or_admin()) with check (public.is_hr_or_admin());
 
+-- achievement_redeem_items：全員可讀，獎項管理（admin/manager）可寫
+drop policy if exists achievement_redeem_items_select on public.achievement_redeem_items;
+create policy achievement_redeem_items_select on public.achievement_redeem_items for select to authenticated using (true);
+drop policy if exists achievement_redeem_items_write on public.achievement_redeem_items;
+create policy achievement_redeem_items_write on public.achievement_redeem_items for all to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
+-- achievement_redeem_records：本人或主管以上可讀；本人建立兌換申請、本人或主管以上可取消/更新狀態
+drop policy if exists achievement_redeem_records_select on public.achievement_redeem_records;
+create policy achievement_redeem_records_select on public.achievement_redeem_records for select to authenticated
+  using (user_id = auth.uid() or public.is_manager_or_above());
+drop policy if exists achievement_redeem_records_insert on public.achievement_redeem_records;
+create policy achievement_redeem_records_insert on public.achievement_redeem_records for insert to authenticated
+  with check (user_id = auth.uid());
+drop policy if exists achievement_redeem_records_update on public.achievement_redeem_records;
+create policy achievement_redeem_records_update on public.achievement_redeem_records for update to authenticated
+  using (user_id = auth.uid() or public.is_manager_or_above())
+  with check (user_id = auth.uid() or public.is_manager_or_above());
+
+-- achievement_points：每人僅能讀寫自己的積分餘額，主管以上可讀
+drop policy if exists achievement_points_select on public.achievement_points;
+create policy achievement_points_select on public.achievement_points for select to authenticated
+  using (user_id = auth.uid() or public.is_manager_or_above());
+drop policy if exists achievement_points_write on public.achievement_points;
+create policy achievement_points_write on public.achievement_points for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- admin_routine_courses：與前端「例行課程管理」tab 一致，僅 admin 可操作
+drop policy if exists admin_routine_courses_select on public.admin_routine_courses;
+create policy admin_routine_courses_select on public.admin_routine_courses for select to authenticated using (public.is_admin());
+drop policy if exists admin_routine_courses_write on public.admin_routine_courses;
+create policy admin_routine_courses_write on public.admin_routine_courses for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+-- permission_matrix：與前端「權限管理」tab 一致，僅 admin 可操作
+drop policy if exists permission_matrix_select on public.permission_matrix;
+create policy permission_matrix_select on public.permission_matrix for select to authenticated using (public.is_admin());
+drop policy if exists permission_matrix_write on public.permission_matrix;
+create policy permission_matrix_write on public.permission_matrix for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+-- perf_l3_records：本人或主管以上可讀；本人建立／本人或主管以上更新（簽核流程）
+drop policy if exists perf_l3_records_select on public.perf_l3_records;
+create policy perf_l3_records_select on public.perf_l3_records for select to authenticated
+  using (user_id = auth.uid()::text or public.is_manager_or_above());
+drop policy if exists perf_l3_records_insert on public.perf_l3_records;
+create policy perf_l3_records_insert on public.perf_l3_records for insert to authenticated
+  with check (user_id = auth.uid()::text or public.is_manager_or_above());
+drop policy if exists perf_l3_records_update on public.perf_l3_records;
+create policy perf_l3_records_update on public.perf_l3_records for update to authenticated
+  using (user_id = auth.uid()::text or public.is_manager_or_above())
+  with check (user_id = auth.uid()::text or public.is_manager_or_above());
+
+-- perf_l4_campaigns：全員可讀，主管以上可建立／填寫每季數值
+drop policy if exists perf_l4_campaigns_select on public.perf_l4_campaigns;
+create policy perf_l4_campaigns_select on public.perf_l4_campaigns for select to authenticated using (true);
+drop policy if exists perf_l4_campaigns_write on public.perf_l4_campaigns;
+create policy perf_l4_campaigns_write on public.perf_l4_campaigns for all to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
 -- ============================================================================
 -- 11. Storage buckets（影片、教材、簽名、訓練照片）
 -- ============================================================================
@@ -1479,3 +1641,31 @@ insert into public.annual_plan_course_track (name, planned, actual, rate, partic
   ('辦公室安全衛生與工作環境改善', 3, 0, 0, 0, '未開始'),
   ('專案管理基礎(PMP概念)', 7, 0, 0, 0, '未開始')
 on conflict (name) do nothing;
+
+insert into public.achievement_redeem_items (id, name, icon, points, stock, desc) values
+  ('r1', '半天特休假', '🌴', 500, 10, '兌換半天特休假一次'),
+  ('r2', '書籍禮品卡 NT$500', '📖', 300, 20, '可至合作書店使用'),
+  ('r3', '下午茶券', '☕', 150, 50, '公司福委會下午茶一份'),
+  ('r4', '外訓課程補助 NT$1000', '🎓', 800, 5, '補助參加外部訓練費用'),
+  ('r5', '停車優先月票', '🚗', 200, 15, '公司停車場優先月票一個月'),
+  ('r6', '彈性上下班一週', '⏱️', 600, 8, '一週彈性上下班(主管核准)')
+on conflict (id) do nothing;
+
+insert into public.admin_routine_courses (id, course_name, instructor, date, hours, department, participants, outline, status, submitted_by, submitted_at, hr_comment, signed_participants) values
+  ('rc1', '新進人員安全教育訓練', '林志明', '2026-06-05', 3, '管理部', array['王小明','陳美玲','林志偉'], '公司安全規定、緊急疏散程序、個人防護裝備使用', 'hr_approved', '林志明', '2026-06-01', null, array['王小明','陳美玲']),
+  ('rc2', '5S現場改善技法', '品保課李主管', '2026-06-10', 2, '品保課', array['李大明','黃雅婷'], '5S定義與推行方法、實際案例演練、改善成果追蹤', 'pending_hr', '李主管', '2026-06-03', null, null),
+  ('rc3', '設備保養SOP講習', '工程課王工程師', '2026-06-15', 4, '工程課', array['王小華','劉俊達','蔡建志'], '設備保養週期說明、潤滑油更換規範、異常處理程序', 'draft', '王工程師', '2026-06-04', null, null)
+on conflict (id) do nothing;
+
+insert into public.perf_l3_records (id, enrollment_id, user_id, course_id, course_name, user_name, quarter, application_content, confirmed_at, status, kpi_note, due_date, attachments, submitted_at, manager_approval) values
+  ('l3-1', 'enr1', 'u2', 'c1', '職業安全衛生法規研習', '王小明', '2026-Q2', '在工作中主動確認個人防護裝備的使用，並提醒同事注意安全規範', '2026-04-15', 'confirmed', '本季零工傷事故', '2026-04-15', '[]'::jsonb, '2026-04-14', '{"by":"李主管","at":"2026-04-15","decision":"approved"}'::jsonb),
+  ('l3-2', 'enr2', 'u3', 'c2', '5S推行與現場管理', '陳美玲', '2026-Q2', '', null, 'pending', '', '2026-06-20', null, null, null),
+  ('l3-3', 'enr3', 'u4', 'c3', 'ISO 9001 品質管理系統', '林志偉', '2026-Q1', '協助部門完成ISO內部稽核，運用課程學到的稽核技巧找出3個改善點', '2026-03-20', 'confirmed', '不合格品率降低 2%', '2026-03-20', '[]'::jsonb, '2026-03-18', '{"by":"李主管","at":"2026-03-20","decision":"approved"}'::jsonb),
+  ('l3-4', 'enr4', 'u5', 'c4', '精實生產與浪費消除', '黃雅婷', '2026-Q2', '', null, 'overdue', '', '2026-05-01', null, null, null),
+  ('l3-5', 'enr5', 'u2', 'c2', '5S推行與現場管理', '王小明', '2026-Q1', '帶領小組完成工作區域整理整頓，減少尋找工具時間約15分鐘/天', '2026-03-10', 'confirmed', '作業效率提升 8%', '2026-03-10', '[]'::jsonb, '2026-03-08', '{"by":"李主管","at":"2026-03-10","decision":"approved"}'::jsonb)
+on conflict (id) do nothing;
+
+insert into public.perf_l4_campaigns (id, course_id, course_name, department, kpi_type, unit, baseline_value, target_value, higher_is_better, entries, created_by, created_at) values
+  ('l4-1', 'c1', '職業安全衛生法規研習', '管理部', '工安事故率', '件/月', 2, 0, false, '[{"quarter":"2026-Q1","actualValue":0,"reportedBy":"李主管","reportedAt":"2026-04-01"}]'::jsonb, '李主管', '2026-01-05'),
+  ('l4-2', 'c3', 'ISO 9001 品質管理系統', '品保課', '不合格品率', '%', 3.2, 2.0, false, '[{"quarter":"2026-Q1","actualValue":1.8,"reportedBy":"品保主管","reportedAt":"2026-04-05"}]'::jsonb, '品保主管', '2026-01-05')
+on conflict (id) do nothing;

@@ -43,6 +43,8 @@ function mapProfile(row: ProfileRow): User {
     avatar: row.avatar || row.name.slice(0, 1),
     joinDate: row.join_date || '',
     status: row.status,
+    employeeId: row.employee_id || undefined,
+    title: row.title || undefined,
   };
 }
 
@@ -234,6 +236,7 @@ interface TrainingAuthContextValue {
   addUser: (userData: { name: string; email: string; department: string; role: User['role'] }) => Promise<void>;
   setUserStatus: (userId: string, status: 'active' | 'resigned') => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
+  updateMyProfile: (updates: { employeeId?: string; name?: string; department?: string; title?: string }) => Promise<void>;
   addAuditLog: (userId: string, action: string, target: string, details: string) => Promise<void>;
   clearAuditLogsByActions: (actions: string[]) => Promise<void>;
   assignCourse: (userId: string, courseId: string, dueDate?: string, note?: string) => Promise<CourseAssignment>;
@@ -805,6 +808,22 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     await addAuditLog(currentUser?.id || '', '刪除使用者帳號', user?.name || userId, `Email: ${user?.email || ''}`);
   };
 
+  // 員工自助填寫入職基本資料（TrainingDashboard.tsx 首次登入表單）
+  const updateMyProfile = async (updates: { employeeId?: string; name?: string; department?: string; title?: string }) => {
+    if (!currentUser) return;
+    await supabase
+      .from('profiles')
+      .update({
+        employee_id: updates.employeeId,
+        name: updates.name,
+        department: updates.department,
+        title: updates.title,
+      })
+      .eq('id', currentUser.id);
+    setCurrentUser((prev) => (prev ? { ...prev, ...updates } : prev));
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? { ...u, ...updates } : u)));
+  };
+
   const assignCourse = async (
     userId: string,
     courseId: string,
@@ -964,6 +983,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         addUser,
         setUserStatus,
         deleteUser,
+        updateMyProfile,
         addAuditLog,
         clearAuditLogsByActions,
         assignCourse,

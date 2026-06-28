@@ -11,6 +11,9 @@ export interface User {
   // 帳號狀態：未設定視為在職（active）。設為 resigned 後該帳號將無法登入系統，
   // 但保留歷史資料（課程紀錄、稽核日誌等），與直接刪除帳號是兩種不同的操作選項
   status?: 'active' | 'resigned';
+  // 員工自助填寫的工號／職稱（TrainingDashboard.tsx 入職資料表單）
+  employeeId?: string;
+  title?: string;
 }
 
 export interface QuizQuestion {

@@ -15,6 +15,8 @@ export interface ProfileRow {
   avatar: string | null;
   join_date: string | null;
   status: UserStatus;
+  employee_id: string | null;
+  title: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -537,4 +539,85 @@ export interface AnnualPlanCourseTrackRow {
   rate: number;
   participants: number;
   status: string;
+}
+
+export interface AchievementRedeemItemRow {
+  id: string;
+  name: string;
+  icon: string;
+  points: number;
+  stock: number;
+  desc: string;
+}
+
+export interface AchievementRedeemRecordRow {
+  id: string;
+  user_id: string;
+  item_id: string;
+  item_name: string;
+  item_icon: string;
+  points: number;
+  status: 'pending' | 'approved' | 'cancelled';
+  redeemed_at: string;
+}
+
+export interface AchievementPointsRow {
+  user_id: string;
+  available_points: number;
+}
+
+export interface AdminRoutineCourseRow {
+  id: string;
+  course_name: string;
+  instructor: string;
+  date: string;
+  hours: number;
+  department: string;
+  participants: string[];
+  outline: string;
+  status: 'draft' | 'pending_hr' | 'hr_approved' | 'sign_in_sent' | 'completed';
+  submitted_by: string;
+  submitted_at: string;
+  hr_comment: string | null;
+  signed_participants: string[] | null;
+  survey_count: number | null;
+}
+
+export interface PermissionMatrixRow {
+  id: true;
+  matrix: Record<string, Record<string, boolean>>;
+}
+
+export interface PerfL3RecordRow {
+  id: string;
+  enrollment_id: string;
+  user_id: string;
+  course_id: string;
+  course_name: string;
+  user_name: string;
+  quarter: string;
+  application_content: string;
+  confirmed_at: string | null;
+  status: string;
+  kpi_note: string;
+  due_date: string | null;
+  attachments: { id: string; name: string; dataUrl: string }[] | null;
+  submitted_at: string | null;
+  manager_approval: { by: string; at: string; decision: 'approved' | 'rejected'; comment?: string } | null;
+  dept_head_approval: { by: string; at: string; decision: 'approved' | 'rejected'; comment?: string } | null;
+}
+
+export interface PerfL4CampaignRow {
+  id: string;
+  course_id: string;
+  course_name: string;
+  department: string;
+  kpi_type: string;
+  unit: string;
+  baseline_value: number;
+  target_value: number;
+  higher_is_better: boolean;
+  entries: { quarter: string; actualValue: number; note?: string; reportedBy: string; reportedAt: string }[];
+  created_by: string;
+  created_at: string;
 }

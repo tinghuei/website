@@ -32,7 +32,7 @@ const TITLE_OPTIONS = Array.from(new Set([
 ]));
 
 export default function TrainingDashboard() {
-  const { currentUser, getUserEnrollments, courses, getUserNotifications, getPendingReviews } = useTrainingAuth();
+  const { currentUser, getUserEnrollments, courses, getUserNotifications, getPendingReviews, updateMyProfile } = useTrainingAuth();
   const [, navigate] = useLocation();
 
   const profileKey = `profile_done_${currentUser?.id}`;
@@ -41,11 +41,11 @@ export default function TrainingDashboard() {
     return !localStorage.getItem(profileKey);
   });
   const [profileForm, setProfileForm] = useState({
-    employeeId: currentUser?.email?.split('@')[0] || '',
+    employeeId: currentUser?.employeeId || currentUser?.email?.split('@')[0] || '',
     name: currentUser?.name || '',
     email: currentUser?.email || '',
     department: currentUser?.department || '',
-    title: '',
+    title: currentUser?.title || '',
   });
   const [profileSaved, setProfileSaved] = useState(false);
 
@@ -159,7 +159,15 @@ export default function TrainingDashboard() {
                   </datalist>
                 </div>
                 <button
-                  onClick={() => setProfileSaved(true)}
+                  onClick={() => {
+                    updateMyProfile({
+                      employeeId: profileForm.employeeId,
+                      name: profileForm.name,
+                      department: profileForm.department,
+                      title: profileForm.title,
+                    });
+                    setProfileSaved(true);
+                  }}
                   disabled={!profileForm.employeeId || !profileForm.name || !profileForm.department}
                   className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors"
                 >

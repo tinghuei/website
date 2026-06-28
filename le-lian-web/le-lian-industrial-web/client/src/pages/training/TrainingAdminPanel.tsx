@@ -31,6 +31,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import type { Course } from '../../data/trainingMockData';
 import OrgChart from './OrgChart';
 import { type JobTitleCategory, JOB_TITLE_CATEGORY_OPTIONS, loadJobTitles, saveJobTitles } from '../../lib/jobTitleStorage';
+import { loadAdminRoutineCourses, saveAdminRoutineCourses } from '../../lib/adminRoutineCourseStorage';
+import { loadPermissionMatrix, savePermissionMatrix } from '../../lib/permissionMatrixStorage';
 
 const ADMIN_TABS = [
   { id: 'courses', label: '課程管理', icon: BookOpen, roles: ['admin'] },
@@ -234,16 +236,37 @@ export default function TrainingAdminPanel() {
   const [satCourseFilter, setSatCourseFilter] = useState('all');
 
   // Routine course state
-  const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>(INITIAL_ROUTINE);
+  const [routineCourses, setRoutineCourses] = useState<RoutineCourse[]>([]);
   const [selectedRoutine, setSelectedRoutine] = useState<string | null>(null);
   const [showAddRoutine, setShowAddRoutine] = useState(false);
   const [routineForm, setRoutineForm] = useState({ courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '' });
   const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
 
+  useEffect(() => {
+    loadAdminRoutineCourses().then((list) => {
+      if (list.length) setRoutineCourses(list);
+      else saveAdminRoutineCourses(INITIAL_ROUTINE);
+    });
+  }, []);
+
+  function updateRoutineCourses(updater: (prev: RoutineCourse[]) => RoutineCourse[]) {
+    setRoutineCourses(prev => {
+      const next = updater(prev);
+      saveAdminRoutineCourses(next);
+      return next;
+    });
+  }
+
   // Permission matrix state
   const [permissions, setPermissions] = useState<PermMatrix>(() => initPermissions());
   const [expandedGroup, setExpandedGroup] = useState<string | null>('課程學習');
   const [permSaved, setPermSaved] = useState(false);
+
+  useEffect(() => {
+    loadPermissionMatrix().then((matrix) => {
+      if (matrix) setPermissions(matrix);
+    });
+  }, []);
 
   const handleAiToggle = () => {
     setAiEnabled(!aiEnabled);
@@ -1462,7 +1485,7 @@ export default function TrainingAdminPanel() {
                       <div className="flex flex-wrap gap-2 pt-1">
                         {rc.status === 'draft' && (
                           <button
-                            onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'pending_hr' } : r))}
+                            onClick={() => updateRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'pending_hr' } : r))}
                             className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
                           >
                             送簽人資審核
@@ -1471,13 +1494,13 @@ export default function TrainingAdminPanel() {
                         {rc.status === 'pending_hr' && (currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
                           <>
                             <button
-                              onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'hr_approved', hrComment: '已審核通過，請傳送簽到表' } : r))}
+                              onClick={() => updateRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'hr_approved', hrComment: '已審核通過，請傳送簽到表' } : r))}
                               className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
                             >
                               ✓ 人資審核通過
                             </button>
                             <button
-                              onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'draft', hrComment: '需補充資料後重新提交' } : r))}
+                              onClick={() => updateRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'draft', hrComment: '需補充資料後重新提交' } : r))}
                               className="text-sm px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors"
                             >
                               退回修正
@@ -1486,7 +1509,7 @@ export default function TrainingAdminPanel() {
                         )}
                         {rc.status === 'hr_approved' && (
                           <button
-                            onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'sign_in_sent' } : r))}
+                            onClick={() => updateRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'sign_in_sent' } : r))}
                             className="text-sm px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors"
                           >
                             傳送簽到表給學員
@@ -1494,7 +1517,7 @@ export default function TrainingAdminPanel() {
                         )}
                         {rc.status === 'sign_in_sent' && (
                           <button
-                            onClick={() => setRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'completed', surveyCount: (r.surveyCount || 0) + r.participants.length, signedParticipants: r.participants } : r))}
+                            onClick={() => updateRoutineCourses(prev => prev.map(r => r.id === rc.id ? { ...r, status: 'completed', surveyCount: (r.surveyCount || 0) + r.participants.length, signedParticipants: r.participants } : r))}
                             className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
                           >
                             完成課程
@@ -1566,7 +1589,7 @@ export default function TrainingAdminPanel() {
                         submittedBy: currentUser?.name || '系統',
                         submittedAt: new Date().toISOString().split('T')[0],
                       };
-                      setRoutineCourses(prev => [newRc, ...prev]);
+                      updateRoutineCourses(prev => [newRc, ...prev]);
                       setRoutineForm({ courseName: '', instructor: '', date: '', hours: '', department: '', participants: '', outline: '' });
                       setShowAddRoutine(false);
                     }}
@@ -1701,7 +1724,11 @@ export default function TrainingAdminPanel() {
 
           <div className="flex justify-end">
             <button
-              onClick={() => { setPermSaved(true); setTimeout(() => setPermSaved(false), 3000); }}
+              onClick={() => {
+                savePermissionMatrix(permissions);
+                setPermSaved(true);
+                setTimeout(() => setPermSaved(false), 3000);
+              }}
               className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
             >
               儲存權限設定

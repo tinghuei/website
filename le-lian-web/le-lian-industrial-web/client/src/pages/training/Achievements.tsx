@@ -1,6 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trophy, Star, Gift, Award, TrendingUp, Settings } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import {
+  loadRedeemItems,
+  saveRedeemItems,
+  loadRedeemHistory,
+  addRedeemRecord,
+  updateRedeemRecordStatus,
+  loadAvailablePoints,
+  saveAvailablePoints,
+} from '../../lib/achievementsStorage';
 
 // ── Data ────────────────────────────────────────────────────────────────────────
 
@@ -300,11 +309,13 @@ function LeaderboardTab() {
 interface RedeemRecord { id: string; itemId: string; itemName: string; itemIcon: string; points: number; status: 'pending' | 'approved' | 'cancelled'; redeemedAt: string; }
 
 function RedeemTab({
+  userId,
   availablePoints,
   onRedeem,
   redeemItems,
   onDeductStock,
 }: {
+  userId: string;
   availablePoints: number;
   onRedeem: (cost: number, record: RedeemRecord) => void;
   redeemItems: RedeemItem[];
@@ -314,6 +325,11 @@ function RedeemTab({
   const [toast, setToast] = useState('');
   const [history, setHistory] = useState<RedeemRecord[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    loadRedeemHistory(userId).then(setHistory);
+  }, [userId]);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -331,6 +347,7 @@ function RedeemTab({
       redeemedAt: new Date().toLocaleString('zh-TW'),
     };
     setHistory(prev => [record, ...prev]);
+    addRedeemRecord(userId, record);
     onRedeem(item.points, record);
     onDeductStock(item.id);
     setConfirming(null);
@@ -339,6 +356,7 @@ function RedeemTab({
 
   const handleCancel = (recordId: string) => {
     setHistory(prev => prev.map(r => r.id === recordId ? { ...r, status: 'cancelled' as const } : r));
+    updateRedeemRecordStatus(recordId, 'cancelled');
     const record = history.find(r => r.id === recordId);
     if (record) onRedeem(-record.points, record);
     showToast('已取消兌換申請，積分已返還。');
@@ -509,7 +527,11 @@ function ManageTab({
       stock,
       desc: newForm.desc.trim(),
     };
-    setRedeemItems(prev => [...prev, newItem]);
+    setRedeemItems(prev => {
+      const next = [...prev, newItem];
+      saveRedeemItems(next);
+      return next;
+    });
     setNewForm(DEFAULT_NEW_FORM);
     showToast(`已新增「${name}」兌換項目`);
   };
@@ -527,18 +549,26 @@ function ManageTab({
       showToast('請填寫完整欄位（名稱、積分、庫存為必填且需為正整數）');
       return;
     }
-    setRedeemItems(prev => prev.map(item =>
-      item.id === id
-        ? { ...item, name, icon: editForm.icon || '🎁', points, stock, desc: editForm.desc.trim() }
-        : item
-    ));
+    setRedeemItems(prev => {
+      const next = prev.map(item =>
+        item.id === id
+          ? { ...item, name, icon: editForm.icon || '🎁', points, stock, desc: editForm.desc.trim() }
+          : item
+      );
+      saveRedeemItems(next);
+      return next;
+    });
     setEditingId(null);
     showToast('已儲存變更');
   };
 
   const handleDelete = (id: string, name: string) => {
     if (!window.confirm(`確定要刪除「${name}」嗎？`)) return;
-    setRedeemItems(prev => prev.filter(item => item.id !== id));
+    setRedeemItems(prev => {
+      const next = prev.filter(item => item.id !== id);
+      saveRedeemItems(next);
+      return next;
+    });
     showToast(`已刪除「${name}」`);
   };
 
@@ -752,6 +782,18 @@ export default function Achievements() {
   const [availablePoints, setAvailablePoints] = useState(TOTAL_POINTS);
   const [redeemItems, setRedeemItems] = useState<RedeemItem[]>(REDEEM_ITEMS_INITIAL);
 
+  useEffect(() => {
+    loadRedeemItems().then((items) => {
+      if (items.length) setRedeemItems(items);
+      else saveRedeemItems(REDEEM_ITEMS_INITIAL);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    loadAvailablePoints(currentUser.id, TOTAL_POINTS).then(setAvailablePoints);
+  }, [currentUser?.id]);
+
   const isAdminOrManager = currentUser && ['admin', 'manager'].includes(currentUser.role);
 
   const tabs = [
@@ -762,13 +804,21 @@ export default function Achievements() {
   ];
 
   const handleRedeem = (cost: number) => {
-    setAvailablePoints(prev => Math.max(0, prev - cost));
+    setAvailablePoints(prev => {
+      const next = Math.max(0, prev - cost);
+      if (currentUser) saveAvailablePoints(currentUser.id, next);
+      return next;
+    });
   };
 
   const handleDeductStock = (itemId: string) => {
-    setRedeemItems(prev => prev.map(item =>
-      item.id === itemId ? { ...item, stock: Math.max(0, item.stock - 1) } : item
-    ));
+    setRedeemItems(prev => {
+      const next = prev.map(item =>
+        item.id === itemId ? { ...item, stock: Math.max(0, item.stock - 1) } : item
+      );
+      saveRedeemItems(next);
+      return next;
+    });
   };
 
   const level = getLevel(availablePoints);
@@ -849,8 +899,9 @@ export default function Achievements() {
       {/* Tab content */}
       {activeTab === 'points' && <PointsTab availablePoints={availablePoints} />}
       {activeTab === 'leaderboard' && <LeaderboardTab />}
-      {activeTab === 'redeem' && (
+      {activeTab === 'redeem' && currentUser && (
         <RedeemTab
+          userId={currentUser.id}
           availablePoints={availablePoints}
           onRedeem={handleRedeem}
           redeemItems={redeemItems}

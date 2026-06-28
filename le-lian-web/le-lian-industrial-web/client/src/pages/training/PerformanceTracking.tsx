@@ -3,63 +3,17 @@ import { TrendingUp, CheckCircle, Clock, AlertCircle, ChevronDown, X, Plus, Pape
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import type { User } from '../../data/trainingMockData';
 import { BarChart, Bar, LineChart, Line, ReferenceLine, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
-interface L3Attachment {
-  id: string;
-  name: string;
-  dataUrl: string;
-}
-
-interface L3ApprovalStep {
-  by: string;
-  at: string;
-  decision: 'approved' | 'rejected';
-  comment?: string;
-}
-
-interface L3Confirmation {
-  id: string;
-  enrollmentId: string;
-  userId: string;
-  courseId: string;
-  courseName: string;
-  userName: string;
-  quarter: string; // e.g. "2026-Q2"
-  applicationContent: string; // 實際應用內容
-  confirmedAt: string | null;
-  // not_due：尚未到填寫期限／pending：已到期待員工填寫／submitted_manager：待主管簽核／
-  // submitted_depthead：待部門最高主管簽核／confirmed：已簽核完成並送人資留存／rejected：被退回待補正／overdue：逾期未填
-  status: 'not_due' | 'pending' | 'submitted_manager' | 'submitted_depthead' | 'confirmed' | 'rejected' | 'overdue';
-  kpiNote: string;
-  dueDate?: string; // 完訓日期 + 3 個月，到期才需填寫
-  attachments?: L3Attachment[];
-  submittedAt?: string;
-  managerApproval?: L3ApprovalStep;
-  deptHeadApproval?: L3ApprovalStep;
-}
-
-interface L4QuarterEntry {
-  quarter: string; // e.g. "2026-Q2"，可跨年度
-  actualValue: number;
-  note?: string;
-  reportedBy: string;
-  reportedAt: string;
-}
-
-interface L4Campaign {
-  id: string;
-  courseId: string;
-  courseName: string;
-  department: string;
-  kpiType: string;
-  unit: string; // 例如 %、件/月、分鐘
-  baselineValue: number; // 訓前基準值
-  targetValue: number; // 課程原訂預期目標 KPI
-  higherIsBetter: boolean; // true：數值越高越好；false：數值越低越好（如事故率、不良率）
-  entries: L4QuarterEntry[]; // 最多 4 個季度，由主管/HR逐季填寫
-  createdBy: string;
-  createdAt: string;
-}
+import {
+  type L3Attachment,
+  type L3ApprovalStep,
+  type L3Confirmation,
+  type L4QuarterEntry,
+  type L4Campaign,
+  loadL3Records,
+  saveL3Records,
+  loadL4Campaigns,
+  saveL4Campaigns,
+} from '../../lib/perfTrackingStorage';
 
 const currentQuarter = (() => {
   const now = new Date();
@@ -166,8 +120,9 @@ type TabId = 'overview' | 'l1' | 'l2' | 'l3' | 'l4';
 export default function PerformanceTracking() {
   const { currentUser, enrollments, users, courses, addNotification } = useTrainingAuth();
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [l3Records, setL3Records] = useState<L3Confirmation[]>(INITIAL_L3);
-  const [l4Campaigns, setL4Campaigns] = useState<L4Campaign[]>(INITIAL_L4);
+  const [l3Records, setL3Records] = useState<L3Confirmation[]>([]);
+  const [l4Campaigns, setL4Campaigns] = useState<L4Campaign[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [quarterFilter, setQuarterFilter] = useState(currentQuarter);
   const [deptFilter, setDeptFilter] = useState('全部');
   const [selectedL3, setSelectedL3] = useState<string | null>(null);
@@ -188,8 +143,20 @@ export default function PerformanceTracking() {
   const isEmployee = currentUser?.role === 'employee';
   const isManagerRole = currentUser?.role === 'manager';
 
+  useEffect(() => {
+    Promise.all([loadL3Records(), loadL4Campaigns()]).then(([l3, l4]) => {
+      setL3Records(l3.length ? l3 : INITIAL_L3);
+      setL4Campaigns(l4.length ? l4 : INITIAL_L4);
+      setDataLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => { if (dataLoaded) saveL3Records(l3Records); }, [l3Records, dataLoaded]);
+  useEffect(() => { if (dataLoaded) saveL4Campaigns(l4Campaigns); }, [l4Campaigns, dataLoaded]);
+
   // 依完訓紀錄自動產生 L3 應用追蹤項目：完訓日期 + 3 個月即為填寫期限，尚未到期前不會要求填寫
   useEffect(() => {
+    if (!dataLoaded) return;
     const completed = enrollments.filter(e => e.status === 'completed' && e.completedAt);
     const today = new Date();
     setL3Records(prev => {

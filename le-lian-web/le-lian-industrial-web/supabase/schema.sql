@@ -950,7 +950,7 @@ create table if not exists public.achievement_redeem_items (
   icon text not null default '🎁',
   points integer not null default 0,
   stock integer not null default 0,
-  desc text not null default ''
+  "desc" text not null default ''
 );
 
 -- 成就獎勵中心：個人兌換紀錄
@@ -1751,7 +1751,7 @@ insert into public.annual_plan_course_track (name, planned, actual, rate, partic
   ('專案管理基礎(PMP概念)', 7, 0, 0, 0, '未開始')
 on conflict (name) do nothing;
 
-insert into public.achievement_redeem_items (id, name, icon, points, stock, desc) values
+insert into public.achievement_redeem_items (id, name, icon, points, stock, "desc") values
   ('r1', '半天特休假', '🌴', 500, 10, '兌換半天特休假一次'),
   ('r2', '書籍禮品卡 NT$500', '📖', 300, 20, '可至合作書店使用'),
   ('r3', '下午茶券', '☕', 150, 50, '公司福委會下午茶一份'),

@@ -4,6 +4,7 @@ import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { ALL_DEPARTMENTS, getUnitManager, getHRStaff } from '../../data/orgChartData';
 import { supabase } from '../../lib/supabaseClient';
 import { exportElementToPdf } from '../../lib/pdfExport';
+import { findDeptManagerId, findRoleUserId, canSignSlot, notifySigners } from '../../lib/signoffEngine';
 import type { FeeAgreementRow } from '../../types/database';
 
 const DEPARTMENTS = ALL_DEPARTMENTS;
@@ -62,6 +63,8 @@ interface SentAgreement {
   idNumber?: string;
   address?: string;
   phone?: string;
+  signOff: Record<string, { name: string; date: string; comment?: string }>;
+  designatedSigners: Record<string, string>;
 }
 
 function mapRowToAgreement(row: FeeAgreementRow): SentAgreement {
@@ -95,6 +98,8 @@ function mapRowToAgreement(row: FeeAgreementRow): SentAgreement {
     idNumber: row.id_number || undefined,
     address: row.address || undefined,
     phone: row.phone || undefined,
+    signOff: row.sign_off || {},
+    designatedSigners: row.designated_signers || {},
   };
 }
 
@@ -246,9 +251,12 @@ interface DocumentPreviewProps {
   afterYrs: number;
   afterMons: number;
   signedInfo?: { signatureImage?: string; idNumber?: string; address?: string; phone?: string; signedAt: string };
+  signOff?: Record<string, { name: string; date: string; comment?: string }>;
+  canSign?: (stage: 'deptManager' | 'hr') => boolean;
+  onSign?: (stage: 'deptManager' | 'hr') => void;
 }
 
-function DocumentPreview({ form, totalFee, afterYrs, afterMons, signedInfo }: DocumentPreviewProps) {
+function DocumentPreview({ form, totalFee, afterYrs, afterMons, signedInfo, signOff, canSign, onSign }: DocumentPreviewProps) {
   const { wan, qian, bai, shi, yuan } = feeToChineseWords(totalFee);
   const deptManager = form.department ? getUnitManager(form.department) : null;
   const hrStaff = getHRStaff();
@@ -379,8 +387,16 @@ function DocumentPreview({ form, totalFee, afterYrs, afterMons, signedInfo }: Do
           <div className="space-y-8">
             <div>
               <p className="font-semibold mb-1.5">申請單位課級主管簽名：</p>
-              <div className="border-b border-gray-500 w-44 h-10" />
-              {deptManager && (
+              {signOff?.deptManager ? (
+                <p className="text-xs text-green-700">✓ {signOff.deptManager.name}　{signOff.deptManager.date}</p>
+              ) : canSign?.('deptManager') ? (
+                <button onClick={() => onSign?.('deptManager')} className="text-xs text-blue-600 underline hover:no-underline">
+                  點擊簽核
+                </button>
+              ) : (
+                <div className="border-b border-gray-500 w-44 h-10" />
+              )}
+              {deptManager && !signOff?.deptManager && (
                 <p className="text-[10px] text-gray-400 mt-0.5">
                   （依組織架構圖，{form.department} 主管：{deptManager.name} {deptManager.title}）
                 </p>
@@ -388,8 +404,16 @@ function DocumentPreview({ form, totalFee, afterYrs, afterMons, signedInfo }: Do
             </div>
             <div>
               <p className="font-semibold mb-1.5">執行單位人資單位簽名：</p>
-              <div className="border-b border-gray-500 w-44 h-10" />
-              {hrStaff.length > 0 && (
+              {signOff?.hr ? (
+                <p className="text-xs text-green-700">✓ {signOff.hr.name}　{signOff.hr.date}</p>
+              ) : canSign?.('hr') ? (
+                <button onClick={() => onSign?.('hr')} className="text-xs text-blue-600 underline hover:no-underline">
+                  點擊簽核
+                </button>
+              ) : (
+                <div className="border-b border-gray-500 w-44 h-10" />
+              )}
+              {hrStaff.length > 0 && !signOff?.hr && (
                 <p className="text-[10px] text-gray-400 mt-0.5">
                   （人資安全組：{hrStaff.map(h => h.name).join('、')}）
                 </p>
@@ -554,7 +578,7 @@ function SigningModal({ agreement, onSign, onClose }: {
 }
 
 export default function FeeAgreement() {
-  const { currentUser, users } = useTrainingAuth();
+  const { currentUser, users, addNotification } = useTrainingAuth();
   const [form, setForm] = useState<FeeForm>(INITIAL_FORM);
   const [showPreview, setShowPreview] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
@@ -594,6 +618,11 @@ export default function FeeAgreement() {
     }
     const afterSvc = calcAfterService(form.beforeServiceYrs, form.beforeServiceMons, form.addedServiceYrs, form.addedServiceMons);
     const recipient = users.find(u => u.name === form.employeeName);
+    const deptManagerId = findDeptManagerId(form.department, users);
+    const hrId = findRoleUserId('hr', users);
+    const designatedSigners: Record<string, string> = {};
+    if (deptManagerId) designatedSigners.deptManager = deptManagerId;
+    if (hrId) designatedSigners.hr = hrId;
     const row: Omit<FeeAgreementRow, 'sent_at'> = {
       id: crypto.randomUUID(),
       recipient_user_id: recipient?.id || null,
@@ -624,6 +653,8 @@ export default function FeeAgreement() {
       id_number: null,
       address: null,
       phone: null,
+      sign_off: {},
+      designated_signers: designatedSigners,
     };
     const { data, error } = await supabase.from('fee_agreements').insert(row).select().single();
     if (error || !data) {
@@ -632,6 +663,7 @@ export default function FeeAgreement() {
       return;
     }
     setAgreements([mapRowToAgreement(data as FeeAgreementRow), ...agreements]);
+    notifySigners(addNotification, currentUser?.id, [deptManagerId, hrId], `${form.employeeName} 的課程訓練費用同意書`, '教育訓練費用補助同意書核簽');
     setSavedMessage(`同意書已發送給 ${form.employeeName}！`);
     setTimeout(() => setSavedMessage(''), 3000);
   };
@@ -657,6 +689,19 @@ export default function FeeAgreement() {
     if (error) return;
     setAgreements(agreements.map(a => a.id === id ? { ...a, status: 'archived' as const } : a));
     if (viewingAgreement?.id === id) setViewingAgreement({ ...viewingAgreement, status: 'archived' });
+  };
+
+  /** 部門主管／人資簽核同意書：僅指定簽核人本人（或管理員）可簽，簽核後寫回 Supabase */
+  const signFeeAgreement = async (agreementId: string, stage: 'deptManager' | 'hr') => {
+    if (!currentUser) return;
+    const target = agreements.find(a => a.id === agreementId);
+    if (!target) return;
+    const date = new Date().toISOString().split('T')[0];
+    const signOff = { ...target.signOff, [stage]: { name: currentUser.name, date } };
+    const { error } = await supabase.from('fee_agreements').update({ sign_off: signOff }).eq('id', agreementId);
+    if (error) return;
+    setAgreements(agreements.map(a => a.id === agreementId ? { ...a, signOff } : a));
+    if (viewingAgreement?.id === agreementId) setViewingAgreement({ ...viewingAgreement, signOff });
   };
 
   const handleSign = async (agreementId: string, sigData: { signatureImage: string; idNumber: string; address: string; phone: string }) => {
@@ -774,6 +819,9 @@ export default function FeeAgreement() {
                       phone: agreement.phone,
                       signedAt: agreement.signedAt!,
                     } : undefined}
+                    signOff={agreement.signOff}
+                    canSign={(stage) => canSignSlot(currentUser, agreement.designatedSigners[stage], stage === 'hr' ? ['hr'] : ['manager'])}
+                    onSign={(stage) => signFeeAgreement(agreement.id, stage)}
                   />
                 )}
               </div>
@@ -1061,6 +1109,9 @@ export default function FeeAgreement() {
                     phone: viewingAgreement.phone,
                     signedAt: viewingAgreement.signedAt!,
                   } : undefined}
+                  signOff={viewingAgreement.signOff}
+                  canSign={(stage) => canSignSlot(currentUser, viewingAgreement.designatedSigners[stage], stage === 'hr' ? ['hr'] : ['manager'])}
+                  onSign={(stage) => signFeeAgreement(viewingAgreement.id, stage)}
                 />
               </div>
             )}

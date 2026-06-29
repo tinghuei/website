@@ -30,7 +30,7 @@ const navItems = [
   { to: '/training/courses',            icon: BookOpen,        labelKey: 'nav.courses',       roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
   { to: '/training/my-courses',         icon: GraduationCap,   labelKey: 'nav.myCourses',     roles: ['employee'] },
   { to: '/training/competency',         icon: Target,          labelKey: 'nav.competency',    roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
-  { to: '/training/annual-plan',        icon: Calendar,        labelKey: 'nav.annualPlan',    roles: ['manager', 'admin', 'hr'] },
+  { to: '/training/annual-plan',        icon: Calendar,        labelKey: 'nav.annualPlan',    roles: ['manager', 'admin', 'hr', 'vp'] },
   { to: '/training/free-courses',       icon: Globe,           labelKey: 'nav.freeCourses',   roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/achievements',       icon: Trophy,          labelKey: 'nav.achievements',  roles: ['employee', 'manager', 'admin', 'hr'] },
   { to: '/training/career',             icon: Map,             labelKey: 'nav.career',        roles: ['employee', 'manager', 'admin', 'hr'] },

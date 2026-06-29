@@ -5,6 +5,7 @@ import {
 import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck, Pencil, History, X, FileSignature, Printer } from 'lucide-react';
 import { XLSX, styleSheet } from '../../lib/excelStyle';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import type { User } from '../../data/trainingMockData';
 import { loadRecords, loadRoutine, TTQS_PHASES, type PhysicalRecord, type RoutineCourse } from '../../lib/physicalTrainingStorage';
 import {
   loadAnnualSignoffs, saveAnnualSignoff, EMPTY_SIGNOFF, type AnnualSignoff,
@@ -12,8 +13,9 @@ import {
   EMPTY_VARIANCE_SIGNOFF, type VarianceEntry, type VarianceSignoff,
   loadAnnualPlanRows, saveAnnualPlanRows, type PlanRow,
   loadCourseTrack, saveCourseTrack, type CourseTrackItem,
-  loadPlanSubmission, savePlanSubmission,
+  loadPlanSubmission, savePlanSubmission, EMPTY_PLAN_SUBMISSION, type PlanSubmission,
 } from '../../lib/annualPlanStorage';
+import { findDeptManagerId, findRoleUserId, canSignSlot, notifySigners } from '../../lib/signoffEngine';
 
 // 年度計畫真實課程資料 (來源：公司課程地圖 Excel) 已搬移至 Supabase 種子資料
 // (supabase/schema.sql 的 annual_plan_rows / annual_plan_course_track)，
@@ -709,12 +711,13 @@ const HISTORY_YEAR_OPTIONS = ['2024', '2025', '2026', '2027'];
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AnnualTrainingPlan() {
-  const { courses, enrollments, currentUser, auditLogs, addAuditLog, clearAuditLogsByActions } = useTrainingAuth();
+  const { courses, enrollments, currentUser, users, addNotification, auditLogs, addAuditLog, clearAuditLogsByActions } = useTrainingAuth();
   const [courseTrack, setCourseTrack] = useState<CourseTrackItem[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   const [year, setYear] = useState('2026');
   const [department, setDepartment] = useState('製造課');
-  const [planStatus, setPlanStatus] = useState<'草稿' | '提交' | '核准'>('草稿');
+  const [planSubmission, setPlanSubmission] = useState<PlanSubmission>(EMPTY_PLAN_SUBMISSION);
+  const planStatus = planSubmission.status;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [rows, setRows] = useState<PlanRow[]>([]);
@@ -731,7 +734,7 @@ export default function AnnualTrainingPlan() {
   }, []);
 
   useEffect(() => {
-    loadPlanSubmission(year, department).then((s) => setPlanStatus(s.status));
+    loadPlanSubmission(year, department).then(setPlanSubmission);
   }, [year, department]);
 
   // 人資與管理員可編輯／刪除年度計畫課程；一般主管僅可檢視
@@ -935,18 +938,53 @@ export default function AnnualTrainingPlan() {
   }
 
   async function handleSubmit() {
+    if (!currentUser) return;
     setSubmitting(true);
     setSubmitError('');
     try {
       const submittedAt = new Date().toISOString();
-      await savePlanSubmission(year, department, { status: '提交', submittedAt });
-      setPlanStatus('提交');
+      const deptManagerId = findDeptManagerId(department, users);
+      const gmId = findRoleUserId('vp', users);
+      const designatedSigners: Record<string, string> = { hr: currentUser.id };
+      if (deptManagerId) designatedSigners.deptManager = deptManagerId;
+      if (gmId) designatedSigners.gm = gmId;
+      const next: PlanSubmission = {
+        status: '提交',
+        submittedAt,
+        signOff: { ...planSubmission.signOff, hr: { name: currentUser.name, date: submittedAt.split('T')[0] } },
+        designatedSigners,
+      };
+      await savePlanSubmission(year, department, next);
+      setPlanSubmission(next);
+      notifySigners(addNotification, currentUser.id, [designatedSigners.deptManager, designatedSigners.gm], `${year}年度${department}教育訓練計畫`, '年度訓練計畫核准');
     } catch {
       setSubmitError('提交失敗，請稍後再試');
     } finally {
       setSubmitting(false);
     }
   }
+
+  /** 部門主管／總經理簽核年度計畫：僅指定簽核人本人（或管理員）可簽，簽核後寫回 Supabase 並推進流程 */
+  async function signPlanStep(stage: 'deptManager' | 'gm') {
+    if (!currentUser) return;
+    setSubmitError('');
+    const date = new Date().toISOString().split('T')[0];
+    const signOff = { ...planSubmission.signOff, [stage]: { name: currentUser.name, date } };
+    const allSigned = (['hr', 'deptManager', 'gm'] as const).every((k) => signOff[k]);
+    const next: PlanSubmission = { ...planSubmission, signOff, status: allSigned ? '核准' : planSubmission.status };
+    try {
+      await savePlanSubmission(year, department, next);
+      setPlanSubmission(next);
+    } catch {
+      setSubmitError('簽核失敗，請稍後再試');
+    }
+  }
+
+  const planSteps: Array<{ key: 'hr' | 'deptManager' | 'gm'; label: string; roles: Array<User['role']> }> = [
+    { key: 'hr', label: '人資確認', roles: ['hr'] },
+    { key: 'deptManager', label: '部門主管', roles: ['manager'] },
+    { key: 'gm', label: '總經理核准', roles: ['vp'] },
+  ];
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -1020,7 +1058,8 @@ export default function AnnualTrainingPlan() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting || planStatus !== '草稿'}
+                  disabled={submitting || planStatus !== '草稿' || !canManagePlan}
+                  title={!canManagePlan ? '僅人資/管理員可提交審核' : undefined}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
                 >
                   <Send size={15} /> {submitting ? '提交中...' : '提交審核'}
@@ -1034,20 +1073,36 @@ export default function AnnualTrainingPlan() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
             <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">審核流程</p>
             <div className="flex items-center gap-2 flex-wrap">
-              {['人資確認', '部門主管', '總經理核准'].map((step, i) => (
-                <div key={step} className="flex items-center gap-2">
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                    planStatus === '草稿' ? 'bg-gray-100 text-gray-400 border-gray-200' :
-                    planStatus === '提交' && i === 0 ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                    planStatus === '核准' ? 'bg-green-100 text-green-700 border-green-300' :
-                    'bg-gray-100 text-gray-400 border-gray-200'
-                  }`}>
-                    {planStatus === '核准' ? <CheckCircle size={12} /> : <Clock size={12} />}
-                    {step}
+              {planSteps.map((step, i) => {
+                const signed = planSubmission.signOff[step.key];
+                const designatedId = planSubmission.designatedSigners[step.key];
+                const canSign = step.key !== 'hr' && planStatus !== '草稿' && !signed && canSignSlot(currentUser, designatedId, step.roles);
+                return (
+                  <div key={step.key} className="flex items-center gap-2">
+                    <div className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
+                      signed ? 'bg-green-100 text-green-700 border-green-300' :
+                      planStatus === '草稿' ? 'bg-gray-100 text-gray-400 border-gray-200' :
+                      'bg-blue-100 text-blue-700 border-blue-300'
+                    }`}>
+                      <span className="flex items-center gap-1.5">
+                        {signed ? <CheckCircle size={12} /> : <Clock size={12} />}
+                        {step.label}
+                      </span>
+                      {signed ? (
+                        <span className="text-[10px] font-normal">{signed.name} · {signed.date}</span>
+                      ) : canSign ? (
+                        <button
+                          onClick={() => signPlanStep(step.key as 'deptManager' | 'gm')}
+                          className="text-[10px] font-semibold underline hover:no-underline"
+                        >
+                          點擊簽核
+                        </button>
+                      ) : null}
+                    </div>
+                    {i < planSteps.length - 1 && <span className="text-gray-300">→</span>}
                   </div>
-                  {i < 2 && <span className="text-gray-300">→</span>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

@@ -260,9 +260,13 @@ export async function saveAnnualPlanRows(list: PlanRow[]): Promise<void> {
 export interface PlanSubmission {
   status: '草稿' | '提交' | '核准';
   submittedAt: string | null;
+  signOff: Record<string, { name: string; date: string; comment?: string }>;
+  designatedSigners: Record<string, string>;
 }
 
-export const EMPTY_PLAN_SUBMISSION: PlanSubmission = { status: '草稿', submittedAt: null };
+export const EMPTY_PLAN_SUBMISSION: PlanSubmission = {
+  status: '草稿', submittedAt: null, signOff: {}, designatedSigners: {},
+};
 
 export async function loadPlanSubmission(year: string, department: string): Promise<PlanSubmission> {
   const { data, error } = await supabase
@@ -273,7 +277,12 @@ export async function loadPlanSubmission(year: string, department: string): Prom
     .maybeSingle();
   if (error || !data) return { ...EMPTY_PLAN_SUBMISSION };
   const row = data as PlanSubmissionRow;
-  return { status: row.status, submittedAt: row.submitted_at };
+  return {
+    status: row.status,
+    submittedAt: row.submitted_at,
+    signOff: row.sign_off || {},
+    designatedSigners: row.designated_signers || {},
+  };
 }
 
 export async function savePlanSubmission(year: string, department: string, submission: PlanSubmission): Promise<void> {
@@ -282,6 +291,8 @@ export async function savePlanSubmission(year: string, department: string, submi
     department,
     status: submission.status,
     submitted_at: submission.submittedAt,
+    sign_off: submission.signOff,
+    designated_signers: submission.designatedSigners,
   });
   if (error) throw error;
 }

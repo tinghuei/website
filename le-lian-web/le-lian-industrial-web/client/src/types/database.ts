@@ -428,6 +428,8 @@ export interface FeeAgreementRow {
   id_number: string | null;
   address: string | null;
   phone: string | null;
+  sign_off: Record<string, { name: string; date: string; comment?: string }>;
+  designated_signers: Record<string, string>;
 }
 
 export interface NotificationRow {
@@ -492,10 +494,13 @@ export interface AnnualSignoffRow {
 }
 
 export interface PlanSubmissionRow {
+  id: string;
   year: string;
   department: string;
   status: '草稿' | '提交' | '核准';
   submitted_at: string | null;
+  sign_off: Record<string, { name: string; date: string; comment?: string }>;
+  designated_signers: Record<string, string>;
 }
 
 export interface VarianceEntryRow {

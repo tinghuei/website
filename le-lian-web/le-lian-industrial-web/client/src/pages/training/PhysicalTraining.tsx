@@ -9,15 +9,7 @@ import {
   type TrainingApplication, type PreClassCheck, type ChecklistItem, type ParticipantChange, TTQS_PHASES,
   loadRecords, saveRecords, loadRoutine, saveRoutine,
 } from '../../lib/physicalTrainingStorage';
-
-/** 找出指定部門的主管（角色為 manager 且部門相符），用於指派該部門例行課程的「部門主管」簽核人 */
-function findDeptManagerId(department: string, users: User[]): string | undefined {
-  return users.find(u => u.role === 'manager' && u.department === department)?.id;
-}
-/** 找出指定角色的使用者（用於指派人資審核 / 副總核准簽核人） */
-function findRoleUserId(role: User['role'], users: User[]): string | undefined {
-  return users.find(u => u.role === role)?.id;
-}
+import { findDeptManagerId, findRoleUserId, canSignSlot as canSignSlotEngine, notifySigners as notifySignersEngine } from '../../lib/signoffEngine';
 
 const NEED_SOURCES = ['年度教育訓練計畫', '稽核缺失改善', '客訴改善', '工安事故改善', '主管需求', '法規要求', '其他'];
 const COMPETENCY_OPTIONS = ['專業知識', '設備操作', '品質意識', '工安意識', '問題分析', '溝通能力', '管理能力', '其他'];
@@ -560,19 +552,12 @@ export default function PhysicalTraining() {
   // 執行檢查表（CF-CM-HR-40）僅人資與管理員可見可填，主管不需要看到
   const canFillCheck = role === 'hr' || role === 'admin';
 
-  /** 簽核欄位是否可由目前登入者簽核：管理員可代簽；其餘角色須符合允許角色，
-   *  且若該欄位已指定特定簽核人，則僅該位指定人本人可簽，非欄位人選不可簽核 */
   function canSignSlot(designatedId: string | undefined, allowedRoles: Array<User['role']>): boolean {
-    if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
-    if (!allowedRoles.includes(currentUser.role)) return false;
-    return designatedId ? currentUser.id === designatedId : true;
+    return canSignSlotEngine(currentUser, designatedId, allowedRoles);
   }
 
-  /** 通知各指定簽核人有文件待簽核（排除自己），對應「文件需要簽核通知要跳出說有文件要簽核」 */
   function notifySigners(ids: Array<string | undefined>, courseName: string, formLabel: string) {
-    const unique = Array.from(new Set(ids.filter((id): id is string => !!id && id !== currentUser?.id)));
-    unique.forEach(id => addNotification(id, 'sign_pending', `您有一份「${formLabel}」待簽核：${courseName}`));
+    notifySignersEngine(addNotification, currentUser?.id, ids, courseName, formLabel);
   }
 
   function openDesignModal(rc: RoutineCourse) {

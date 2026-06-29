@@ -734,6 +734,18 @@ drop trigger if exists enforce_fee_agreement_signature_trg on public.fee_agreeme
 create trigger enforce_fee_agreement_signature_trg before update on public.fee_agreements
   for each row execute function public.enforce_fee_agreement_signature();
 
+-- 簽核欄位：部門主管 / 人資確認（員工本人簽署仍由上方 enforce_fee_agreement_signature 把關，
+-- 不受影響），沿用通用簽核引擎 enforce_signoff_slot / notify_pending_signoff。
+alter table public.fee_agreements add column if not exists sign_off jsonb not null default '{}'::jsonb;
+alter table public.fee_agreements add column if not exists designated_signers jsonb not null default '{}'::jsonb;
+
+drop trigger if exists enforce_signoff_fee_agreements on public.fee_agreements;
+create trigger enforce_signoff_fee_agreements before update on public.fee_agreements
+  for each row execute function public.enforce_signoff_slot();
+drop trigger if exists notify_signoff_fee_agreements on public.fee_agreements;
+create trigger notify_signoff_fee_agreements after insert or update on public.fee_agreements
+  for each row execute function public.notify_pending_signoff();
+
 -- ============================================================================
 -- 8. 通知與稽核紀錄
 -- ============================================================================
@@ -816,6 +828,19 @@ create table if not exists public.plan_submissions (
   submitted_at text,
   primary key (year, department)
 );
+
+-- 簽核欄位：人資確認 / 部門主管 / 總經理核准，沿用通用簽核引擎
+-- （enforce_signoff_slot / notify_pending_signoff，見下方 course_designs 區塊的定義）
+alter table public.plan_submissions add column if not exists id uuid not null default gen_random_uuid();
+alter table public.plan_submissions add column if not exists sign_off jsonb not null default '{}'::jsonb;
+alter table public.plan_submissions add column if not exists designated_signers jsonb not null default '{}'::jsonb;
+
+drop trigger if exists enforce_signoff_plan_submissions on public.plan_submissions;
+create trigger enforce_signoff_plan_submissions before update on public.plan_submissions
+  for each row execute function public.enforce_signoff_slot();
+drop trigger if exists notify_signoff_plan_submissions on public.plan_submissions;
+create trigger notify_signoff_plan_submissions after insert or update on public.plan_submissions
+  for each row execute function public.notify_pending_signoff();
 
 -- CF-CM-HR-39 教育訓練計畫與實際差異分析表
 create table if not exists public.variance_entries (
@@ -1293,10 +1318,16 @@ drop policy if exists pre_class_checks_delete on public.pre_class_checks;
 create policy pre_class_checks_delete on public.pre_class_checks for delete to authenticated
   using (public.is_hr_or_admin());
 
--- fee_agreements：受文員工本人、寄送者、hr/admin 可讀；簽署完整性由 trigger 把關
+-- fee_agreements：受文員工本人、寄送者、hr/admin、以及被指定為簽核人者可讀；簽署完整性由 trigger 把關
 drop policy if exists fee_agreements_select on public.fee_agreements;
 create policy fee_agreements_select on public.fee_agreements for select to authenticated
-  using (recipient_user_id = auth.uid() or sent_by = auth.uid() or public.is_hr_or_admin());
+  using (
+    recipient_user_id = auth.uid() or sent_by = auth.uid() or public.is_hr_or_admin()
+    or exists (
+      select 1 from jsonb_each_text(coalesce(designated_signers, '{}'::jsonb)) as ds(key, value)
+      where ds.value = auth.uid()::text
+    )
+  );
 drop policy if exists fee_agreements_insert on public.fee_agreements;
 create policy fee_agreements_insert on public.fee_agreements for insert to authenticated
   with check (public.is_manager_or_above());

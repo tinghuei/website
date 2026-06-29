@@ -3,7 +3,7 @@
 import { supabase } from './supabaseClient';
 import type {
   AnnualSignoffRow, VarianceEntryRow, VarianceSignoffRow,
-  AnnualPlanRowRow, AnnualPlanCourseTrackRow,
+  AnnualPlanRowRow, AnnualPlanCourseTrackRow, PlanSubmissionRow,
 } from '../types/database';
 
 export interface AnnualSignoff {
@@ -254,6 +254,36 @@ export async function saveAnnualPlanRows(list: PlanRow[]): Promise<void> {
   if (list.length) {
     await supabase.from('annual_plan_rows').upsert(list.map(planRowToRow));
   }
+}
+
+// ── 年度訓練計畫制定：提交審核狀態（依年度／部門） ──────────────────────────
+export interface PlanSubmission {
+  status: '草稿' | '提交' | '核准';
+  submittedAt: string | null;
+}
+
+export const EMPTY_PLAN_SUBMISSION: PlanSubmission = { status: '草稿', submittedAt: null };
+
+export async function loadPlanSubmission(year: string, department: string): Promise<PlanSubmission> {
+  const { data, error } = await supabase
+    .from('plan_submissions')
+    .select('*')
+    .eq('year', year)
+    .eq('department', department)
+    .maybeSingle();
+  if (error || !data) return { ...EMPTY_PLAN_SUBMISSION };
+  const row = data as PlanSubmissionRow;
+  return { status: row.status, submittedAt: row.submitted_at };
+}
+
+export async function savePlanSubmission(year: string, department: string, submission: PlanSubmission): Promise<void> {
+  const { error } = await supabase.from('plan_submissions').upsert({
+    year,
+    department,
+    status: submission.status,
+    submitted_at: submission.submittedAt,
+  });
+  if (error) throw error;
 }
 
 // ── 年度訓練計畫「課程執行追蹤」(TTQS執行追蹤) ─────────────────────────────

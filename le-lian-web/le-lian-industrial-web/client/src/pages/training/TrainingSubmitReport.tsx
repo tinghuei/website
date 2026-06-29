@@ -81,16 +81,22 @@ export default function TrainingSubmitReport() {
   const reportValid = reportContent.trim().length >= reportMinLength;
   const surveyValid = Object.values(ratings).every((v) => v > 0) && overall > 0;
 
-  const handleSubmit = () => {
+  const [submitError, setSubmitError] = useState(false);
+
+  const handleSubmit = async () => {
     if (!reportValid || !surveyValid) return;
     setLoading(true);
-    setTimeout(() => {
+    setSubmitError(false);
+    try {
       const surveyData = { ...ratings, overall, suggestions };
-      submitReport(enrollment.id, reportContent, surveyData);
-      checkAndSetPendingReview(enrollment.id);
+      await submitReport(enrollment.id, reportContent, surveyData);
+      await checkAndSetPendingReview(enrollment.id);
       setSubmitted(true);
+    } catch {
+      setSubmitError(true);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   if (submitted) {
@@ -263,6 +269,11 @@ export default function TrainingSubmitReport() {
               {surveyValid ? <CheckCircle size={13} /> : <div className="w-3 h-3 rounded-full border border-gray-300" />}
               滿意度調查
             </div>
+            {submitError && (
+              <div className="flex items-center gap-1 text-red-600">
+                <AlertCircle size={13} /> 提交失敗，請檢查網路連線後重試
+              </div>
+            )}
           </div>
           <button
             onClick={handleSubmit}

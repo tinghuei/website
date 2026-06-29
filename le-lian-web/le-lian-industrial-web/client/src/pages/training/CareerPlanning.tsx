@@ -11,6 +11,7 @@ import {
 import { Map, Target, ClipboardList, BrainCircuit, ChevronRight, CheckCircle, AlertCircle, XCircle, Send, History, UserCheck, Clock, MessageSquare } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { loadCareerGoals, proposeCareerGoal, reviewCareerGoal, type CareerGoalRecord } from '../../lib/careerGoalsStorage';
+import { saveRotationAssessment, sendRotationAssessmentToManager, type RotationAssessmentRecord } from '../../lib/rotationAssessmentStorage';
 
 // ── Data ────────────────────────────────────────────────────────────────────────
 
@@ -204,10 +205,12 @@ function GoalSettingSection() {
   const [targetDate, setTargetDate] = useState('2027-12-31');
   const [motivation, setMotivation] = useState('');
   const [proposeSaved, setProposeSaved] = useState(false);
+  const [proposeError, setProposeError] = useState(false);
 
   // Manager review form
   const [managerComment, setManagerComment] = useState('');
   const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected' | 'revised'>('approved');
+  const [reviewError, setReviewError] = useState(false);
 
   const myGoals = goals.filter((g) => g.employeeId === currentUser?.id);
   const pendingForManager = goals.filter((g) => g.status === 'proposed');
@@ -215,7 +218,7 @@ function GoalSettingSection() {
 
   const courses = TARGET_POSITION_COURSES[targetPosition] || [];
 
-  function handlePropose() {
+  async function handlePropose() {
     if (!currentUser || !motivation.trim()) return;
     const newGoal: CareerGoalRecord = {
       id: `cg_${Date.now()}`,
@@ -230,15 +233,21 @@ function GoalSettingSection() {
       managerName: '李主管',
       proposedAt: new Date().toLocaleString('zh-TW'),
     };
+    setProposeError(false);
+    try {
+      await proposeCareerGoal(newGoal);
+    } catch {
+      setProposeError(true);
+      return;
+    }
     setGoals((prev) => [...prev, newGoal]);
-    proposeCareerGoal(newGoal);
     setMotivation('');
     setShowPropose(false);
     setProposeSaved(true);
     setTimeout(() => setProposeSaved(false), 3000);
   }
 
-  function handleReview() {
+  async function handleReview() {
     if (!reviewingGoal) return;
     const updated: CareerGoalRecord = {
       ...reviewingGoal,
@@ -248,8 +257,14 @@ function GoalSettingSection() {
       managerName: currentUser?.name || '主管',
       reviewedAt: new Date().toLocaleString('zh-TW'),
     };
+    setReviewError(false);
+    try {
+      await reviewCareerGoal(updated);
+    } catch {
+      setReviewError(true);
+      return;
+    }
     setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
-    reviewCareerGoal(updated);
     setReviewingGoal(null);
     setManagerComment('');
   }
@@ -362,6 +377,11 @@ function GoalSettingSection() {
                 </button>
               ))}
             </div>
+            {reviewError && (
+              <div className="mb-3 p-2 bg-red-50 rounded-lg border border-red-200 text-xs text-red-700 flex items-center gap-1.5">
+                <AlertCircle size={13} /> 審核送出失敗，請檢查網路連線後重試
+              </div>
+            )}
             <div className="flex gap-2">
               <button onClick={() => setReviewingGoal(null)} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">取消</button>
               <button onClick={handleReview} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">確認審核</button>
@@ -372,6 +392,11 @@ function GoalSettingSection() {
         {proposeSaved && (
           <div className="mb-3 p-3 bg-green-50 rounded-xl border border-green-200 text-sm text-green-700 font-medium flex items-center gap-2">
             <CheckCircle size={14} /> 職涯目標提案已送出，等待主管審核
+          </div>
+        )}
+        {proposeError && (
+          <div className="mb-3 p-3 bg-red-50 rounded-xl border border-red-200 text-sm text-red-700 font-medium flex items-center gap-2">
+            <AlertCircle size={14} /> 提案送出失敗，請檢查網路連線後重試
           </div>
         )}
 
@@ -491,12 +516,18 @@ interface RotationResult {
 }
 
 function RotationAssessmentSection() {
+  const { currentUser } = useTrainingAuth();
   const [targetDept, setTargetDept] = useState(DEPARTMENTS[2]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<RotationResult | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [assessmentId, setAssessmentId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [sentToManager, setSentToManager] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const total = Object.values(answers).reduce((s, v) => s + v, 0);
     let recommendation = '';
     let level: RotationResult['level'] = 'no';
@@ -522,6 +553,47 @@ function RotationAssessmentSection() {
 
     setResult({ score: total, recommendation, level, courses });
     setSubmitted(true);
+    setSentToManager(false);
+    setSaveError(false);
+
+    if (!currentUser) return;
+    setSaving(true);
+    const id = crypto.randomUUID();
+    const record: RotationAssessmentRecord = {
+      id,
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      targetDept,
+      answers,
+      score: total,
+      recommendation,
+      level,
+      courses,
+      submittedAt: new Date().toISOString(),
+      sentToManager: false,
+      managerComment: '',
+    };
+    try {
+      await saveRotationAssessment(record);
+      setAssessmentId(id);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSendToManager = async () => {
+    if (!assessmentId) return;
+    setSending(true);
+    try {
+      await sendRotationAssessmentToManager(assessmentId, new Date().toISOString());
+      setSentToManager(true);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSending(false);
+    }
   };
 
   const allAnswered = Object.keys(answers).length === ROTATION_QUESTIONS.length;
@@ -641,16 +713,31 @@ function RotationAssessmentSection() {
             </div>
           )}
 
+          {saveError && (
+            <p className="text-sm text-red-600 flex items-center gap-1.5">
+              <AlertCircle size={14} /> 儲存失敗，請檢查網路連線後重試
+            </p>
+          )}
+          {sentToManager && (
+            <p className="text-sm text-green-600 flex items-center gap-1.5">
+              <CheckCircle size={14} /> 已送交主管查看
+            </p>
+          )}
+
           <div className="flex gap-3">
             <button
-              onClick={() => { setSubmitted(false); setResult(null); setAnswers({}); }}
+              onClick={() => { setSubmitted(false); setResult(null); setAnswers({}); setAssessmentId(null); setSentToManager(false); }}
               className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               重新評估
             </button>
-            <button className="flex-1 py-2.5 bg-blue-600 rounded-xl text-sm font-bold text-white hover:bg-blue-700 flex items-center justify-center gap-2">
+            <button
+              onClick={handleSendToManager}
+              disabled={!assessmentId || saving || sending || sentToManager}
+              className="flex-1 py-2.5 bg-blue-600 rounded-xl text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-2"
+            >
               <Send size={14} />
-              提交評估結果給主管
+              {sending ? '送出中...' : sentToManager ? '已送交主管' : '提交評估結果給主管'}
             </button>
           </div>
         </div>

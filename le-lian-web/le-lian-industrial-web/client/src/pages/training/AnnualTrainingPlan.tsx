@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import { FileSpreadsheet, Plus, Save, Send, CheckCircle, Clock, Grid3X3, Trash2, Search, Star, Award, ShieldCheck, Pencil, History, X, FileSignature, Printer } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { XLSX, styleSheet } from '../../lib/excelStyle';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { loadRecords, loadRoutine, TTQS_PHASES, type PhysicalRecord, type RoutineCourse } from '../../lib/physicalTrainingStorage';
 import {
@@ -12,6 +12,7 @@ import {
   EMPTY_VARIANCE_SIGNOFF, type VarianceEntry, type VarianceSignoff,
   loadAnnualPlanRows, saveAnnualPlanRows, type PlanRow,
   loadCourseTrack, saveCourseTrack, type CourseTrackItem,
+  loadPlanSubmission, savePlanSubmission,
 } from '../../lib/annualPlanStorage';
 
 // 年度計畫真實課程資料 (來源：公司課程地圖 Excel) 已搬移至 Supabase 種子資料
@@ -87,6 +88,7 @@ function exportAnnualPlan(planRows: PlanRow[]) {
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{ wch: 6 }, { wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 25 }];
+  styleSheet(ws, { titleRows: [0], subtitleRows: [1], headerRow: 3, numCols: header.length });
   XLSX.utils.book_append_sheet(wb, ws, '年度訓練計畫');
   XLSX.writeFile(wb, '樂聯工業_年度教育訓練計畫_2026.xlsx');
 }
@@ -109,6 +111,7 @@ function exportTTQS() {
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 35 }, { wch: 20 }, { wch: 10 }];
+  styleSheet(ws, { titleRows: [0], subtitleRows: [1, 2], headerRow: 4, numCols: 5 });
   XLSX.utils.book_append_sheet(wb, ws, 'TTQS評核表');
   XLSX.writeFile(wb, '樂聯工業_TTQS評核表_2026.xlsx');
 }
@@ -125,6 +128,7 @@ function exportSignInSheet() {
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{ wch: 6 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
+  styleSheet(ws, { titleRows: [0], subtitleRows: [1, 2], headerRow: 4, numCols: 7 });
   XLSX.utils.book_append_sheet(wb, ws, '簽到表');
   XLSX.writeFile(wb, '樂聯工業_教育訓練簽到表.xlsx');
 }
@@ -141,6 +145,7 @@ function exportCourseMap() {
   });
   const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
   ws['!cols'] = [{ wch: 20 }, ...COMPETENCY_COLS.map(() => ({ wch: 20 }))];
+  styleSheet(ws, { headerRow: 0, numCols: header.length });
   XLSX.utils.book_append_sheet(wb, ws, '課程地圖');
   XLSX.writeFile(wb, '樂聯工業_課程地圖_2026.xlsx');
 }
@@ -222,6 +227,7 @@ function exportVarianceForm(entries: VarianceEntry[], signoff: VarianceSignoff) 
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = header.map(() => ({ wch: 14 }));
+  styleSheet(ws, { titleRows: [0], headerRow: 2, numCols: header.length });
   XLSX.utils.book_append_sheet(wb, ws, '差異分析表');
   XLSX.writeFile(wb, '樂聯工業_教育訓練計畫與實際差異分析表_CFCMHR39.xlsx');
 }
@@ -709,6 +715,8 @@ export default function AnnualTrainingPlan() {
   const [year, setYear] = useState('2026');
   const [department, setDepartment] = useState('製造課');
   const [planStatus, setPlanStatus] = useState<'草稿' | '提交' | '核准'>('草稿');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [savedMsg, setSavedMsg] = useState('');
@@ -721,6 +729,10 @@ export default function AnnualTrainingPlan() {
     loadAnnualPlanRows().then(setRows);
     loadCourseTrack().then(setCourseTrack);
   }, []);
+
+  useEffect(() => {
+    loadPlanSubmission(year, department).then((s) => setPlanStatus(s.status));
+  }, [year, department]);
 
   // 人資與管理員可編輯／刪除年度計畫課程；一般主管僅可檢視
   const canManagePlan = currentUser?.role === 'admin' || currentUser?.role === 'hr';
@@ -922,8 +934,18 @@ export default function AnnualTrainingPlan() {
     setTimeout(() => setSavedMsg(''), 2000);
   }
 
-  function handleSubmit() {
-    setPlanStatus('提交');
+  async function handleSubmit() {
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      const submittedAt = new Date().toISOString();
+      await savePlanSubmission(year, department, { status: '提交', submittedAt });
+      setPlanStatus('提交');
+    } catch {
+      setSubmitError('提交失敗，請稍後再試');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -996,11 +1018,16 @@ export default function AnnualTrainingPlan() {
                 <button onClick={handleSave} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg text-sm font-medium transition-colors">
                   <Save size={15} /> 儲存草稿
                 </button>
-                <button onClick={handleSubmit} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
-                  <Send size={15} /> 提交審核
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting || planStatus !== '草稿'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                >
+                  <Send size={15} /> {submitting ? '提交中...' : '提交審核'}
                 </button>
               </div>
             </div>
+            {submitError && <p className="text-sm text-red-600 mt-2">{submitError}</p>}
           </div>
 
           {/* Approval flow */}

@@ -464,6 +464,22 @@ export interface CareerGoalRow {
   reviewed_at: string | null;
 }
 
+export interface RotationAssessmentRow {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  target_dept: string;
+  answers: Record<string, number>;
+  score: number;
+  recommendation: string;
+  level: 'excellent' | 'good' | 'warn' | 'no';
+  courses: string[];
+  submitted_at: string;
+  sent_to_manager: boolean;
+  sent_at: string | null;
+  manager_comment: string;
+}
+
 export interface AnnualSignoffRow {
   year: string;
   hr_submitted_at: string | null;
@@ -473,6 +489,13 @@ export interface AnnualSignoffRow {
   gm_approved: boolean;
   gm_approved_at: string | null;
   gm_comment: string;
+}
+
+export interface PlanSubmissionRow {
+  year: string;
+  department: string;
+  status: '草稿' | '提交' | '核准';
+  submitted_at: string | null;
 }
 
 export interface VarianceEntryRow {

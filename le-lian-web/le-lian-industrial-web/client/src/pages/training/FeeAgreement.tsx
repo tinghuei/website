@@ -3,6 +3,7 @@ import { FileText, Printer, Download, Save, Eye, EyeOff, Send, Archive, CheckCir
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { ALL_DEPARTMENTS, getUnitManager, getHRStaff } from '../../data/orgChartData';
 import { supabase } from '../../lib/supabaseClient';
+import { exportElementToPdf } from '../../lib/pdfExport';
 import type { FeeAgreementRow } from '../../types/database';
 
 const DEPARTMENTS = ALL_DEPARTMENTS;
@@ -635,6 +636,22 @@ export default function FeeAgreement() {
     setTimeout(() => setSavedMessage(''), 3000);
   };
 
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      if (!showPreview) {
+        setShowPreview(true);
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      const el = document.getElementById('fee-agreement-print');
+      if (!el) return;
+      await exportElementToPdf(el, `教育訓練費用補助同意書_${form.employeeName || ''}.pdf`);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const handleArchive = async (id: string) => {
     const { error } = await supabase.from('fee_agreements').update({ status: 'archived' }).eq('id', id);
     if (error) return;
@@ -961,8 +978,8 @@ export default function FeeAgreement() {
               <button onClick={() => window.print()} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
                 <Printer size={16} />列印同意書
               </button>
-              <button onClick={() => window.print()} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">
-                <Download size={16} />匯出 PDF
+              <button onClick={handleExportPdf} disabled={exportingPdf} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 text-sm font-medium">
+                <Download size={16} />{exportingPdf ? '產生中...' : '匯出 PDF'}
               </button>
               <button onClick={() => { setSavedMessage('記錄已儲存！'); setTimeout(() => setSavedMessage(''), 3000); }} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
                 <Save size={16} />儲存記錄

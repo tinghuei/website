@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ClipboardList, Plus, Trash2, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Edit3, X, Save, Image, Users, BookOpen, TrendingUp, Star, Award, FileText, ClipboardCheck, Printer, FileSignature, ListChecks, PenLine } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { XLSX, styleSheet } from '../../lib/excelStyle';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import type { User } from '../../data/trainingMockData';
@@ -338,6 +338,7 @@ function exportToExcel(records: PhysicalRecord[]) {
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 8 }, { wch: 12 }, { wch: 6 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 16 }, { wch: 30 }, { wch: 25 }, { wch: 8 }];
+  styleSheet(ws, { titleRows: [0], subtitleRows: [1], headerRow: 3, numCols: header.length });
   XLSX.utils.book_append_sheet(wb, ws, '實體訓練記錄');
   XLSX.writeFile(wb, '樂聯工業_實體訓練記錄_2026.xlsx');
 }

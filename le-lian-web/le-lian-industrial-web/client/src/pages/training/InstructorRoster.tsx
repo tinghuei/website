@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Users, UserCheck, Download, Upload, Plus, Edit, Trash2, X, Search } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { loadInstructors, saveInstructors, loadStudents, saveStudents, type Instructor, type Student } from '../../lib/instructorRosterStorage';
-import * as XLSX from 'xlsx';
+import { XLSX, styleSheet } from '../../lib/excelStyle';
 
 type ActiveRoster = 'instructors' | 'students';
 
@@ -92,6 +92,7 @@ export default function InstructorRoster() {
       '專長領域': i.specialty, '聯絡電話': i.phone, '電子郵件': i.email,
       '相關證照': i.certifications, '授課場次': i.totalCourses,
     })));
+    styleSheet(ws, { headerRow: 0, numCols: 9 });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '講師名冊');
     XLSX.writeFile(wb, '講師名冊.xlsx');
@@ -104,6 +105,7 @@ export default function InstructorRoster() {
       '員工編號': s.employeeId, '姓名': s.name, '出生日期': s.birthday,
       '部門': s.department, '職稱': s.title, '到職日期': s.joinDate, '電子郵件': s.email,
     })));
+    styleSheet(ws, { headerRow: 0, numCols: 7 });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '學員名冊');
     XLSX.writeFile(wb, '學員名冊.xlsx');

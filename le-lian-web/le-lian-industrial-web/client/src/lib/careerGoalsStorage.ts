@@ -60,10 +60,12 @@ export async function loadCareerGoals(): Promise<CareerGoalRecord[]> {
 
 /** 員工新增自己的職涯目標提案。 */
 export async function proposeCareerGoal(goal: CareerGoalRecord): Promise<void> {
-  await supabase.from('career_goals').insert(goalToRow(goal));
+  const { error } = await supabase.from('career_goals').insert(goalToRow(goal));
+  if (error) throw error;
 }
 
 /** 主管審核（核准／退回／需修改）既有提案。 */
 export async function reviewCareerGoal(goal: CareerGoalRecord): Promise<void> {
-  await supabase.from('career_goals').update(goalToRow(goal)).eq('id', goal.id);
+  const { error } = await supabase.from('career_goals').update(goalToRow(goal)).eq('id', goal.id);
+  if (error) throw error;
 }

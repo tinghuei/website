@@ -110,9 +110,9 @@ export default function AdminDashboard() {
   // 導出 Excel
   const handleExportExcel = async () => {
     try {
-      // 動態導入 xlsx
-      const XLSX = await import('xlsx');
-      
+      // 動態導入 xlsx（搭配 xlsx-js-style 美化樣式）
+      const { XLSX, styleSheet } = await import('../lib/excelStyle');
+
       // 準備數據
       const data = filteredResults.map(result => ({
         '員工名稱': result.employeeName,
@@ -143,7 +143,8 @@ export default function AdminDashboard() {
         { wch: 10 },
         { wch: 15 },
       ];
-      
+      styleSheet(ws, { headerRow: 0, numCols: 9 });
+
       // 導出文件
       XLSX.writeFile(wb, `職能評估結果_${new Date().toLocaleDateString('zh-TW')}.xlsx`);
       toast.success('Excel 報表已導出');

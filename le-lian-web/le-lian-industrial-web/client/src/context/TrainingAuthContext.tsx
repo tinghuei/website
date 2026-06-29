@@ -510,7 +510,8 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
 
   const updateEnrollment = async (enrollmentId: string, updates: Partial<Enrollment>) => {
     const row = enrollmentUpdatesToRow(updates);
-    await supabase.from('enrollments').update(row).eq('id', enrollmentId);
+    const { error } = await supabase.from('enrollments').update(row).eq('id', enrollmentId);
+    if (error) throw error;
     setEnrollments((prev) => prev.map((e) => (e.id === enrollmentId ? { ...e, ...updates } : e)));
   };
 

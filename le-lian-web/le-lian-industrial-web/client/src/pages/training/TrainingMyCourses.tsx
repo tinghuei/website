@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { exportElementToPdf } from '../../lib/pdfExport';
 import {
   CheckCircle,
   XCircle,
@@ -39,32 +40,16 @@ const thumbnailColors: Record<string, string> = {
 };
 
 function CertificateModal({ enrollment, course, user, onClose }: { enrollment: Enrollment; course: Course | undefined; user: User | null; onClose: () => void }) {
-  const handleDownload = () => {
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = async () => {
     const el = document.getElementById('certificate-content');
     if (!el) return;
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write(`<html><head><title>結業證書</title><style>
-      body { margin: 0; font-family: sans-serif; }
-      .cert { background: linear-gradient(135deg, #1d4ed8, #4338ca); color: white; padding: 60px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-      h1 { font-size: 48px; margin: 20px 0 8px; }
-      h2 { font-size: 28px; margin: 8px 0; color: #bfdbfe; }
-      h3 { font-size: 36px; margin: 20px 0; color: #fef08a; }
-      p { color: #bfdbfe; margin: 8px 0; }
-    </style></head><body>
-    <div class="cert">
-      <p style="letter-spacing:4px;font-size:14px;">樂聯工業 員工訓練平台</p>
-      <h1>結業證書</h1>
-      <h2>Certificate of Completion</h2>
-      <p style="margin-top:32px;">茲此證明</p>
-      <h3>${user?.name || ''}</h3>
-      <p>已完成以下訓練課程</p>
-      <p style="font-size:20px;color:white;font-weight:bold;margin:16px 0;">${course?.title || ''}</p>
-      <p style="margin-top:24px;">工號：${user?.email?.split('@')[0] || ''}</p>
-      <p>完成日期：${enrollment.completedAt || ''} &nbsp;|&nbsp; 測驗成績：${enrollment.quizScore ?? '-'} 分</p>
-    </div></body></html>`);
-    w.document.close();
-    setTimeout(() => w.print(), 500);
+    setDownloading(true);
+    try {
+      await exportElementToPdf(el, `結業證書_${course?.title || ''}.pdf`);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -130,9 +115,10 @@ function CertificateModal({ enrollment, course, user, onClose }: { enrollment: E
           <div className="flex gap-3 justify-center">
             <button
               onClick={handleDownload}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors"
+              disabled={downloading}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-colors"
             >
-              <Award size={15} /> 下載 PDF
+              <Award size={15} /> {downloading ? '產生中...' : '下載 PDF'}
             </button>
             <button
               onClick={onClose}

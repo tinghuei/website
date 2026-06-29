@@ -778,6 +778,24 @@ create table if not exists public.career_goals (
   created_at timestamptz not null default now()
 );
 
+-- 部門輪調適合度評估（CareerPlanning.tsx 部門輪調評估區塊）
+create table if not exists public.rotation_assessments (
+  id text primary key,
+  employee_id uuid not null references public.profiles(id),
+  employee_name text not null,
+  target_dept text not null,
+  answers jsonb not null default '{}'::jsonb,
+  score int not null,
+  recommendation text not null,
+  level text not null check (level in ('excellent', 'good', 'warn', 'no')),
+  courses jsonb not null default '[]'::jsonb,
+  submitted_at text not null,
+  sent_to_manager boolean not null default false,
+  sent_at text,
+  manager_comment text not null default '',
+  created_at timestamptz not null default now()
+);
+
 -- 年度訓練計畫歷年成效查詢：各年度送審簽核狀態
 create table if not exists public.annual_signoffs (
   year text primary key,
@@ -788,6 +806,15 @@ create table if not exists public.annual_signoffs (
   gm_approved boolean not null default false,
   gm_approved_at text,
   gm_comment text not null default ''
+);
+
+-- 年度訓練計畫制定（AnnualTrainingPlan.tsx 計畫制定頁籤）：各年度／部門的計畫提交狀態
+create table if not exists public.plan_submissions (
+  year text not null,
+  department text not null,
+  status text not null default '草稿' check (status in ('草稿', '提交', '核准')),
+  submitted_at text,
+  primary key (year, department)
 );
 
 -- CF-CM-HR-39 教育訓練計畫與實際差異分析表
@@ -991,7 +1018,9 @@ alter table public.fee_agreements enable row level security;
 alter table public.notifications enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.career_goals enable row level security;
+alter table public.rotation_assessments enable row level security;
 alter table public.annual_signoffs enable row level security;
+alter table public.plan_submissions enable row level security;
 alter table public.variance_entries enable row level security;
 alter table public.variance_signoffs enable row level security;
 alter table public.training_roi_inputs enable row level security;
@@ -1311,12 +1340,31 @@ drop policy if exists career_goals_update on public.career_goals;
 create policy career_goals_update on public.career_goals for update to authenticated
   using (public.is_manager_or_above()) with check (public.is_manager_or_above());
 
+-- rotation_assessments：全員可讀（含主管查看評估結果）；員工僅可新增/更新自己的評估；
+-- 主管/admin 亦可更新（用於填寫 manager_comment）
+drop policy if exists rotation_assessments_select on public.rotation_assessments;
+create policy rotation_assessments_select on public.rotation_assessments for select to authenticated using (true);
+drop policy if exists rotation_assessments_insert on public.rotation_assessments;
+create policy rotation_assessments_insert on public.rotation_assessments for insert to authenticated
+  with check (employee_id = auth.uid());
+drop policy if exists rotation_assessments_update on public.rotation_assessments;
+create policy rotation_assessments_update on public.rotation_assessments for update to authenticated
+  using (employee_id = auth.uid() or public.is_manager_or_above())
+  with check (employee_id = auth.uid() or public.is_manager_or_above());
+
 -- annual_signoffs：全員可讀，manager/hr/admin 可送審/核准
 -- （/training/annual-plan 路由僅限 manager/admin/hr 進入）
 drop policy if exists annual_signoffs_select on public.annual_signoffs;
 create policy annual_signoffs_select on public.annual_signoffs for select to authenticated using (true);
 drop policy if exists annual_signoffs_write on public.annual_signoffs;
 create policy annual_signoffs_write on public.annual_signoffs for all to authenticated
+  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+
+-- plan_submissions：全員可讀，manager/hr/admin 可提交（與前端 canManagePlan 一致）
+drop policy if exists plan_submissions_select on public.plan_submissions;
+create policy plan_submissions_select on public.plan_submissions for select to authenticated using (true);
+drop policy if exists plan_submissions_write on public.plan_submissions;
+create policy plan_submissions_write on public.plan_submissions for all to authenticated
   using (public.is_manager_or_above()) with check (public.is_manager_or_above());
 
 -- variance_entries / variance_signoffs：CF-CM-HR-39 差異分析表，全員可讀，

@@ -347,16 +347,6 @@ export default function TrainingCourseDetail() {
     }
   };
 
-  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isEnrolled) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const newProgress = Math.min(100, Math.max(0, (x / rect.width) * 100));
-    const newTimeSec = Math.round((newProgress / 100) * (course.duration || 60) * 60);
-    setProgress(newProgress);
-    setWatchTime(newTimeSec);
-  };
-
   const handlePostComment = () => {
     if (!newComment.trim() || !currentUser) return;
     addDiscussion(course.id, currentUser.id, currentUser.name, newComment.trim());
@@ -505,10 +495,7 @@ export default function TrainingCourseDetail() {
                 </span>
                 <span className="font-medium">{Math.round(progress)}%</span>
               </div>
-              <div
-                className="bg-gray-100 rounded-full h-2 cursor-pointer hover:h-3 transition-all group"
-                onClick={handleProgressBarClick}
-              >
+              <div className="bg-gray-100 rounded-full h-2">
                 <div
                   className={`h-full rounded-full transition-all relative ${progress >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
                   style={{ width: `${progress}%` }}

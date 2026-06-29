@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import { XLSX, styleSheet } from '../../lib/excelStyle';
 import {
   BarChart,
   Bar,
@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { Users, CheckCircle, Star, Clock, Download, TrendingUp, BarChart2 } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
+import { exportHtmlToPdf } from '../../lib/pdfExport';
 
 const deptData = [
   { dept: '總經理室', completion: 95, target: 80 },
@@ -75,6 +76,7 @@ export default function ManagementReports() {
         達標: d.completion >= d.target ? '是' : '否',
       }))
     );
+    styleSheet(ws, { headerRow: 0, numCols: 4 });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '部門完成率');
     XLSX.writeFile(wb, '部門完成率報告.xlsx');
@@ -89,13 +91,14 @@ export default function ManagementReports() {
       { 員工編號: 'E003', 姓名: '王志偉', 部門: '塗裝線', 完成課程數: 3, 總訓練時數: 9, 平均分數: 71, 年度狀態: '未達標' },
     ];
     const ws = XLSX.utils.json_to_sheet(data);
+    styleSheet(ws, { headerRow: 0, numCols: 7 });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '個人訓練紀錄');
     XLSX.writeFile(wb, '個人訓練紀錄.xlsx');
     setTimeout(() => setExporting(null), 1000);
   };
 
-  const exportTTQSReport = () => {
+  const exportTTQSReport = async () => {
     setExporting('ttqs');
 
     // Build SVG bar chart for dept completion
@@ -141,10 +144,8 @@ export default function ManagementReports() {
     }).join('');
     const pieLegend = courseStatus.map((c, i) => `<text x="250" y="${60 + i * 22}" font-size="11" fill="#374151">■ ${c.name}：${c.value}筆 (${Math.round(c.value/total*100)}%)</text><rect x="240" y="${48 + i * 22}" width="12" height="12" fill="${c.fill}"/>`).join('');
 
-    const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">
-<title>TTQS年度成效報告 2026</title>
-<style>
-  body { font-family: 'Microsoft JhengHei', Arial, sans-serif; margin: 0; padding: 20px; color: #1f2937; background: #f9fafb; }
+    const html = `<style>
+  .report-root { font-family: 'Microsoft JhengHei', Arial, sans-serif; padding: 20px; color: #1f2937; background: #f9fafb; }
   .cover { background: linear-gradient(135deg,#1d4ed8,#4f46e5); color:white; padding:40px; border-radius:12px; text-align:center; margin-bottom:24px; }
   .cover h1 { font-size:28px; margin:0 0 8px; }
   .cover p { font-size:14px; opacity:.85; margin:0; }
@@ -154,8 +155,8 @@ export default function ManagementReports() {
   .kpi { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:14px; text-align:center; }
   .kpi .val { font-size:22px; font-weight:800; color:#0284c7; }
   .kpi .lbl { font-size:11px; color:#64748b; margin-top:4px; }
-  @media print { body { background:white; } .section { box-shadow:none; border:1px solid #e5e7eb; } }
-</style></head><body>
+</style>
+<div class="report-root">
 <div class="cover">
   <h1>樂聯工業股份有限公司</h1>
   <h1>TTQS 年度訓練成效報告</h1>
@@ -234,13 +235,13 @@ export default function ManagementReports() {
     🎯 建議行動：對完成率低於70%的部門安排補救訓練；推動外籍員工參與多語言課程；下月重點：智慧製造與ISO品質課程。
   </div>
 </div>
+</div>`;
 
-<script>window.onload=()=>window.print();</script>
-</body></html>`;
-
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); }
-    setTimeout(() => setExporting(null), 1000);
+    try {
+      await exportHtmlToPdf(html, 'TTQS年度成效報告_2026.pdf', 700);
+    } finally {
+      setExporting(null);
+    }
   };
 
   return (

@@ -14,11 +14,14 @@ export interface AnnualSignoff {
   gmApproved: boolean;
   gmApprovedAt: string | null;
   gmComment: string;
+  signOff: Record<string, { name: string; date: string; comment?: string }>;
+  designatedSigners: Record<string, string>;
 }
 
 export const EMPTY_SIGNOFF: AnnualSignoff = {
   hrSubmittedAt: null, vpApproved: false, vpApprovedAt: null, vpComment: '',
   gmApproved: false, gmApprovedAt: null, gmComment: '',
+  signOff: {}, designatedSigners: {},
 };
 
 function mapSignoffRow(row: AnnualSignoffRow): AnnualSignoff {
@@ -30,6 +33,8 @@ function mapSignoffRow(row: AnnualSignoffRow): AnnualSignoff {
     gmApproved: row.gm_approved,
     gmApprovedAt: row.gm_approved_at,
     gmComment: row.gm_comment,
+    signOff: row.sign_off || {},
+    designatedSigners: row.designated_signers || {},
   };
 }
 
@@ -44,7 +49,7 @@ export async function loadAnnualSignoffs(): Promise<Record<string, AnnualSignoff
 }
 
 export async function saveAnnualSignoff(year: string, signoff: AnnualSignoff): Promise<void> {
-  await supabase.from('annual_signoffs').upsert({
+  const { error } = await supabase.from('annual_signoffs').upsert({
     year,
     hr_submitted_at: signoff.hrSubmittedAt,
     vp_approved: signoff.vpApproved,
@@ -53,7 +58,10 @@ export async function saveAnnualSignoff(year: string, signoff: AnnualSignoff): P
     gm_approved: signoff.gmApproved,
     gm_approved_at: signoff.gmApprovedAt,
     gm_comment: signoff.gmComment,
+    sign_off: signoff.signOff,
+    designated_signers: signoff.designatedSigners,
   });
+  if (error) throw error;
 }
 
 // ── CF-CM-HR-39 教育訓練計畫與實際差異分析表 ──────────────────────────────────

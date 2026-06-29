@@ -491,6 +491,8 @@ export interface AnnualSignoffRow {
   gm_approved: boolean;
   gm_approved_at: string | null;
   gm_comment: string;
+  sign_off: Record<string, { name: string; date: string; comment?: string }>;
+  designated_signers: Record<string, string>;
 }
 
 export interface PlanSubmissionRow {

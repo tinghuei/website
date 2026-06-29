@@ -820,6 +820,34 @@ create table if not exists public.annual_signoffs (
   gm_comment text not null default ''
 );
 
+-- 簽核欄位：人資彙整 / 副總審核 / 總經理核准，沿用通用簽核引擎（enforce_signoff_slot /
+-- notify_pending_signoff，見上方 course_designs 區塊的定義），準確派送到實際指定人，
+-- 不再讓任意 manager_or_above 角色都能代簽。舊有的布林欄位保留不刪，避免影響既有資料。
+alter table public.annual_signoffs add column if not exists id uuid not null default gen_random_uuid();
+alter table public.annual_signoffs add column if not exists sign_off jsonb not null default '{}'::jsonb;
+alter table public.annual_signoffs add column if not exists designated_signers jsonb not null default '{}'::jsonb;
+
+-- 回填既有已簽核年度（沿用舊布林/文字欄位的資料，不覆蓋任何尚未填入 sign_off 的紀錄）
+update public.annual_signoffs
+set sign_off = sign_off
+  || case when hr_submitted_at is not null and not (sign_off ? 'hr')
+       then jsonb_build_object('hr', jsonb_build_object('name', '（歷史資料）', 'date', hr_submitted_at))
+       else '{}'::jsonb end
+  || case when vp_approved and not (sign_off ? 'vp')
+       then jsonb_build_object('vp', jsonb_build_object('name', '（歷史資料）', 'date', coalesce(vp_approved_at, ''), 'comment', vp_comment))
+       else '{}'::jsonb end
+  || case when gm_approved and not (sign_off ? 'gm')
+       then jsonb_build_object('gm', jsonb_build_object('name', '（歷史資料）', 'date', coalesce(gm_approved_at, ''), 'comment', gm_comment))
+       else '{}'::jsonb end
+where hr_submitted_at is not null or vp_approved or gm_approved;
+
+drop trigger if exists enforce_signoff_annual_signoffs on public.annual_signoffs;
+create trigger enforce_signoff_annual_signoffs before update on public.annual_signoffs
+  for each row execute function public.enforce_signoff_slot();
+drop trigger if exists notify_signoff_annual_signoffs on public.annual_signoffs;
+create trigger notify_signoff_annual_signoffs after insert or update on public.annual_signoffs
+  for each row execute function public.notify_pending_signoff();
+
 -- 年度訓練計畫制定（AnnualTrainingPlan.tsx 計畫制定頁籤）：各年度／部門的計畫提交狀態
 create table if not exists public.plan_submissions (
   year text not null,
@@ -1361,7 +1389,8 @@ create policy audit_logs_select on public.audit_logs for select to authenticated
   using (public.is_hr_or_admin());
 
 -- career_goals：全員可讀（含主管審核列表）；員工僅可新增自己的提案；
--- 審核（核准/退回/需修改）僅 manager/admin 可更新
+-- 審核（核准/退回/需修改）僅該提案實際指定的主管（manager_id）本人或 admin 可更新，
+-- 避免任何主管都能代簽他人下屬的職涯目標提案
 drop policy if exists career_goals_select on public.career_goals;
 create policy career_goals_select on public.career_goals for select to authenticated using (true);
 drop policy if exists career_goals_insert on public.career_goals;
@@ -1369,7 +1398,8 @@ create policy career_goals_insert on public.career_goals for insert to authentic
   with check (employee_id = auth.uid());
 drop policy if exists career_goals_update on public.career_goals;
 create policy career_goals_update on public.career_goals for update to authenticated
-  using (public.is_manager_or_above()) with check (public.is_manager_or_above());
+  using (public.is_admin() or manager_id = auth.uid())
+  with check (public.is_admin() or manager_id = auth.uid());
 
 -- rotation_assessments：全員可讀（含主管查看評估結果）；員工僅可新增/更新自己的評估；
 -- 主管/admin 亦可更新（用於填寫 manager_comment）

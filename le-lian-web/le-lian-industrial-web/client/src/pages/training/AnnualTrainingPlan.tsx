@@ -861,22 +861,63 @@ export default function AnnualTrainingPlan() {
   const isCurrentRealYear = historyYear === String(new Date().getFullYear());
   const isOctoberOrLater = new Date().getMonth() >= 9; // getMonth() 為 0-indexed，9 = 10月
 
-  function updateSignoff(updates: Partial<AnnualSignoff>) {
-    const updated = { ...(signoffs[historyYear] || EMPTY_SIGNOFF), ...updates };
-    setSignoffs((prev) => ({ ...prev, [historyYear]: updated }));
-    saveAnnualSignoff(historyYear, updated);
+  const [historySignError, setHistorySignError] = useState('');
+  const [vpCommentDraft, setVpCommentDraft] = useState('');
+  const [gmCommentDraft, setGmCommentDraft] = useState('');
+  useEffect(() => { setVpCommentDraft(''); setGmCommentDraft(''); }, [historyYear]);
+
+  // 人資彙整送審僅人資/管理員可操作；副總審核／總經理核准僅實際指定簽核人（或管理員）可操作
+  const hrCanSubmit = canManagePlan;
+  const vpCanSign = !currentSignoff.signOff.vp && !!currentSignoff.signOff.hr && canSignSlot(currentUser, currentSignoff.designatedSigners.vp, ['vp']);
+  const gmCanSign = !currentSignoff.signOff.gm && !!currentSignoff.signOff.vp && canSignSlot(currentUser, currentSignoff.designatedSigners.gm, ['admin']);
+
+  /** 人資彙整送審：派送到實際的副總（vp 角色）與總經理（admin 角色）帳號，而非任意主管 */
+  async function handleHrSubmit() {
+    if (!currentUser) return;
+    setHistorySignError('');
+    const date = new Date().toISOString().split('T')[0];
+    const vpId = findRoleUserId('vp', users);
+    const gmId = findRoleUserId('admin', users);
+    const designatedSigners: Record<string, string> = { ...currentSignoff.designatedSigners, hr: currentUser.id };
+    if (vpId) designatedSigners.vp = vpId;
+    if (gmId) designatedSigners.gm = gmId;
+    const next: AnnualSignoff = {
+      ...currentSignoff,
+      hrSubmittedAt: date,
+      signOff: { ...currentSignoff.signOff, hr: { name: currentUser.name, date } },
+      designatedSigners,
+    };
+    try {
+      await saveAnnualSignoff(historyYear, next);
+      setSignoffs((prev) => ({ ...prev, [historyYear]: next }));
+      notifySigners(addNotification, currentUser.id, [designatedSigners.vp, designatedSigners.gm], `${historyYear}年度教育訓練成效`, '歷年成效送審');
+    } catch {
+      setHistorySignError('送審失敗，請稍後再試');
+    }
   }
 
-  function handleHrSubmit() {
-    updateSignoff({ hrSubmittedAt: new Date().toISOString().split('T')[0] });
-  }
-
-  function handleVpApprove() {
-    updateSignoff({ vpApproved: true, vpApprovedAt: new Date().toISOString().split('T')[0] });
-  }
-
-  function handleGmApprove() {
-    updateSignoff({ gmApproved: true, gmApprovedAt: new Date().toISOString().split('T')[0] });
+  /** 副總審核／總經理核准：僅指定簽核人本人（或管理員）可簽，簽核後寫回 Supabase 並推進流程 */
+  async function signAnnualStep(stage: 'vp' | 'gm') {
+    if (!currentUser) return;
+    setHistorySignError('');
+    const date = new Date().toISOString().split('T')[0];
+    const comment = stage === 'vp' ? vpCommentDraft : gmCommentDraft;
+    const next: AnnualSignoff = {
+      ...currentSignoff,
+      signOff: { ...currentSignoff.signOff, [stage]: { name: currentUser.name, date, comment } },
+      ...(stage === 'vp'
+        ? { vpApproved: true, vpApprovedAt: date, vpComment: comment }
+        : { gmApproved: true, gmApprovedAt: date, gmComment: comment }),
+    };
+    try {
+      await saveAnnualSignoff(historyYear, next);
+      setSignoffs((prev) => ({ ...prev, [historyYear]: next }));
+      if (stage === 'vp' && currentSignoff.designatedSigners.gm) {
+        notifySigners(addNotification, currentUser.id, [currentSignoff.designatedSigners.gm], `${historyYear}年度教育訓練成效`, '歷年成效核准');
+      }
+    } catch {
+      setHistorySignError('簽核失敗，請稍後再試');
+    }
   }
 
   function handleAddRow() {
@@ -1750,19 +1791,23 @@ export default function AnnualTrainingPlan() {
               )
             )}
 
+            {historySignError && <p className="text-sm text-red-600">{historySignError}</p>}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Step 1: HR submit */}
               <div className="border border-gray-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-gray-700">1. 人資彙整送審</span>
-                  {currentSignoff.hrSubmittedAt ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
+                  {currentSignoff.signOff.hr ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
                 </div>
-                {currentSignoff.hrSubmittedAt ? (
-                  <p className="text-xs text-gray-500">已送審日期：{currentSignoff.hrSubmittedAt}</p>
-                ) : (
+                {currentSignoff.signOff.hr ? (
+                  <p className="text-xs text-gray-500">已送審日期：{currentSignoff.signOff.hr.date}（{currentSignoff.signOff.hr.name}）</p>
+                ) : hrCanSubmit ? (
                   <button onClick={handleHrSubmit} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors">
                     彙整並送審 {historyYear} 年度成效
                   </button>
+                ) : (
+                  <p className="text-xs text-gray-400">僅人資/管理員可送審</p>
                 )}
               </div>
 
@@ -1770,56 +1815,62 @@ export default function AnnualTrainingPlan() {
               <div className="border border-gray-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-gray-700">2. 副總審核</span>
-                  {currentSignoff.vpApproved ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
+                  {currentSignoff.signOff.vp ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
                 </div>
-                {currentSignoff.vpApproved ? (
-                  <p className="text-xs text-gray-500">核准日期：{currentSignoff.vpApprovedAt}</p>
+                {currentSignoff.signOff.vp ? (
+                  <>
+                    <p className="text-xs text-gray-500">核准日期：{currentSignoff.signOff.vp.date}（{currentSignoff.signOff.vp.name}）</p>
+                    {currentSignoff.signOff.vp.comment && <p className="text-xs text-gray-600 italic">「{currentSignoff.signOff.vp.comment}」</p>}
+                  </>
+                ) : vpCanSign ? (
+                  <>
+                    <textarea
+                      value={vpCommentDraft}
+                      onChange={(e) => setVpCommentDraft(e.target.value)}
+                      placeholder="副總審核意見..."
+                      rows={2}
+                      className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                    />
+                    <button onClick={() => signAnnualStep('vp')} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors">
+                      副總核准
+                    </button>
+                  </>
                 ) : (
-                  <button
-                    onClick={handleVpApprove}
-                    disabled={!currentSignoff.hrSubmittedAt}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-colors"
-                  >
-                    副總核准
-                  </button>
+                  <p className="text-xs text-gray-400">{!currentSignoff.signOff.hr ? '待人資送審後才能核准' : '僅指定副總可核准'}</p>
                 )}
-                <textarea
-                  value={currentSignoff.vpComment}
-                  onChange={(e) => updateSignoff({ vpComment: e.target.value })}
-                  placeholder="副總審核意見..."
-                  rows={2}
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
-                />
               </div>
 
               {/* Step 3: GM approve */}
               <div className="border border-gray-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-gray-700">3. 總經理核准</span>
-                  {currentSignoff.gmApproved ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
+                  {currentSignoff.signOff.gm ? <CheckCircle size={16} className="text-green-500" /> : <Clock size={16} className="text-gray-300" />}
                 </div>
-                {currentSignoff.gmApproved ? (
-                  <p className="text-xs text-gray-500">核准日期：{currentSignoff.gmApprovedAt}</p>
+                {currentSignoff.signOff.gm ? (
+                  <>
+                    <p className="text-xs text-gray-500">核准日期：{currentSignoff.signOff.gm.date}（{currentSignoff.signOff.gm.name}）</p>
+                    {currentSignoff.signOff.gm.comment && <p className="text-xs text-gray-600 italic">「{currentSignoff.signOff.gm.comment}」</p>}
+                  </>
+                ) : gmCanSign ? (
+                  <>
+                    <textarea
+                      value={gmCommentDraft}
+                      onChange={(e) => setGmCommentDraft(e.target.value)}
+                      placeholder="總經理核准意見..."
+                      rows={2}
+                      className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                    />
+                    <button onClick={() => signAnnualStep('gm')} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors">
+                      總經理核准
+                    </button>
+                  </>
                 ) : (
-                  <button
-                    onClick={handleGmApprove}
-                    disabled={!currentSignoff.vpApproved}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-colors"
-                  >
-                    總經理核准
-                  </button>
+                  <p className="text-xs text-gray-400">{!currentSignoff.signOff.vp ? '待副總審核後才能核准' : '僅指定總經理可核准'}</p>
                 )}
-                <textarea
-                  value={currentSignoff.gmComment}
-                  onChange={(e) => updateSignoff({ gmComment: e.target.value })}
-                  placeholder="總經理核准意見..."
-                  rows={2}
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
-                />
               </div>
             </div>
 
-            {currentSignoff.gmApproved && (
+            {currentSignoff.signOff.gm && (
               <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 flex items-center gap-2">
                 <CheckCircle size={16} />
                 {historyYear} 年度教育訓練成效已完成副總與總經理核准簽核。

@@ -213,7 +213,9 @@ function GoalSettingSection() {
   const [reviewError, setReviewError] = useState(false);
 
   const myGoals = goals.filter((g) => g.employeeId === currentUser?.id);
-  const pendingForManager = goals.filter((g) => g.status === 'proposed');
+  const pendingForManager = goals.filter(
+    (g) => g.status === 'proposed' && (currentUser?.role === 'admin' || g.managerId === currentUser?.id)
+  );
   const latestGoal = myGoals[myGoals.length - 1];
 
   const courses = TARGET_POSITION_COURSES[targetPosition] || [];

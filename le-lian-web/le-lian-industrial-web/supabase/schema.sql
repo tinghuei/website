@@ -354,6 +354,18 @@ create table if not exists public.position_competency_overrides (
   updated_at timestamptz not null default now()
 );
 
+-- 員工職能自評紀錄（CompetencyAnalysis 頁面送出自評後持久化，供跨職位職能缺口分析彙整使用；
+-- 每位員工一筆，再次送出以最新資料覆寫）
+create table if not exists public.competency_self_assessments (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  employee_name text not null,
+  department text,
+  position_name text not null,
+  self_scores jsonb not null default '{}'::jsonb,
+  manager_scores jsonb not null default '{}'::jsonb,
+  submitted_at timestamptz not null default now()
+);
+
 -- 組織圖月份快照（HR/管理員可於組織圖頁面新增「當月組織圖」，不影響 orgChartData.ts 既有基準資料）
 create table if not exists public.org_snapshots (
   id text primary key,
@@ -1053,6 +1065,7 @@ alter table public.job_title_categories enable row level security;
 alter table public.position_competency_frameworks enable row level security;
 alter table public.employee_job_descriptions enable row level security;
 alter table public.position_competency_overrides enable row level security;
+alter table public.competency_self_assessments enable row level security;
 alter table public.org_snapshots enable row level security;
 alter table public.instructors enable row level security;
 alter table public.students enable row level security;
@@ -1225,6 +1238,15 @@ create policy position_competency_overrides_select on public.position_competency
 drop policy if exists position_competency_overrides_write on public.position_competency_overrides;
 create policy position_competency_overrides_write on public.position_competency_overrides for all to authenticated
   using (true) with check (true);
+
+-- competency_self_assessments：manager/hr/admin 可讀全部（跨職位缺口分析彙整用），本人僅可讀寫自己的紀錄
+drop policy if exists competency_self_assessments_select on public.competency_self_assessments;
+create policy competency_self_assessments_select on public.competency_self_assessments for select to authenticated
+  using (user_id = auth.uid() or public.is_manager_or_above());
+drop policy if exists competency_self_assessments_write on public.competency_self_assessments;
+create policy competency_self_assessments_write on public.competency_self_assessments for all to authenticated
+  using (user_id = auth.uid() or public.is_admin())
+  with check (user_id = auth.uid() or public.is_admin());
 
 -- org_snapshots：全員可讀，僅 hr/admin 可新增當月組織圖
 drop policy if exists org_snapshots_select on public.org_snapshots;

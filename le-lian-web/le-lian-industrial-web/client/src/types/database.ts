@@ -204,6 +204,16 @@ export interface PositionCompetencyOverrideRow {
   updated_at: string;
 }
 
+export interface CompetencySelfAssessmentRow {
+  user_id: string;
+  employee_name: string;
+  department: string | null;
+  position_name: string;
+  self_scores: Record<string, number> | null;
+  manager_scores: Record<string, number> | null;
+  submitted_at: string;
+}
+
 export interface OrgSnapshotRow {
   id: string;
   month_label: string;

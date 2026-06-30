@@ -15,6 +15,7 @@ import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCatego
 import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';
 import { loadOverrides, saveOverrides, type PositionCompetencyOverride } from '../../lib/competencyOverrides';
 import { loadEmployeeJDs, saveEmployeeJDs, type EmployeeJDRecord } from '../../lib/employeeJobDescriptions';
+import { loadSelfAssessments, saveSelfAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 // 職能分數以「職能類別 id」為鍵（例如 cm-1, cm-2...），各職位的類別數量與名稱皆不同（約 2～6 項）
@@ -279,6 +280,76 @@ function simulateRecognitionFromFileName(fileName: string): RecognizedDoc {
   };
 }
 
+// 人資／管理員直接為指定職位上傳官方工作說明書時，內容辨識失敗的備援方案：沿用該職位現有的標準分數
+function buildBatchFallbackDoc(fileName: string, positionName: string): RecognizedDoc {
+  const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
+  return {
+    fileName,
+    positionName,
+    source: 'filename',
+    department: null,
+    jobSummary: null,
+    professionalSkills: [],
+    trainingNeeds: [],
+    description: `未能從「${fileName}」內容中辨識出工作說明書欄位（可能為圖片掃描檔或非標準格式），已套用所選職位【${positionName}】（${position.category}・${position.level}），並沿用該職位現有的 ${position.competencies.length} 項 iCAP 職能向度標準分數。`,
+    extractedItems: [
+      `📋 職位（人資指定）：${positionName}（${position.category}）`,
+      `🏷️ 職級：${position.level}（要求等級 ${position.requiredLevel}/5）`,
+      ...position.competencies.map((c) => `📌 ${c.category}：${c.items.map((i) => i.name).join('、')}`),
+    ],
+  };
+}
+
+// 依辨識結果建立職位專屬職能評分標準覆寫資料（與 handleApplyDoc 套用邏輯一致，供職位層級建檔流程獨立使用）
+function buildOverrideFromRecognizedDoc(doc: RecognizedDoc, targetPositionName: string): PositionCompetencyOverride {
+  const target = DETAILED_COMPETENCY_FRAMEWORK[targetPositionName];
+  let competencies: CompetencyCategory[];
+  const standards: CompetencyScores = {};
+
+  if (doc.source === 'content' && doc.professionalSkills.length > 0) {
+    const supplementaryScore = Math.min(100, target.requiredLevel * 20 + 10);
+    const supplementary: CompetencyCategory[] = doc.professionalSkills.map((skill, i) => ({
+      id: `doc-skill-${i + 1}`,
+      category: skill,
+      items: [{
+        id: `doc-skill-${i + 1}-1`,
+        name: skill,
+        description: `${skill}：依工作說明書「${doc.fileName}」列為本職位應具備之專業能力要求`,
+      }],
+    }));
+    if (doc.trainingNeeds.length > 0) {
+      supplementary.push({
+        id: 'doc-training',
+        category: '教育訓練需求',
+        items: doc.trainingNeeds.map((need, i) => ({
+          id: `doc-training-${i + 1}`,
+          name: need,
+          description: `${need}：依工作說明書「${doc.fileName}」列為本職位之教育訓練需求`,
+        })),
+      });
+    }
+    const base = buildStandardScores(target);
+    competencies = [...target.competencies, ...supplementary];
+    target.competencies.forEach((c) => { standards[c.id] = base[c.id]; });
+    supplementary.forEach((c) => { standards[c.id] = supplementaryScore; });
+  } else {
+    const base = buildStandardScores(target);
+    const vary = (v: number) => Math.min(100, Math.max(40, v + Math.round((Math.random() - 0.4) * 12)));
+    competencies = target.competencies;
+    competencies.forEach((c) => { standards[c.id] = vary(base[c.id]); });
+  }
+
+  return {
+    department: doc.department ?? '',
+    jobSummary: doc.jobSummary ?? '',
+    competencies,
+    standards,
+    trainingNeeds: doc.trainingNeeds,
+    sourceFileName: doc.fileName,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 // ── 職能缺口測驗 ───────────────────────────────────────────────────────────────
 interface GapQuizQuestion {
   id: string;
@@ -363,6 +434,16 @@ export default function CompetencyAnalysis() {
   useEffect(() => { loadEmployeeJDs().then((data) => { setEmployeeJDs(data); setEmployeeJDsLoaded(true); }); }, []);
   useEffect(() => { if (employeeJDsLoaded) saveEmployeeJDs(employeeJDs); }, [employeeJDs, employeeJDsLoaded]);
 
+  // 全體員工職能自評紀錄（以使用者 id 為鍵），供跨職位職能缺口總覽彙整使用；僅於送出自評時逐筆更新
+  const [selfAssessments, setSelfAssessments] = useState<Record<string, CompetencySelfAssessment>>({});
+  useEffect(() => {
+    loadSelfAssessments().then((data) => {
+      const map: Record<string, CompetencySelfAssessment> = {};
+      data.forEach((a) => { map[a.userId] = a; });
+      setSelfAssessments(map);
+    });
+  }, []);
+
   // 管理員／人資查看特定員工資料時，暫時覆寫職位職能標準（不影響職位共用的 overrides）
   const [viewingEmployeeName, setViewingEmployeeName] = useState<string | null>(null);
   const [empOverride, setEmpOverride] = useState<PositionCompetencyOverride | null>(null);
@@ -377,6 +458,8 @@ export default function CompetencyAnalysis() {
   const [selfScores, setSelfScores] = useState<CompetencyScores>(() => buildInitialScores(position));
   const [managerScores, setManagerScores] = useState<CompetencyScores>(() => buildManagerScores(position));
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [assessmentSaveError, setAssessmentSaveError] = useState<string | null>(null);
   const [showManager, setShowManager] = useState(false);
   const [targetDept, setTargetDept] = useState(DEPARTMENTS[0]);
   const [fitScore, setFitScore] = useState<number | null>(null);
@@ -433,6 +516,16 @@ export default function CompetencyAnalysis() {
   const [docApplied, setDocApplied] = useState(false);
   const [correctedPositionName, setCorrectedPositionName] = useState<string>(POSITION_NAMES[0]);
 
+  // HR/Admin 職位工作說明書建檔狀態（不綁定特定員工，套用後僅寫入 overrides，不寫入 employeeJDs）
+  const batchFileInputRef = useRef<HTMLInputElement>(null);
+  const [batchPositionName, setBatchPositionName] = useState<string>(POSITION_NAMES[0]);
+  const [batchDocFile, setBatchDocFile] = useState<File | null>(null);
+  const [batchDocDragging, setBatchDocDragging] = useState(false);
+  const [batchDocProcessing, setBatchDocProcessing] = useState(false);
+  const [batchDocStep, setBatchDocStep] = useState(0);
+  const [batchDocResult, setBatchDocResult] = useState<RecognizedDoc | null>(null);
+  const [batchDocApplied, setBatchDocApplied] = useState(false);
+
   // Build radar data
   const radarData = dimensions.map(({ id, label }) => ({
     dimension: label,
@@ -453,10 +546,35 @@ export default function CompetencyAnalysis() {
     return <XCircle size={16} className="text-red-600" />;
   }
 
-  function handleSubmit() {
-    setSubmitted(true);
-    // Mock: manager has assessed this user
-    setShowManager(true);
+  // 提交自評：持久化至 competency_self_assessments，供跨職位職能缺口總覽彙整使用
+  async function handleSubmit() {
+    if (!currentUser) {
+      setSubmitted(true);
+      setShowManager(true);
+      return;
+    }
+    setSubmitting(true);
+    setAssessmentSaveError(null);
+    const record: CompetencySelfAssessment = {
+      userId: currentUser.id,
+      employeeName: currentUser.name,
+      department: currentUser.department || position.category,
+      positionName,
+      selfScores,
+      managerScores,
+      submittedAt: new Date().toISOString(),
+    };
+    try {
+      await saveSelfAssessment(record);
+      setSelfAssessments((prev) => ({ ...prev, [record.userId]: record }));
+      setSubmitted(true);
+      // Mock: manager has assessed this user
+      setShowManager(true);
+    } catch {
+      setAssessmentSaveError('儲存自評紀錄失敗，請稍後再試');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleDocUpload(file: File) {
@@ -614,6 +732,60 @@ export default function CompetencyAnalysis() {
     setDocStep(0);
   }
 
+  // 人資／管理員上傳職位工作說明書：依「指定職位」辨識內容，不自動猜測職位
+  async function handleBatchDocUpload(file: File) {
+    setBatchDocFile(file);
+    setBatchDocResult(null);
+    setBatchDocApplied(false);
+    setBatchDocProcessing(true);
+    setBatchDocStep(0);
+
+    const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+    await wait(500);
+    setBatchDocStep(1);
+
+    const text = await extractFileText(file);
+    const parsed = parseJobDescriptionText(text);
+
+    await wait(700);
+    setBatchDocStep(2);
+
+    await wait(700);
+    setBatchDocStep(3);
+
+    await wait(700);
+    setBatchDocStep(4);
+    await wait(400);
+
+    const hasParsedContent = !!(
+      parsed.positionTitle || parsed.department || parsed.jobSummary ||
+      parsed.professionalSkills.length > 0 || parsed.trainingNeeds.length > 0
+    );
+    const result = hasParsedContent
+      ? buildRecognizedDocFromParsed(file.name, batchPositionName, parsed)
+      : buildBatchFallbackDoc(file.name, batchPositionName);
+
+    setBatchDocResult(result);
+    setBatchDocProcessing(false);
+  }
+
+  // 套用職位工作說明書建檔結果：僅寫入該職位的 overrides，不綁定/寫入任何員工個人的 employeeJDs 記錄
+  function handleApplyBatchDoc() {
+    if (!batchDocResult) return;
+    const override = buildOverrideFromRecognizedDoc(batchDocResult, batchPositionName);
+    setOverrides((prev) => ({ ...prev, [batchPositionName]: override }));
+    setBatchDocApplied(true);
+  }
+
+  function handleClearBatchDoc() {
+    setBatchDocFile(null);
+    setBatchDocResult(null);
+    setBatchDocApplied(false);
+    setBatchDocProcessing(false);
+    setBatchDocStep(0);
+  }
+
   // 載入指定員工的說明書記錄：暫時套用其職能標準（不覆寫職位共用的 overrides）
   function handleLoadEmployee(employeeName: string) {
     const record = employeeJDs[employeeName];
@@ -669,6 +841,55 @@ export default function CompetencyAnalysis() {
     }, 1200);
   }
 
+  // 跨職位職能缺口總覽：彙整所有已有員工自評紀錄的職位，計算平均落差（依目前有效的職能標準）
+  const positionGapSummaries = useMemo(() => {
+    const byPosition: Record<string, CompetencySelfAssessment[]> = {};
+    Object.values(selfAssessments).forEach((a) => {
+      (byPosition[a.positionName] ??= []).push(a);
+    });
+
+    return Object.entries(byPosition)
+      .map(([posName, assessments]) => {
+        const effPosition = getEffectivePosition(posName, overrides);
+        const std = overrides[posName]?.standards ?? buildStandardScores(effPosition);
+        const dims = getDimensions(effPosition);
+
+        let totalGap = 0;
+        let totalCount = 0;
+        const dimGapTotals: Record<string, number> = {};
+        assessments.forEach((a) => {
+          dims.forEach(({ id }) => {
+            const gap = (std[id] ?? 0) - (a.selfScores[id] ?? 0);
+            totalGap += gap;
+            totalCount += 1;
+            dimGapTotals[id] = (dimGapTotals[id] ?? 0) + gap;
+          });
+        });
+        const avgGap = totalCount > 0 ? Math.round(totalGap / totalCount) : 0;
+
+        let worstDimension: string | null = null;
+        let worstGap = -Infinity;
+        dims.forEach(({ id, label }) => {
+          const avg = (dimGapTotals[id] ?? 0) / assessments.length;
+          if (avg > worstGap) { worstGap = avg; worstDimension = label; }
+        });
+
+        return {
+          positionName: posName,
+          department: effPosition.category,
+          assessmentCount: assessments.length,
+          avgGap,
+          worstDimension,
+        };
+      })
+      .sort((a, b) => b.avgGap - a.avgGap);
+  }, [selfAssessments, overrides]);
+
+  const unassessedPositions = useMemo(
+    () => POSITION_NAMES.filter((name) => !positionGapSummaries.some((s) => s.positionName === name)),
+    [positionGapSummaries]
+  );
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* ── Page title ── */}
@@ -687,6 +908,56 @@ export default function CompetencyAnalysis() {
           </span>
         )}
       </div>
+
+      {/* ── 全職位職能缺口總覽（管理員／人資／主管可見）── */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 bg-rose-600 rounded-xl flex items-center justify-center">
+              <Target size={18} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-gray-900">全職位職能缺口總覽</h2>
+              <p className="text-xs text-gray-500">
+                {positionGapSummaries.length > 0
+                  ? `已有 ${positionGapSummaries.length} 個職位累積員工自評資料，依平均落差由大到小排序`
+                  : '尚無員工自評紀錄；員工於下方完成「提交自評」後，將自動彙整至此總覽'}
+              </p>
+            </div>
+          </div>
+
+          {positionGapSummaries.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+              {positionGapSummaries.map((s) => (
+                <div key={s.positionName} className={`rounded-xl border p-3 space-y-1.5 ${getGapColor(s.avgGap)}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold truncate">{s.positionName}</span>
+                    {getGapIcon(s.avgGap)}
+                  </div>
+                  <p className="text-xs opacity-75">{s.department}・{s.assessmentCount} 筆自評</p>
+                  <div className="text-lg font-bold tabular-nums">{s.avgGap > 0 ? `+${s.avgGap}` : s.avgGap}</div>
+                  <p className="text-xs opacity-75">{s.avgGap <= 0 ? '已達標準' : `平均落差 ${s.avgGap} 分`}</p>
+                  {s.worstDimension && s.avgGap > 0 && (
+                    <p className="text-xs opacity-75">最大落差向度：{s.worstDimension}</p>
+                  )}
+                  {s.avgGap > 15 && (
+                    <span className="inline-block text-xs px-1.5 py-0.5 bg-white bg-opacity-60 rounded-md border border-current border-opacity-30 leading-tight font-medium">
+                      建議優先訓練
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {unassessedPositions.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-gray-600 mb-1.5">尚無自評資料的職位（{unassessedPositions.length}）</p>
+              <p className="text-xs text-gray-500 leading-relaxed">{unassessedPositions.join('、')}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── 員工職能說明書檔案庫（管理員／人資／主管可見）── */}
       {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
@@ -744,6 +1015,135 @@ export default function CompetencyAnalysis() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 職位工作說明書建檔（人資／管理員，不綁定個人）── */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+        <div className={`rounded-2xl border-2 ${batchDocApplied ? 'border-green-300 bg-green-50' : 'border-dashed border-indigo-300 bg-indigo-50/40'} p-5 transition-colors`}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+              <FileText size={18} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-gray-900">職位工作說明書建檔（人資／管理員）</h2>
+              <p className="text-xs text-gray-500">
+                直接為指定職位上傳官方工作說明書，建立該職位專屬職能評分標準；不會綁定至任何員工個人的說明書記錄
+              </p>
+            </div>
+            {batchDocFile && (
+              <button onClick={handleClearBatchDoc} className="p-1.5 hover:bg-red-100 rounded-lg text-gray-400 hover:text-red-500 transition-colors">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <label className="text-xs font-medium text-gray-700">指定職位：</label>
+            <select
+              value={batchPositionName}
+              onChange={(e) => { setBatchPositionName(e.target.value); handleClearBatchDoc(); }}
+              className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            >
+              {DEPARTMENTS.map((dept) => (
+                <optgroup key={dept} label={dept}>
+                  {POSITIONS_BY_DEPT[dept].map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {overrides[batchPositionName] && (
+              <span className="text-xs text-indigo-600">
+                目前已有「{overrides[batchPositionName].sourceFileName}」（{new Date(overrides[batchPositionName].updatedAt).toLocaleDateString('zh-TW')}）
+              </span>
+            )}
+          </div>
+
+          {!batchDocFile ? (
+            <div
+              className={`border-2 border-dashed ${batchDocDragging ? 'border-indigo-500 bg-indigo-100' : 'border-indigo-200 bg-white'} rounded-xl p-6 text-center cursor-pointer transition-colors`}
+              onDragOver={(e) => { e.preventDefault(); setBatchDocDragging(true); }}
+              onDragLeave={() => setBatchDocDragging(false)}
+              onDrop={(e) => { e.preventDefault(); setBatchDocDragging(false); const f = e.dataTransfer.files[0]; if (f) handleBatchDocUpload(f); }}
+              onClick={() => batchFileInputRef.current?.click()}
+            >
+              <Upload size={32} className="text-indigo-300 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-700 mb-1">拖曳工作職能書或點擊上傳</p>
+              <p className="text-xs text-gray-400">PDF / DOCX / TXT，最大 20MB</p>
+              <input ref={batchFileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc,.txt"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleBatchDocUpload(f); }} />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-gray-200">
+                <FileText size={20} className="text-indigo-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{batchDocFile.name}</p>
+                  <p className="text-xs text-gray-400">{(batchDocFile.size / 1024).toFixed(1)} KB</p>
+                </div>
+                {batchDocApplied && <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium flex-shrink-0">已套用</span>}
+              </div>
+
+              {(batchDocProcessing || batchDocResult) && (
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles size={16} className="text-purple-500" />
+                    <span className="text-sm font-semibold text-gray-800">AI 職能書辨識</span>
+                    {batchDocProcessing && <div className="w-4 h-4 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin ml-1" />}
+                  </div>
+                  {[
+                    '讀取文件內容',
+                    '辨識所屬單位與工作摘要',
+                    '提取各職能向度要求分數',
+                    '對應職能基準框架',
+                  ].map((label, i) => (
+                    <div key={i} className={`flex items-center gap-2 text-xs py-1 transition-opacity ${batchDocStep > i ? 'opacity-100' : 'opacity-30'}`}>
+                      {batchDocStep > i
+                        ? <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
+                        : <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 flex-shrink-0" />}
+                      <span className={batchDocStep > i ? 'text-gray-800 font-medium' : 'text-gray-400'}>{label}</span>
+                      {batchDocStep === i + 1 && batchDocProcessing && <span className="text-purple-500 ml-auto animate-pulse">處理中...</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {batchDocResult && !batchDocProcessing && (
+                <div className="bg-white rounded-xl border border-indigo-200 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={16} className="text-green-500" />
+                    <span className="text-sm font-bold text-gray-900">辨識完成</span>
+                  </div>
+                  <p className="text-xs text-gray-500">{batchDocResult.description}</p>
+
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                    {batchDocResult.extractedItems.map((item, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-xs">
+                        <span className="text-indigo-500 mt-0.5 flex-shrink-0">▸</span>
+                        <span className="text-gray-700">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {!batchDocApplied ? (
+                    <button
+                      onClick={handleApplyBatchDoc}
+                      className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      <ArrowRight size={16} />
+                      套用為「{batchPositionName}」職位標準
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 text-green-700 text-sm font-medium bg-green-50 rounded-lg px-3 py-2">
+                      <CheckCircle size={16} />
+                      已建立並儲存「{batchPositionName}」職位專屬職能評分標準，不影響其他職位
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1244,12 +1644,16 @@ export default function CompetencyAnalysis() {
         </h2>
 
         {!submitted ? (
-          <button
-            onClick={handleSubmit}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
-          >
-            提交自評
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+            >
+              {submitting ? '儲存中...' : '提交自評'}
+            </button>
+            {assessmentSaveError && <p className="text-xs text-red-600">{assessmentSaveError}</p>}
+          </div>
         ) : (
           <div className="flex items-center gap-2 text-green-700 font-medium text-sm">
             <CheckCircle size={18} />

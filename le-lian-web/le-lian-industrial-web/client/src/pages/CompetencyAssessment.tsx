@@ -149,8 +149,8 @@ const POSITIONS_DATA = {
     department: "研發部",
     requiredCompetencies: ["技術文檔", "問題解決", "數據分析"],
   },
-  "文官中心": {
-    department: "營運中心",
+  "文管中心": {
+    department: "總經理室",
     requiredCompetencies: ["溝通協調", "時間管理", "客戶服務"],
   },
   "營業部經理": {

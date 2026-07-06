@@ -1020,7 +1020,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '總經理室秘書': {
-    category: '營運部',
+    category: '總經理室',
     level: '專業人員',
     requiredLevel: 3,
     competencies: [
@@ -1072,8 +1072,8 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
-  '文官中心': {
-    category: '營運部',
+  '文管中心': {
+    category: '總經理室',
     level: '專業人員',
     requiredLevel: 2,
     competencies: [

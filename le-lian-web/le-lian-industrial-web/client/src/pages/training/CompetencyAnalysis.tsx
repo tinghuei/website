@@ -281,6 +281,25 @@ function simulateRecognitionFromFileName(fileName: string): RecognizedDoc {
   };
 }
 
+// 判斷擷取出的技能名稱是否已被現有 iCAP 職能類別涵蓋（相同或高度相似）。
+// 比對邏輯：去除空白後先做完整包含比對；再以短字串的獨特字元集與長字串做重疊率比較。
+// 閾值 0.55 可過濾「行政協助」≈「行政協助」、「數據分析能力」≈「數據分析與財務協助」等情形，
+// 同時保留「跨機能適應能力」「自我管理能力」等框架中確實不存在的新維度。
+function isDuplicateSkill(skill: string, existingCategories: CompetencyCategory[]): boolean {
+  const ns = skill.replace(/\s/g, '');
+  if (ns.length < 2) return false;
+  return existingCategories.some((c) => {
+    const nc = c.category.replace(/\s/g, '');
+    if (nc.length < 2) return false;
+    if (ns === nc || ns.includes(nc) || nc.includes(ns)) return true;
+    const shorter = ns.length <= nc.length ? ns : nc;
+    const longer = ns.length > nc.length ? ns : nc;
+    const uniqueChars = Array.from(new Set(Array.from(shorter)));
+    const overlap = uniqueChars.filter((ch) => longer.includes(ch)).length;
+    return overlap / uniqueChars.length >= 0.55;
+  });
+}
+
 // 人資／管理員直接為指定職位上傳官方工作說明書時，內容辨識失敗的備援方案：沿用該職位現有的標準分數
 function buildBatchFallbackDoc(fileName: string, positionName: string): RecognizedDoc {
   const position = DETAILED_COMPETENCY_FRAMEWORK[positionName];
@@ -308,8 +327,12 @@ function buildOverrideFromRecognizedDoc(doc: RecognizedDoc, targetPositionName: 
   const standards: CompetencyScores = {};
 
   if (doc.source === 'content' && doc.professionalSkills.length > 0) {
+    // 過濾掉與現有 iCAP 類別相同或高度相似的技能，避免重複新增職能向度
+    const uniqueSkills = doc.professionalSkills.filter(
+      (skill) => !isDuplicateSkill(skill, target.competencies)
+    );
     const supplementaryScore = Math.min(100, target.requiredLevel * 20 + 10);
-    const supplementary: CompetencyCategory[] = doc.professionalSkills.map((skill, i) => ({
+    const supplementary: CompetencyCategory[] = uniqueSkills.map((skill, i) => ({
       id: `doc-skill-${i + 1}`,
       category: skill,
       items: [{
@@ -626,8 +649,12 @@ export default function CompetencyAnalysis() {
     const standards: CompetencyScores = {};
 
     if (docResult.source === 'content' && docResult.professionalSkills.length > 0) {
+      // 過濾掉與現有 iCAP 類別相同或高度相似的技能，避免重複新增職能向度
+      const uniqueSkills = docResult.professionalSkills.filter(
+        (skill) => !isDuplicateSkill(skill, target.competencies)
+      );
       const supplementaryScore = Math.min(100, target.requiredLevel * 20 + 10);
-      const supplementary: CompetencyCategory[] = docResult.professionalSkills.map((skill, i) => ({
+      const supplementary: CompetencyCategory[] = uniqueSkills.map((skill, i) => ({
         id: `doc-skill-${i + 1}`,
         category: skill,
         items: [{

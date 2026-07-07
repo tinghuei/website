@@ -158,8 +158,12 @@ const POSITIONS_DATA = {
     requiredCompetencies: ["領導能力", "客戶服務", "成本控制", "溝通協調"],
   },
   "總經理室秘書": {
-    department: "營運中心",
+    department: "總經理室",
     requiredCompetencies: ["溝通協調", "時間管理", "客戶服務", "財務管理"],
+  },
+  "總經理室副理": {
+    department: "總經理室",
+    requiredCompetencies: ["領導能力", "溝通協調", "問題解決", "財務管理", "時間管理"],
   },
 };
 

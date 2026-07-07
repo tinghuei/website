@@ -1072,6 +1072,60 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
+  '總經理室副理': {
+    category: '總經理室',
+    level: '主管',
+    requiredLevel: 4,
+    competencies: [
+      {
+        id: 'ceo-dm-1',
+        category: '策略規劃與執行',
+        items: [
+          { id: 'ceo-dm-1-1', name: '年度計畫制定', description: '協助制定部門年度目標與工作計畫' },
+          { id: 'ceo-dm-1-2', name: '策略方案研擬', description: '研擬業務推動策略與改善方案' },
+          { id: 'ceo-dm-1-3', name: '計畫執行督導', description: '督導各項計畫執行進度並適時調整' },
+          { id: 'ceo-dm-1-4', name: '績效追蹤與回報', description: '追蹤關鍵績效指標，定期向高階主管回報' },
+        ]
+      },
+      {
+        id: 'ceo-dm-2',
+        category: '跨部門協調管理',
+        items: [
+          { id: 'ceo-dm-2-1', name: '跨部門溝通協調', description: '協調各部門資源分配與業務合作' },
+          { id: 'ceo-dm-2-2', name: '會議主持與決議追蹤', description: '主持跨部門會議並確保決議事項落實' },
+          { id: 'ceo-dm-2-3', name: '衝突調解', description: '調解跨部門意見分歧，促進共識達成' },
+        ]
+      },
+      {
+        id: 'ceo-dm-3',
+        category: '業務督導與人員管理',
+        items: [
+          { id: 'ceo-dm-3-1', name: '工作分配與指導', description: '合理分配部屬工作，提供業務指導' },
+          { id: 'ceo-dm-3-2', name: '績效評核', description: '執行部屬績效評核，提供發展建議' },
+          { id: 'ceo-dm-3-3', name: '人才培育', description: '規劃部屬培訓計畫，促進專業成長' },
+        ]
+      },
+      {
+        id: 'ceo-dm-4',
+        category: '決策支援與資訊分析',
+        items: [
+          { id: 'ceo-dm-4-1', name: '經營數據分析', description: '分析經營數據，提供管理決策參考' },
+          { id: 'ceo-dm-4-2', name: '問題診斷與解決', description: '診斷業務問題，研提可行的解決方案' },
+          { id: 'ceo-dm-4-3', name: '風險評估', description: '評估業務推動的潛在風險並提出因應措施' },
+          { id: 'ceo-dm-4-4', name: '報告撰寫與簡報', description: '撰寫高品質業務報告並向主管簡報' },
+        ]
+      },
+      {
+        id: 'ceo-dm-5',
+        category: '對外關係與代表職能',
+        items: [
+          { id: 'ceo-dm-5-1', name: '外部接待與拜訪', description: '代表公司接待重要外賓或進行外部拜訪' },
+          { id: 'ceo-dm-5-2', name: '合作關係維護', description: '維護與政府機關、合作夥伴等重要關係' },
+          { id: 'ceo-dm-5-3', name: '公司形象維護', description: '於對外場合維護公司形象與信譽' },
+        ]
+      },
+    ]
+  },
   '文管中心': {
     category: '總經理室',
     level: '專業人員',

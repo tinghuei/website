@@ -327,7 +327,7 @@ Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and e
 
 - invoice_type: one of "三聯式"(triplicate, has 買受人統一編號 field), "二聯式"(duplicate, consumer copy), "電子發票"(cloud/e-invoice with QR code or 載具), "收據"(a plain hand-written or non 統一發票 receipt), or "無法辨識" if the photo is unclear. Train/HSR/bus tickets (火車票/高鐵票/台鐵/客運票) count as "二聯式" unless a buyer 統一編號 is printed on them (then "三聯式") — by law their price already includes 5% business tax even though the ticket itself usually shows no tax breakdown.
 - invoice_number: the 發票號碼, normally 2 uppercase letters + 8 digits (e.g. AB12345678). null if not visible or this is a plain 收據 without one.
-- invoice_date: the invoice date, normalized to YYYY-MM-DD. null if unreadable.
+- invoice_date: the invoice date, normalized to Gregorian YYYY-MM-DD. IMPORTANT: Taiwan invoices (including 電子發票) very often print the date in the 民國 (ROC/Minguo) calendar, e.g. "115/07/01" or "115年07月01日" — that is Gregorian 2026-07-01 (ROC year + 1911 = Gregorian year). Any printed year below about 200 is a ROC year and MUST be converted by adding 1911 before you output it; only years already above 1911 are already Gregorian and should be used as-is. Get this conversion right — it is a common source of errors. null if the date itself is unreadable.
 - amount: the total amount (總計/總金額) as a plain number, no currency symbol or commas. null if unreadable.
 - seller_name: the seller/store name printed on the invoice. null if unreadable.
 - buyer_tax_id: the buyer's 統一編號 (8 digits) if printed on the invoice, else null.
@@ -338,6 +338,13 @@ Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and e
 - seller_tax_id: the SELLER's own 統一編號 (8 digits) if it is legible on that stamp or printed elsewhere on the receipt, else null. (Different from buyer_tax_id above, which is the buyer's.)
 - items_summary: a short (<=30 字) 繁體中文 description of what was purchased.
 - notes: any other short observation useful for expense review in 繁體中文, e.g. "字跡模糊看不清楚金額" or "發票有塗改痕跡". Empty string if nothing notable.
+
+For hand-written 收據 specifically, take extra care with amount and items_summary:
+- The total may be written in Chinese numerals (國字大寫，例如 壹貳參肆伍陸柒捌玖拾佰仟萬) instead of Arabic digits — convert it to a plain Arabic number.
+- Watch for Chinese magnitude units mixed with digits, e.g. "4萬3" or "4.3萬" both mean 43000, "2仟5" means 2500 — multiply out the full value, don't just take the digits before the unit character at face value.
+- The total is usually the largest/final number on the page, often near labels like "合計"、"總計"、"共計"、"NT$" — don't confuse it with a unit price or item count, and don't truncate it if part of the number is partially obscured (e.g. by an object placed on the receipt, a fold, or a stamp) — say so in "notes" instead of guessing a shorter number.
+- Read every line item to build items_summary rather than guessing from the store name alone.
+- If handwriting is messy, still give your best-effort reading for amount and items_summary instead of leaving them null — note any uncertainty in "notes" (e.g. "金額字跡潦草，NT$1,200 為推測值") instead of giving up.
 
 Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","untaxed_amount":null,"tax_amount":null,"receipt_has_seller_stamp":null,"seller_tax_id":null,"items_summary":"...","notes":""}}"""
@@ -667,6 +674,23 @@ import re as _re
 _INVOICE_NUMBER_RE = _re.compile(r"^[A-Z]{2}\d{8}$")
 _TAX_ID_RE = _re.compile(r"^\d{8}$")
 
+_DATE_RE = _re.compile(r"^(\d{2,4})[-/](\d{1,2})[-/](\d{1,2})$")
+
+def _parse_invoice_date(date_str):
+    """解析 invoice_date，並防呆處理 AI 仍誤填民國年的情況（例如 115-7-1 應為 2026-07-01）。
+    年份不要求 4 碼零填，避免 strptime 對民國年（無前導零）解析失敗。回傳 datetime 或 None。"""
+    date_str = (date_str or "").strip()
+    m = _DATE_RE.match(date_str)
+    if not m:
+        return None
+    year, month, day = (int(g) for g in m.groups())
+    if year < 200:  # 民國年防呆：年份低於 200 一定是民國年，非西元年
+        year += 1911
+    try:
+        return datetime(year, month, day)
+    except ValueError:
+        return None
+
 def validate_invoice(fields, now=None):
     """依通用台灣統一發票規則判斷這張發票是否適合用來請款。
     回傳 {"checks":[{"level":"ok"/"warn"/"fail","text":...}], "verdict":..., "color":...}
@@ -702,20 +726,17 @@ def validate_invoice(fields, now=None):
             "text": "發票號碼格式不正確或看不清楚，請確認是正式統一發票"})
 
     # 2. 日期
-    parsed_date = None
-    try:
-        parsed_date = datetime.strptime(inv_date, "%Y-%m-%d")
-    except Exception:
-        pass
+    parsed_date = _parse_invoice_date(inv_date)
+    date_display = parsed_date.strftime("%Y-%m-%d") if parsed_date else inv_date
     if parsed_date is None:
         checks.append({"level": "fail", "text": "看不到發票日期，請確認清晰拍攝"})
     elif parsed_date.date() > now.date():
         checks.append({"level": "fail", "text": "發票日期是未來日期，請確認拍攝的是正確發票"})
     elif (now - parsed_date).days > 60:
         checks.append({"level": "warn",
-            "text": f"發票日期是 {inv_date}，距今超過 2 個月，請儘快送出請款以免超過核銷期限"})
+            "text": f"發票日期是 {date_display}，距今超過 2 個月，請儘快送出請款以免超過核銷期限"})
     else:
-        checks.append({"level": "ok", "text": f"發票日期 {inv_date}，在合理範圍內"})
+        checks.append({"level": "ok", "text": f"發票日期 {date_display}，在合理範圍內"})
 
     # 3. 金額
     try:
@@ -751,7 +772,7 @@ def validate_invoice(fields, now=None):
 CATEGORY_RULES = [
     # 吃喝玩樂 / 交際應酬類 → 6120 交際費（同時觸發免稅 P17 規則，見 classify_tax）
     (["交際", "招待", "餐廳", "餐費", "聚餐", "飲料", "咖啡", "茶", "下午茶", "甜點",
-      "禮品", "禮券", "送禮", "伴手禮", "花籃", "奠儀", "禮金", "喜慶", "婚喪",
+      "禮品", "禮盒", "禮籃", "禮券", "送禮", "伴手禮", "水果", "花籃", "奠儀", "禮金", "喜慶", "婚喪",
       "宴請", "宴客", "KTV", "唱歌", "續攤", "酒"], "6120 交際費"),
     (["住宿", "飯店", "旅館", "機票", "出差", "簽證費"], "6113-02 旅費"),
     (["加油", "油資", "汽油", "柴油"], "6123 燃料費"),

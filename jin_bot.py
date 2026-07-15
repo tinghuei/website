@@ -344,7 +344,8 @@ For hand-written 收據 specifically, take extra care with amount and items_summ
 - Watch for Chinese magnitude units mixed with digits, e.g. "4萬3" or "4.3萬" both mean 43000, "2仟5" means 2500 — multiply out the full value, don't just take the digits before the unit character at face value.
 - The total is usually the largest/final number on the page, often near labels like "合計"、"總計"、"共計"、"NT$" — don't confuse it with a unit price or item count, and don't truncate it if part of the number is partially obscured (e.g. by an object placed on the receipt, a fold, or a stamp) — say so in "notes" instead of guessing a shorter number.
 - Read every line item to build items_summary rather than guessing from the store name alone.
-- If handwriting is messy, still give your best-effort reading for amount and items_summary instead of leaving them null — note any uncertainty in "notes" (e.g. "金額字跡潦草，NT$1,200 為推測值") instead of giving up.
+- These 免用統一發票收據 booklets often have a diagonal line drawn across the item grid — that's just how the vendor voids unused blank rows, not a cancellation of the whole receipt. Rows that actually have handwritten text, numbers, or a stamp on them are still valid — read those carefully rather than ignoring the whole table because of the diagonal line.
+- If handwriting is messy, still give your best-effort reading for amount and items_summary instead of leaving them null — but do not invent a plausible-looking but unrelated item or amount when you're not actually confident: if you can't clearly make out the item name or the digits, say so explicitly in "notes" (e.g. "字跡潦草，品項與金額為低信心推測，建議人工確認") rather than presenting a confident guess as fact.
 
 Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","untaxed_amount":null,"tax_amount":null,"receipt_has_seller_stamp":null,"seller_tax_id":null,"items_summary":"...","notes":""}}"""
@@ -666,7 +667,7 @@ def call_claude_invoice(image_bytes):
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
         ]
     }]
-    return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
+    return _call_groq(messages, model="meta-llama/llama-4-maverick-17b-128e-instruct")
 
 # ── 發票請款規則檢查（通用台灣統一發票規則，公司客製規則之後再補上）──
 import re as _re

@@ -325,18 +325,20 @@ def _invoice_prompt():
 
 Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and extract the following fields.
 
-- invoice_type: one of "三聯式"(triplicate, has 買受人統一編號 field), "二聯式"(duplicate, consumer copy), "電子發票"(cloud/e-invoice with QR code or 載具), "收據"(a plain hand-written or non 統一發票 receipt), or "無法辨識" if the photo is unclear.
+- invoice_type: one of "三聯式"(triplicate, has 買受人統一編號 field), "二聯式"(duplicate, consumer copy), "電子發票"(cloud/e-invoice with QR code or 載具), "收據"(a plain hand-written or non 統一發票 receipt), or "無法辨識" if the photo is unclear. Train/HSR/bus tickets (火車票/高鐵票/台鐵/客運票) count as "二聯式" unless a buyer 統一編號 is printed on them (then "三聯式") — by law their price already includes 5% business tax even though the ticket itself usually shows no tax breakdown.
 - invoice_number: the 發票號碼, normally 2 uppercase letters + 8 digits (e.g. AB12345678). null if not visible or this is a plain 收據 without one.
 - invoice_date: the invoice date, normalized to YYYY-MM-DD. null if unreadable.
 - amount: the total amount (總計/總金額) as a plain number, no currency symbol or commas. null if unreadable.
 - seller_name: the seller/store name printed on the invoice. null if unreadable.
 - buyer_tax_id: the buyer's 統一編號 (8 digits) if printed on the invoice, else null.
-- tax_label: the tax type printed/checked on the invoice itself — one of "應稅", "免稅", "零稅率", or null if there is no such field (e.g. plain 收據) or it isn't legible. Look for a 稅別 checkbox/column, or an 應稅金額/免稅金額/零稅率金額 breakdown — if only the 免稅金額 column has a value, tax_label is "免稅"; if only 零稅率金額 has a value, it's "零稅率"; otherwise if there's a 應稅金額/稅額 breakdown it's "應稅".
+- tax_label: the tax type printed/checked on the invoice itself — one of "應稅", "免稅", "零稅率", or null if there is no such field (e.g. plain 收據 or a ticket) or it isn't legible. Look for a 稅別 checkbox/column, or an 應稅金額/免稅金額/零稅率金額 breakdown — if only the 免稅金額 column has a value, tax_label is "免稅"; if only 零稅率金額 has a value, it's "零稅率"; otherwise if there's a 應稅金額/稅額 breakdown it's "應稅".
+- untaxed_amount: the 未稅金額/應稅金額 (sales amount excluding tax) if it is printed as its own line/column on the invoice, else null. Do not calculate this yourself — only fill it in if you can actually read it printed on the invoice.
+- tax_amount: the 稅額 (tax amount) if it is printed as its own line/column on the invoice, else null. Same rule — only if actually printed, do not calculate it.
 - items_summary: a short (<=30 字) 繁體中文 description of what was purchased.
 - notes: any other short observation useful for expense review in 繁體中文, e.g. "字跡模糊看不清楚金額" or "發票有塗改痕跡". Empty string if nothing notable.
 
 Reply ONLY with JSON:
-{{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","items_summary":"...","notes":""}}"""
+{{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","untaxed_amount":null,"tax_amount":null,"items_summary":"...","notes":""}}"""
 
 # 固定行程解析 prompt（動態，根據成員生成）
 def _recurring_prompt(now=""):
@@ -833,6 +835,40 @@ def classify_tax(fields, category=""):
 
     return "待確認", "發票稅別資訊不足，需人工確認"
 
+# 營業稅率（用於發票未列印稅額明細時反推未稅金額／稅額）
+VAT_RATE = 0.05
+
+def compute_tax_breakdown(fields, tax_bucket):
+    """計算未稅金額／稅額／發票總計。優先採用發票上直接列印的數字（三聯式常見），
+    沒有列印時（例如二聯式收據、火車票、高鐵票）依 5% 營業稅率反推總額已內含的稅額。
+    回傳 None 表示金額本身無法辨識。"""
+    try:
+        total = float(fields.get("amount"))
+    except (TypeError, ValueError):
+        return None
+
+    if tax_bucket in ("免稅", "零稅率", "免稅（P17）"):
+        return {"untaxed": total, "tax": 0.0, "total": total, "source": "免稅／零稅率，無稅額"}
+
+    def _num(key):
+        try:
+            return float(fields.get(key))
+        except (TypeError, ValueError):
+            return None
+
+    printed_untaxed = _num("untaxed_amount")
+    printed_tax = _num("tax_amount")
+
+    if printed_untaxed is not None and printed_tax is not None:
+        return {"untaxed": printed_untaxed, "tax": printed_tax, "total": total,
+                "source": "發票上列印的未稅金額／稅額"}
+
+    # 沒有列印稅額明細（如二聯式收據、車票、高鐵票）→ 依 5% 營業稅率反推，視總額已內含稅
+    untaxed = round(total / (1 + VAT_RATE))
+    tax = round(total - untaxed)
+    return {"untaxed": untaxed, "tax": tax, "total": total,
+            "source": f"發票未列印稅額明細，依 {int(VAT_RATE*100)}% 營業稅率反推（總額 ÷ 1.05）"}
+
 # ── 解析時間表達式 → 分鐘數 ──────────────────────────────────
 # ── 中文時間表達式本地解析（避免 AI 算錯時間）──────────────────
 _PERIOD_MAP = {
@@ -1309,7 +1345,7 @@ def _image_result_flex(jin_message, urgent, later):
     }
     return {"type": "flex", "altText": f"清單辨識：緊急{len(urgent)}件，緩{len(later)}件", "contents": bubble}
 
-def _invoice_result_flex(jin_message, fields, validation, classification=None):
+def _invoice_result_flex(jin_message, fields, validation, classification=None, breakdown=None):
     """發票請款檢查結果卡片"""
     _icon = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
 
@@ -1339,6 +1375,33 @@ def _invoice_result_flex(jin_message, fields, validation, classification=None):
             {"type": "text", "text": classification["tax_bucket"], "size": "sm", "flex": 1, "wrap": True},
         ]})
         body_items.append({"type": "text", "text": f"（{classification['tax_reason']}）",
+                           "size": "xxs", "color": _GRAY, "wrap": True})
+
+    if breakdown:
+        tax_bucket = classification["tax_bucket"] if classification else ""
+        if tax_bucket == "應稅外加":
+            hint = "ERP金額欄位建議填「未稅金額」"
+        elif tax_bucket == "應稅內含":
+            hint = "ERP金額欄位建議填「發票總計」（含稅）"
+        else:
+            hint = ""
+
+        body_items.append({"type": "separator", "margin": "md"})
+        body_items.append({"type": "text", "text": "💰 稅額試算", "weight": "bold",
+                           "color": _PINK, "size": "sm", "margin": "md"})
+        for label, value in [
+            ("未稅金額", breakdown["untaxed"]),
+            ("稅額", breakdown["tax"]),
+            ("發票總計", breakdown["total"]),
+        ]:
+            body_items.append({"type": "box", "layout": "baseline", "spacing": "sm", "margin": "sm", "contents": [
+                {"type": "text", "text": label, "size": "xs", "color": _GRAY, "flex": 0},
+                {"type": "text", "text": f"NT$ {value:,.0f}", "size": "sm", "flex": 1, "wrap": True},
+            ]})
+        if hint:
+            body_items.append({"type": "text", "text": hint, "size": "xxs",
+                               "color": _PINK, "wrap": True, "margin": "xs"})
+        body_items.append({"type": "text", "text": f"（{breakdown['source']}）",
                            "size": "xxs", "color": _GRAY, "wrap": True})
 
     summary = fields.get("items_summary") or ""
@@ -1419,8 +1482,9 @@ def process_invoice_image(user_id, reply_token, message_id):
             "category": category, "category_reason": category_reason,
             "tax_bucket": tax_bucket, "tax_reason": tax_reason,
         }
+        breakdown = compute_tax_breakdown(fields, tax_bucket)
 
-        flex_msg = _invoice_result_flex(msg, fields, validation, classification)
+        flex_msg = _invoice_result_flex(msg, fields, validation, classification, breakdown)
         line_push_messages(user_id, [flex_msg])
         do_notify(f"{_im['name']} 幫你檢查發票了！", validation["verdict"])
 

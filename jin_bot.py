@@ -334,11 +334,13 @@ Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and e
 - tax_label: the tax type printed/checked on the invoice itself — one of "應稅", "免稅", "零稅率", or null if there is no such field (e.g. plain 收據 or a ticket) or it isn't legible. Look for a 稅別 checkbox/column, or an 應稅金額/免稅金額/零稅率金額 breakdown — if only the 免稅金額 column has a value, tax_label is "免稅"; if only 零稅率金額 has a value, it's "零稅率"; otherwise if there's a 應稅金額/稅額 breakdown it's "應稅".
 - untaxed_amount: the 未稅金額/應稅金額 (sales amount excluding tax) if it is printed as its own line/column on the invoice, else null. Do not calculate this yourself — only fill it in if you can actually read it printed on the invoice.
 - tax_amount: the 稅額 (tax amount) if it is printed as its own line/column on the invoice, else null. Same rule — only if actually printed, do not calculate it.
+- receipt_has_seller_stamp: true if this is a 收據 (plain/hand-written receipt) that has the seller's own official chop/stamp on it (店章、公司大小章、統一發票專用章 etc. — a printed/inked stamp, not a handwritten signature), false otherwise. Only relevant when invoice_type is "收據"; null for other invoice_type values.
+- seller_tax_id: the SELLER's own 統一編號 (8 digits) if it is legible on that stamp or printed elsewhere on the receipt, else null. (Different from buyer_tax_id above, which is the buyer's.)
 - items_summary: a short (<=30 字) 繁體中文 description of what was purchased.
 - notes: any other short observation useful for expense review in 繁體中文, e.g. "字跡模糊看不清楚金額" or "發票有塗改痕跡". Empty string if nothing notable.
 
 Reply ONLY with JSON:
-{{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","untaxed_amount":null,"tax_amount":null,"items_summary":"...","notes":""}}"""
+{{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","untaxed_amount":null,"tax_amount":null,"receipt_has_seller_stamp":null,"seller_tax_id":null,"items_summary":"...","notes":""}}"""
 
 # 固定行程解析 prompt（動態，根據成員生成）
 def _recurring_prompt(now=""):
@@ -677,11 +679,20 @@ def validate_invoice(fields, now=None):
     inv_date = (fields.get("invoice_date") or "").strip()
     amount   = fields.get("amount")
     tax_id   = (fields.get("buyer_tax_id") or "").strip()
+    seller_tax_id = (fields.get("seller_tax_id") or "").strip()
+    has_stamp = bool(fields.get("receipt_has_seller_stamp"))
 
     # 1. 發票類型 / 號碼格式
     if inv_type == "收據":
-        checks.append({"level": "warn",
-            "text": "這是手寫/一般收據，不是統一發票，能不能用來請款要看公司規定"})
+        if has_stamp and _TAX_ID_RE.match(seller_tax_id):
+            checks.append({"level": "ok",
+                "text": f"手寫收據已蓋店家發票章（統一編號 {seller_tax_id}），視為小規模營業人免用統一發票收據"})
+        elif has_stamp:
+            checks.append({"level": "warn",
+                "text": "收據有蓋店章，但看不清楚店家統一編號，建議請店家補蓋清楚或人工確認"})
+        else:
+            checks.append({"level": "warn",
+                "text": "這是手寫收據且沒有蓋店家發票章，能不能用來請款要看公司規定，建議請店家加蓋統一編號章"})
     elif inv_type == "無法辨識" or not inv_type:
         checks.append({"level": "fail", "text": "看不出這是哪種發票，請拍清楚一點再試一次"})
     elif _INVOICE_NUMBER_RE.match(inv_no):
@@ -804,7 +815,7 @@ def _is_food_or_entertainment(fields, category):
 def classify_tax(fields, category=""):
     """回傳 (免稅/應稅外加/應稅內含/零稅率/待確認, 判斷依據)。
     順序：廠商固定規則覆蓋 → 吃喝玩樂一律免稅 P17（秘書慣例）→
-    發票上列印的稅別欄位 → 依發票類型判斷外加/內含。"""
+    收據是否已蓋店家發票章 → 發票上列印的稅別欄位 → 依發票類型判斷外加/內含。"""
     seller = fields.get("seller_name") or ""
     for vendor_kw, tax in VENDOR_TAX_OVERRIDES.items():
         if vendor_kw in seller:
@@ -815,6 +826,12 @@ def classify_tax(fields, category=""):
 
     tax_label = (fields.get("tax_label") or "").strip()
     inv_type  = (fields.get("invoice_type") or "").strip()
+
+    if inv_type == "收據":
+        seller_tax_id = (fields.get("seller_tax_id") or "").strip()
+        if fields.get("receipt_has_seller_stamp") and _TAX_ID_RE.match(seller_tax_id):
+            return "免稅", "小規模營業人免用統一發票收據（已蓋店章），無進項稅額可扣抵，比照免稅認列"
+        return "待確認", "收據沒有蓋店章或看不清楚店家統一編號，需人工確認是否為合格憑證"
 
     if tax_label == "免稅":
         return "免稅", "發票上列印的稅別欄位"
@@ -830,8 +847,6 @@ def classify_tax(fields, category=""):
             if (fields.get("buyer_tax_id") or "").strip():
                 return "應稅外加", "電子發票已列印買受人統編，比照三聯式外加"
             return "應稅內含", "電子發票未列印買受人統編，比照二聯式內含"
-        if inv_type == "收據":
-            return "待確認", "收據非統一發票，沒有標準稅別欄位，需人工確認"
 
     return "待確認", "發票稅別資訊不足，需人工確認"
 
@@ -841,10 +856,13 @@ VAT_RATE = 0.05
 def compute_tax_breakdown(fields, tax_bucket):
     """計算未稅金額／稅額／發票總計。優先採用發票上直接列印的數字（三聯式常見），
     沒有列印時（例如二聯式收據、火車票、高鐵票）依 5% 營業稅率反推總額已內含的稅額。
-    回傳 None 表示金額本身無法辨識。"""
+    回傳 None 表示金額本身無法辨識，或稅別尚待確認、無法判斷是否含稅。"""
     try:
         total = float(fields.get("amount"))
     except (TypeError, ValueError):
+        return None
+
+    if tax_bucket == "待確認":
         return None
 
     if tax_bucket in ("免稅", "零稅率", "免稅（P17）"):

@@ -667,7 +667,7 @@ def call_claude_invoice(image_bytes):
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
         ]
     }]
-    return _call_groq(messages, model="meta-llama/llama-4-maverick-17b-128e-instruct")
+    return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
 
 # ── 發票請款規則檢查（通用台灣統一發票規則，公司客製規則之後再補上）──
 import re as _re

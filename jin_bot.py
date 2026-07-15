@@ -29,6 +29,7 @@ TASKS_FILE     = _DATA_DIR / "tasks.json"
 RECURRING_FILE = _DATA_DIR / "recurring.json"
 USER_FILE      = _DATA_DIR / "user_id.txt"
 MEMBER_FILE    = _DATA_DIR / "member.txt"
+IMAGE_MODE_FILE = _DATA_DIR / "image_mode.txt"
 
 # ════════════════════════════════════════════════════════════════
 # ██  BTS 成員個性設定  ███████████████████████████████████████████
@@ -317,6 +318,25 @@ Current status: {m['status']}
 Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的話，繁體中文","urgent":[{{"title":"任務名稱","detail":"為什麼緊急或截止時間","remind_in_minutes":30}}],"later":[{{"title":"任務名稱","detail":"建議什麼時候做","remind_in_minutes":120}}]}}"""
 
+# 發票辨識 prompt（動態，根據成員生成）
+def _invoice_prompt():
+    m = get_member()
+    return f"""{m['persona']}
+
+Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and extract the following fields.
+
+- invoice_type: one of "三聯式"(triplicate, has 買受人統一編號 field), "二聯式"(duplicate, consumer copy), "電子發票"(cloud/e-invoice with QR code or 載具), "收據"(a plain hand-written or non 統一發票 receipt), or "無法辨識" if the photo is unclear.
+- invoice_number: the 發票號碼, normally 2 uppercase letters + 8 digits (e.g. AB12345678). null if not visible or this is a plain 收據 without one.
+- invoice_date: the invoice date, normalized to YYYY-MM-DD. null if unreadable.
+- amount: the total amount (總計/總金額) as a plain number, no currency symbol or commas. null if unreadable.
+- seller_name: the seller/store name printed on the invoice. null if unreadable.
+- buyer_tax_id: the buyer's 統一編號 (8 digits) if printed on the invoice, else null.
+- items_summary: a short (<=30 字) 繁體中文 description of what was purchased.
+- notes: any other short observation useful for expense review in 繁體中文, e.g. "字跡模糊看不清楚金額" or "發票有塗改痕跡". Empty string if nothing notable.
+
+Reply ONLY with JSON:
+{{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"items_summary":"...","notes":""}}"""
+
 # 固定行程解析 prompt（動態，根據成員生成）
 def _recurring_prompt(now=""):
     m = get_member()
@@ -445,6 +465,23 @@ def save_member(key: str):
 
 def get_member() -> dict:
     return BTS_MEMBERS.get(load_member(), BTS_MEMBERS[DEFAULT_MEMBER])
+
+# ── 拍照模式（下一張照片要辨識清單還是發票）─────────────────────
+def load_image_mode() -> str:
+    try:
+        if IMAGE_MODE_FILE.exists():
+            mode = IMAGE_MODE_FILE.read_text(encoding="utf-8").strip()
+            if mode in ("todo", "invoice"):
+                return mode
+    except Exception:
+        pass
+    return "todo"
+
+def save_image_mode(mode: str):
+    try:
+        IMAGE_MODE_FILE.write_text(mode, encoding="utf-8")
+    except Exception:
+        pass
 
 def do_notify(title, msg):
     m = get_member()
@@ -605,6 +642,94 @@ def call_claude_image(image_bytes):
         ]
     }]
     return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
+
+# ── Groq API（發票辨識）──────────────────────────────────────
+def call_claude_invoice(image_bytes):
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    prompt = _invoice_prompt()
+    messages = [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+        ]
+    }]
+    return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
+
+# ── 發票請款規則檢查（通用台灣統一發票規則，公司客製規則之後再補上）──
+import re as _re
+
+_INVOICE_NUMBER_RE = _re.compile(r"^[A-Z]{2}\d{8}$")
+_TAX_ID_RE = _re.compile(r"^\d{8}$")
+
+def validate_invoice(fields, now=None):
+    """依通用台灣統一發票規則判斷這張發票是否適合用來請款。
+    回傳 {"checks":[{"level":"ok"/"warn"/"fail","text":...}], "verdict":..., "color":...}
+    """
+    now = now or datetime.now()
+    checks = []
+
+    inv_type = (fields.get("invoice_type") or "").strip()
+    inv_no   = (fields.get("invoice_number") or "").strip().upper().replace(" ", "")
+    inv_date = (fields.get("invoice_date") or "").strip()
+    amount   = fields.get("amount")
+    tax_id   = (fields.get("buyer_tax_id") or "").strip()
+
+    # 1. 發票類型 / 號碼格式
+    if inv_type == "收據":
+        checks.append({"level": "warn",
+            "text": "這是手寫/一般收據，不是統一發票，能不能用來請款要看公司規定"})
+    elif inv_type == "無法辨識" or not inv_type:
+        checks.append({"level": "fail", "text": "看不出這是哪種發票，請拍清楚一點再試一次"})
+    elif _INVOICE_NUMBER_RE.match(inv_no):
+        checks.append({"level": "ok", "text": f"發票號碼格式正確（{inv_no}）"})
+    else:
+        checks.append({"level": "fail",
+            "text": "發票號碼格式不正確或看不清楚，請確認是正式統一發票"})
+
+    # 2. 日期
+    parsed_date = None
+    try:
+        parsed_date = datetime.strptime(inv_date, "%Y-%m-%d")
+    except Exception:
+        pass
+    if parsed_date is None:
+        checks.append({"level": "fail", "text": "看不到發票日期，請確認清晰拍攝"})
+    elif parsed_date.date() > now.date():
+        checks.append({"level": "fail", "text": "發票日期是未來日期，請確認拍攝的是正確發票"})
+    elif (now - parsed_date).days > 60:
+        checks.append({"level": "warn",
+            "text": f"發票日期是 {inv_date}，距今超過 2 個月，請儘快送出請款以免超過核銷期限"})
+    else:
+        checks.append({"level": "ok", "text": f"發票日期 {inv_date}，在合理範圍內"})
+
+    # 3. 金額
+    try:
+        amount_val = float(amount)
+        if amount_val > 0:
+            checks.append({"level": "ok", "text": f"金額 NT$ {amount_val:,.0f}"})
+        else:
+            checks.append({"level": "fail", "text": "金額為 0 或無效，請確認"})
+    except (TypeError, ValueError):
+        checks.append({"level": "fail", "text": "金額看不清楚，請確認拍攝角度"})
+
+    # 4. 買受人統一編號（僅三聯式需要，供公司進項扣抵）
+    if inv_type == "三聯式":
+        if _TAX_ID_RE.match(tax_id):
+            checks.append({"level": "ok", "text": f"已列印買受人統一編號（{tax_id}）"})
+        else:
+            checks.append({"level": "warn",
+                "text": "三聯式發票未列印買受人統一編號，若需列入公司進項憑證扣抵，請在結帳時提供統一編號重開"})
+
+    # 綜合判斷
+    if any(c["level"] == "fail" for c in checks):
+        verdict, color = "❌ 建議先確認清楚再請款", _PINK
+    elif any(c["level"] == "warn" for c in checks):
+        verdict, color = "⚠️ 可以請款，但有幾點要注意", "#FF8C00"
+    else:
+        verdict, color = "✅ 可以請款", _GREEN
+
+    return {"checks": checks, "verdict": verdict, "color": color}
 
 # ── 解析時間表達式 → 分鐘數 ──────────────────────────────────
 # ── 中文時間表達式本地解析（避免 AI 算錯時間）──────────────────
@@ -867,6 +992,7 @@ MAIN_MENU = {
         {"type": "action", "action": {"type": "message", "label": "📋 查看任務", "text": "查看任務"}},
         {"type": "action", "action": {"type": "message", "label": "📅 固定行程", "text": "查看固定行程"}},
         {"type": "action", "action": {"type": "camera",  "label": "📸 拍照辨識"}},
+        {"type": "action", "action": {"type": "message", "label": "🧾 發票請款", "text": "發票辨識"}},
         {"type": "action", "action": {"type": "message", "label": "🎤 切換成員", "text": "切換成員"}},
         {"type": "action", "action": {"type": "message", "label": "❓ 使用說明", "text": "幫助"}},
     ]
@@ -1081,8 +1207,58 @@ def _image_result_flex(jin_message, urgent, later):
     }
     return {"type": "flex", "altText": f"清單辨識：緊急{len(urgent)}件，緩{len(later)}件", "contents": bubble}
 
+def _invoice_result_flex(jin_message, fields, validation):
+    """發票請款檢查結果卡片"""
+    _icon = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
+
+    body_items = [
+        {"type": "text", "text": validation["verdict"], "weight": "bold",
+         "color": validation["color"], "size": "md", "wrap": True},
+        {"type": "separator", "margin": "md"},
+    ]
+    for c in validation["checks"]:
+        body_items.append({"type": "box", "layout": "baseline", "spacing": "sm", "margin": "sm", "contents": [
+            {"type": "text", "text": _icon.get(c["level"], "•"), "size": "sm", "flex": 0},
+            {"type": "text", "text": c["text"], "size": "sm", "color": "#555555", "flex": 1, "wrap": True},
+        ]})
+
+    summary = fields.get("items_summary") or ""
+    if summary:
+        body_items.append({"type": "separator", "margin": "md"})
+        body_items.append({"type": "text", "text": f"🧾 {summary}", "size": "xs",
+                            "color": _GRAY, "margin": "sm", "wrap": True})
+
+    bubble = {
+        "type": "bubble",
+        "header": {
+            "type": "box", "layout": "vertical",
+            "backgroundColor": _PINK, "paddingAll": "14px",
+            "contents": [
+                {"type": "text", "text": "🧾 發票請款檢查結果", "color": _PINK_L, "size": "xs"},
+                {"type": "text", "text": jin_message, "color": "#FFFFFF", "size": "sm", "wrap": True},
+            ]
+        },
+        "body": {
+            "type": "box", "layout": "vertical",
+            "paddingAll": "14px", "spacing": "sm",
+            "contents": body_items
+        },
+        "footer": {
+            "type": "box", "layout": "horizontal", "spacing": "sm", "paddingAll": "10px",
+            "contents": [
+                _btn("📋 查看任務", "查看任務"),
+                _btn("🧾 再檢查一張", "發票辨識"),
+            ]
+        }
+    }
+    return {"type": "flex", "altText": f"發票請款檢查：{validation['verdict']}", "contents": bubble}
+
 # ── 圖片處理 ──────────────────────────────────────────────────
 def process_image(user_id, reply_token, message_id):
+    if load_image_mode() == "invoice":
+        save_image_mode("todo")
+        process_invoice_image(user_id, reply_token, message_id)
+        return
     try:
         _im = get_member()
         line_reply(reply_token, f"收到照片了！{_im['name']} 正在幫你看清單，稍等一下～ 📸")
@@ -1106,6 +1282,26 @@ def process_image(user_id, reply_token, message_id):
         print(f"[process_image Error] {e}")
         line_push(user_id, f"{_im['emoji']} 圖片辨識出了點問題，可以重新傳一次嗎？", quick_reply=MAIN_MENU)
         print(f"[Image Error] {e}")
+
+def process_invoice_image(user_id, reply_token, message_id):
+    try:
+        _im = get_member()
+        line_reply(reply_token, f"收到發票了！{_im['name']} 正在幫你檢查請款有沒有問題，稍等一下～ 🧾")
+
+        image_bytes = download_line_image(message_id)
+        fields = call_claude_invoice(image_bytes)
+        msg = fields.get("jin_message", f"幫你檢查好了！{_im['emoji']}")
+
+        validation = validate_invoice(fields)
+
+        flex_msg = _invoice_result_flex(msg, fields, validation)
+        line_push_messages(user_id, [flex_msg])
+        do_notify(f"{_im['name']} 幫你檢查發票了！", validation["verdict"])
+
+    except Exception as e:
+        _im = get_member()
+        print(f"[process_invoice_image Error] {e}")
+        line_push(user_id, f"{_im['emoji']} 發票辨識出了點問題，可以拍清楚一點再傳一次嗎？", quick_reply=MAIN_MENU)
 
 # ── 訊息處理 ──────────────────────────────────────────────────
 def handle_message(user_id, reply_token, text):
@@ -1397,12 +1593,23 @@ def _dispatch(user_id, reply_token, text):
             }
             line_reply(reply_token, "找不到這個成員，點下方選擇：", quick_reply=qr)
 
+    # ── 發票請款辨識 ──
+    elif text in ["發票辨識", "發票請款", "請款辨識", "拍發票", "報帳辨識"]:
+        save_image_mode("invoice")
+        line_reply(reply_token,
+            f"{m['emoji']} 好，把發票拍清楚一點傳給我，{m['name']} 幫你檢查能不能請款！",
+            quick_reply={
+                "type": "quick_reply",
+                "items": [{"type": "action", "action": {"type": "camera", "label": "📸 拍發票"}}]
+            })
+
     # ── 使用說明 ──
     elif text in ["幫助", "help", "Help", "？", "?", "使用說明"]:
         line_reply(reply_token,
             f"📖 {m['name']} Bot 使用說明\n\n"
             "💬 傳文字 → 建立任務和提醒\n"
-            "📸 傳照片 → 辨識手寫清單\n\n"
+            "📸 傳照片 → 辨識手寫清單\n"
+            "🧾 傳「發票辨識」→ 下一張照片改辨識發票請款\n\n"
             "📋 查看任務\n"
             "✅ 完成 任務名稱\n"
             "⏰ 延後30 任務名稱\n"

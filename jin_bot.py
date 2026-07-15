@@ -667,7 +667,7 @@ def call_claude_invoice(image_bytes):
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
         ]
     }]
-    return _call_groq(messages, model="meta-llama/llama-4-maverick-17b-128e-instruct")
+    return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
 
 # ── 發票請款規則檢查（通用台灣統一發票規則，公司客製規則之後再補上）──
 import re as _re
@@ -834,17 +834,56 @@ def _is_food_or_entertainment(fields, category):
     haystack = f"{fields.get('seller_name') or ''} {fields.get('items_summary') or ''}"
     return any(kw in haystack for kw in FOOD_ENTERTAINMENT_KEYWORDS)
 
+# 鼎新ERP稅別碼表（稅碼→聯數名稱＋課稅別），用於對照 classify_tax 的結果查出實際稅碼
+# 課稅別值只會是：應稅內含／應稅外加／零稅率／免稅／不計稅
+TAX_CODE_TABLE = {
+    ("二聯式", "應稅內含"): "P01",
+    ("二聯式", "應稅外加"): "P02",
+    ("二聯式", "零稅率"): "P03",
+    ("三聯式", "應稅內含"): "P04",
+    ("三聯式", "應稅外加"): "P05",
+    ("三聯式", "零稅率"): "P06",
+    ("免用統一發票", "零稅率"): "P15",
+    ("免用統一發票", "免稅"): "P16",
+    ("免用統一發票", "不計稅"): "P17",
+    ("三聯式", "免稅"): "P18",
+    ("三聯式", "不計稅"): "P20",
+    ("免用統一發票", "應稅外加"): "P21",
+    ("二聯式", "免稅"): "P22",
+    ("二聯式", "不計稅"): "P26",
+    ("免用統一發票", "應稅內含"): "P28",
+}
+
+def lookup_tax_code(fields, tax_bucket, category=""):
+    """依發票類型（聯數）＋課稅別查出鼎新ERP實際稅碼（如 P05）。查不到回傳 None。
+    電子發票依秘書慣例比照「免用統一發票」類別；吃喝玩樂/交際應酬類不論實際發票類型，
+    一律比照「免用統一發票」查稅碼（對應秘書慣例的 P17）。"""
+    if _is_food_or_entertainment(fields, category):
+        return TAX_CODE_TABLE.get(("免用統一發票", tax_bucket))
+
+    inv_type = (fields.get("invoice_type") or "").strip()
+    lian_shu = {
+        "二聯式": "二聯式",
+        "三聯式": "三聯式",
+        "電子發票": "免用統一發票",
+        "收據": "免用統一發票",
+    }.get(inv_type)
+    if not lian_shu:
+        return None
+    return TAX_CODE_TABLE.get((lian_shu, tax_bucket))
+
 def classify_tax(fields, category=""):
-    """回傳 (免稅/應稅外加/應稅內含/零稅率/待確認, 判斷依據)。
-    順序：廠商固定規則覆蓋 → 吃喝玩樂一律免稅 P17（秘書慣例）→
-    收據是否已蓋店家發票章 → 發票上列印的稅別欄位 → 依發票類型判斷外加/內含。"""
+    """回傳 (應稅內含/應稅外加/零稅率/免稅/不計稅/待確認, 判斷依據)。
+    順序：廠商固定規則覆蓋 → 吃喝玩樂一律不計稅 P17（秘書慣例）→
+    收據是否已蓋店家發票章 → 發票上列印的稅別欄位 → 依發票類型判斷外加/內含。
+    電子發票依秘書慣例歸在「免用統一發票」類別查稅碼（見 lookup_tax_code）。"""
     seller = fields.get("seller_name") or ""
     for vendor_kw, tax in VENDOR_TAX_OVERRIDES.items():
         if vendor_kw in seller:
             return tax, f"廠商固定規則（{vendor_kw}）"
 
     if _is_food_or_entertainment(fields, category):
-        return "免稅（P17）", "秘書慣例：吃喝玩樂/交際應酬類一律列免稅，鼎新ERP稅別代碼 P17（交際費之進項稅額依法不得扣抵）"
+        return "不計稅", "秘書慣例：吃喝玩樂/交際應酬類依法不得扣抵進項稅額，一律列不計稅，鼎新ERP稅碼 P17"
 
     tax_label = (fields.get("tax_label") or "").strip()
     inv_type  = (fields.get("invoice_type") or "").strip()
@@ -852,7 +891,7 @@ def classify_tax(fields, category=""):
     if inv_type == "收據":
         seller_tax_id = (fields.get("seller_tax_id") or "").strip()
         if fields.get("receipt_has_seller_stamp") and _TAX_ID_RE.match(seller_tax_id):
-            return "免稅", "小規模營業人免用統一發票收據（已蓋店章），無進項稅額可扣抵，比照免稅認列"
+            return "不計稅", "小規模營業人免用統一發票收據（已蓋店章），無進項稅額可扣抵，鼎新ERP稅碼 P17"
         return "待確認", "收據沒有蓋店章或看不清楚店家統一編號，需人工確認是否為合格憑證"
 
     if tax_label == "免稅":
@@ -867,8 +906,8 @@ def classify_tax(fields, category=""):
             return "應稅內含", "二聯式發票慣例：總額已內含稅"
         if inv_type == "電子發票":
             if (fields.get("buyer_tax_id") or "").strip():
-                return "應稅外加", "電子發票已列印買受人統編，比照三聯式外加"
-            return "應稅內含", "電子發票未列印買受人統編，比照二聯式內含"
+                return "應稅外加", "電子發票已列印買受人統編，比照免用統一發票外加（P21）"
+            return "應稅內含", "電子發票未列印買受人統編，比照免用統一發票內含（P28）"
 
     return "待確認", "發票稅別資訊不足，需人工確認"
 
@@ -887,8 +926,8 @@ def compute_tax_breakdown(fields, tax_bucket):
     if tax_bucket == "待確認":
         return None
 
-    if tax_bucket in ("免稅", "零稅率", "免稅（P17）"):
-        return {"untaxed": total, "tax": 0.0, "total": total, "source": "免稅／零稅率，無稅額"}
+    if tax_bucket in ("免稅", "零稅率", "不計稅"):
+        return {"untaxed": total, "tax": 0.0, "total": total, "source": f"{tax_bucket}，無稅額"}
 
     def _num(key):
         try:
@@ -1410,9 +1449,11 @@ def _invoice_result_flex(jin_message, fields, validation, classification=None, b
         ]})
         body_items.append({"type": "text", "text": f"（{classification['category_reason']}）",
                            "size": "xxs", "color": _GRAY, "wrap": True})
+        tax_code = classification.get("tax_code")
+        tax_display = f"{tax_code}（{classification['tax_bucket']}）" if tax_code else classification["tax_bucket"]
         body_items.append({"type": "box", "layout": "baseline", "spacing": "sm", "margin": "sm", "contents": [
             {"type": "text", "text": "稅別", "size": "xs", "color": _GRAY, "flex": 0},
-            {"type": "text", "text": classification["tax_bucket"], "size": "sm", "flex": 1, "wrap": True},
+            {"type": "text", "text": tax_display, "size": "sm", "flex": 1, "wrap": True},
         ]})
         body_items.append({"type": "text", "text": f"（{classification['tax_reason']}）",
                            "size": "xxs", "color": _GRAY, "wrap": True})
@@ -1518,9 +1559,10 @@ def process_invoice_image(user_id, reply_token, message_id):
 
         category, category_reason = classify_category(fields)
         tax_bucket, tax_reason = classify_tax(fields, category)
+        tax_code = lookup_tax_code(fields, tax_bucket, category)
         classification = {
             "category": category, "category_reason": category_reason,
-            "tax_bucket": tax_bucket, "tax_reason": tax_reason,
+            "tax_bucket": tax_bucket, "tax_reason": tax_reason, "tax_code": tax_code,
         }
         breakdown = compute_tax_breakdown(fields, tax_bucket)
 

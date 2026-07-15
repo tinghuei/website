@@ -733,32 +733,52 @@ def validate_invoice(fields, now=None):
     return {"checks": checks, "verdict": verdict, "color": color}
 
 # ── 鼎新ERP應付憑單分類（會計科目 + 免稅/應稅外加/應稅內含）─────
-# 通用會計科目打底，之後可依實際鼎新ERP科目表調整關鍵字或新增科目
+# 科目依公司「費用科目歸類-修正後」科目表，總經理室秘書請領主管費用適用
+# 61 管銷費用（董事會、總經理室、總公司、財務部、業務部、管理部）科目
 CATEGORY_RULES = [
-    (["加油", "油資", "汽油", "柴油", "停車", "過路費", "國道", "計程車", "捷運", "客運", "高鐵", "火車票"], "交通費"),
-    (["住宿", "飯店", "旅館", "機票", "出差"], "旅費"),
-    (["餐", "便當", "飲料", "咖啡", "茶葉", "餐廳", "伙食", "外燴"], "伙食費"),
-    (["文具", "紙張", "碳粉", "墨水匣", "事務用品", "辦公用品"], "文具用品"),
-    (["電費", "水費", "瓦斯", "天然氣", "電力"], "水電瓦斯費"),
-    (["郵資", "掛號", "快遞", "運費", "貨運", "宅配"], "郵電費"),
-    (["電話費", "網路費", "通訊費", "電信"], "郵電費"),
-    (["印刷", "名片", "海報", "文宣", "輸出"], "印刷費"),
-    (["修繕", "維修", "保養", "維護"], "修繕費"),
-    (["租金", "房租", "場地費"], "租金支出"),
-    (["廣告", "行銷", "文宣品", "代言"], "廣告費"),
-    (["手續費", "佣金"], "佣金支出"),
+    # 吃喝玩樂 / 交際應酬類 → 6120 交際費（同時觸發免稅 P17 規則，見 classify_tax）
+    (["交際", "招待", "餐廳", "餐費", "聚餐", "飲料", "咖啡", "茶", "下午茶", "甜點",
+      "禮品", "禮券", "送禮", "伴手禮", "花籃", "奠儀", "禮金", "喜慶", "婚喪",
+      "宴請", "宴客", "KTV", "唱歌", "續攤", "酒"], "6120 交際費"),
+    (["住宿", "飯店", "旅館", "機票", "出差", "簽證費"], "6113-02 旅費"),
+    (["加油", "油資", "汽油", "柴油"], "6123 燃料費"),
+    (["計程車", "捷運", "高鐵", "台鐵", "火車", "客運", "大眾運輸", "國道"], "6113-03 交通費"),
+    (["文具", "紙筆", "碳粉", "墨水匣", "事務用品", "辦公用品", "資料夾"], "6112 文具用品"),
+    (["快遞", "掛號", "郵資", "郵票", "宅配"], "6115-02 郵票快遞費"),
+    (["電話費", "網路費", "通訊費", "電信"], "6115-01 電話網路費"),
+    (["修繕", "維修", "保養"], "6116 修繕費"),
+    (["徵才", "徵人廣告", "廣告"], "6117-01 廣告費"),
+    (["參展"], "6117-02 參展費用"),
+    (["水費"], "6118-01 水費"),
+    (["電費"], "6118-02 電費"),
+    (["保險費", "產物保險", "旅平險", "旅行平安險"], "6119-99 其他保險費"),
+    (["捐贈", "捐款"], "6121 捐贈"),
+    (["訓練", "講師費", "研習", "教材費", "研討會"], "6131 訓練費"),
+    (["行動硬碟", "碎紙機", "耳溫槍", "汽泡機", "電視掛架"], "6135 雜項購置"),
+    (["會計師", "律師", "顧問費"], "6136 勞務費"),
+    (["書報", "雜誌", "書籍", "訂閱"], "6139 書報雜誌"),
+    (["匯款手續費", "轉帳手續費"], "6140 財務手續費"),
+    (["檢驗費", "驗車"], "6142 檢驗費"),
+    (["影印"], "6144-01 影印費"),
+    (["印刷", "名片"], "6144-02 印刷費"),
+    (["系統維護", "電腦維護", "鼎新"], "6152 電腦及系統維護費"),
+    (["工業會", "協進會", "會費"], "6153 團體會費"),
+    (["停車", "e-tag", "etag", "ETC"], "6188 其他費用"),
 ]
+
+# 吃喝玩樂 / 交際應酬關鍵字：命中時一律列免稅 P17（依秘書慣例，見 classify_tax）
+FOOD_ENTERTAINMENT_KEYWORDS = CATEGORY_RULES[0][0]
 
 # 廠商 → 科目 / 稅別 固定規則覆蓋表（依實際鼎新ERP規則客製，目前留空，供之後新增特例）
 VENDOR_CATEGORY_OVERRIDES = {
-    # "廠商名稱關鍵字": "科目名稱",
+    # "廠商名稱關鍵字": "科目編號 科目名稱",
 }
 VENDOR_TAX_OVERRIDES = {
     # "廠商名稱關鍵字": "免稅" / "應稅外加" / "應稅內含" / "零稅率",
 }
 
 def classify_category(fields):
-    """回傳 (科目, 判斷依據)。找不到對應科目時回傳「其他費用（未分類）」，需人工確認。"""
+    """回傳 (科目, 判斷依據)。找不到對應科目時回傳 6188 其他費用，需人工確認。"""
     seller  = fields.get("seller_name") or ""
     summary = fields.get("items_summary") or ""
     haystack = f"{seller} {summary}"
@@ -771,15 +791,25 @@ def classify_category(fields):
         if any(kw in haystack for kw in keywords):
             return cat, "依品項/廠商關鍵字判斷"
 
-    return "其他費用（未分類）", "無法自動判斷品項，請人工確認科目"
+    return "6188 其他費用", "無法自動判斷品項，建議人工確認科目"
 
-def classify_tax(fields):
+def _is_food_or_entertainment(fields, category):
+    if category.startswith("6120"):
+        return True
+    haystack = f"{fields.get('seller_name') or ''} {fields.get('items_summary') or ''}"
+    return any(kw in haystack for kw in FOOD_ENTERTAINMENT_KEYWORDS)
+
+def classify_tax(fields, category=""):
     """回傳 (免稅/應稅外加/應稅內含/零稅率/待確認, 判斷依據)。
-    先讀發票上列印的稅別欄位，再以發票類型判斷外加/內含，最後由廠商固定規則覆蓋特例。"""
+    順序：廠商固定規則覆蓋 → 吃喝玩樂一律免稅 P17（秘書慣例）→
+    發票上列印的稅別欄位 → 依發票類型判斷外加/內含。"""
     seller = fields.get("seller_name") or ""
     for vendor_kw, tax in VENDOR_TAX_OVERRIDES.items():
         if vendor_kw in seller:
             return tax, f"廠商固定規則（{vendor_kw}）"
+
+    if _is_food_or_entertainment(fields, category):
+        return "免稅（P17）", "秘書慣例：吃喝玩樂/交際應酬類一律列免稅，鼎新ERP稅別代碼 P17（交際費之進項稅額依法不得扣抵）"
 
     tax_label = (fields.get("tax_label") or "").strip()
     inv_type  = (fields.get("invoice_type") or "").strip()
@@ -1384,7 +1414,7 @@ def process_invoice_image(user_id, reply_token, message_id):
         validation = validate_invoice(fields)
 
         category, category_reason = classify_category(fields)
-        tax_bucket, tax_reason = classify_tax(fields)
+        tax_bucket, tax_reason = classify_tax(fields, category)
         classification = {
             "category": category, "category_reason": category_reason,
             "tax_bucket": tax_bucket, "tax_reason": tax_reason,

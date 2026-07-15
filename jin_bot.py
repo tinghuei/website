@@ -331,11 +331,12 @@ Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and e
 - amount: the total amount (總計/總金額) as a plain number, no currency symbol or commas. null if unreadable.
 - seller_name: the seller/store name printed on the invoice. null if unreadable.
 - buyer_tax_id: the buyer's 統一編號 (8 digits) if printed on the invoice, else null.
+- tax_label: the tax type printed/checked on the invoice itself — one of "應稅", "免稅", "零稅率", or null if there is no such field (e.g. plain 收據) or it isn't legible. Look for a 稅別 checkbox/column, or an 應稅金額/免稅金額/零稅率金額 breakdown — if only the 免稅金額 column has a value, tax_label is "免稅"; if only 零稅率金額 has a value, it's "零稅率"; otherwise if there's a 應稅金額/稅額 breakdown it's "應稅".
 - items_summary: a short (<=30 字) 繁體中文 description of what was purchased.
 - notes: any other short observation useful for expense review in 繁體中文, e.g. "字跡模糊看不清楚金額" or "發票有塗改痕跡". Empty string if nothing notable.
 
 Reply ONLY with JSON:
-{{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"items_summary":"...","notes":""}}"""
+{{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","items_summary":"...","notes":""}}"""
 
 # 固定行程解析 prompt（動態，根據成員生成）
 def _recurring_prompt(now=""):
@@ -730,6 +731,77 @@ def validate_invoice(fields, now=None):
         verdict, color = "✅ 可以請款", _GREEN
 
     return {"checks": checks, "verdict": verdict, "color": color}
+
+# ── 鼎新ERP應付憑單分類（會計科目 + 免稅/應稅外加/應稅內含）─────
+# 通用會計科目打底，之後可依實際鼎新ERP科目表調整關鍵字或新增科目
+CATEGORY_RULES = [
+    (["加油", "油資", "汽油", "柴油", "停車", "過路費", "國道", "計程車", "捷運", "客運", "高鐵", "火車票"], "交通費"),
+    (["住宿", "飯店", "旅館", "機票", "出差"], "旅費"),
+    (["餐", "便當", "飲料", "咖啡", "茶葉", "餐廳", "伙食", "外燴"], "伙食費"),
+    (["文具", "紙張", "碳粉", "墨水匣", "事務用品", "辦公用品"], "文具用品"),
+    (["電費", "水費", "瓦斯", "天然氣", "電力"], "水電瓦斯費"),
+    (["郵資", "掛號", "快遞", "運費", "貨運", "宅配"], "郵電費"),
+    (["電話費", "網路費", "通訊費", "電信"], "郵電費"),
+    (["印刷", "名片", "海報", "文宣", "輸出"], "印刷費"),
+    (["修繕", "維修", "保養", "維護"], "修繕費"),
+    (["租金", "房租", "場地費"], "租金支出"),
+    (["廣告", "行銷", "文宣品", "代言"], "廣告費"),
+    (["手續費", "佣金"], "佣金支出"),
+]
+
+# 廠商 → 科目 / 稅別 固定規則覆蓋表（依實際鼎新ERP規則客製，目前留空，供之後新增特例）
+VENDOR_CATEGORY_OVERRIDES = {
+    # "廠商名稱關鍵字": "科目名稱",
+}
+VENDOR_TAX_OVERRIDES = {
+    # "廠商名稱關鍵字": "免稅" / "應稅外加" / "應稅內含" / "零稅率",
+}
+
+def classify_category(fields):
+    """回傳 (科目, 判斷依據)。找不到對應科目時回傳「其他費用（未分類）」，需人工確認。"""
+    seller  = fields.get("seller_name") or ""
+    summary = fields.get("items_summary") or ""
+    haystack = f"{seller} {summary}"
+
+    for vendor_kw, cat in VENDOR_CATEGORY_OVERRIDES.items():
+        if vendor_kw in seller:
+            return cat, f"廠商固定規則（{vendor_kw}）"
+
+    for keywords, cat in CATEGORY_RULES:
+        if any(kw in haystack for kw in keywords):
+            return cat, "依品項/廠商關鍵字判斷"
+
+    return "其他費用（未分類）", "無法自動判斷品項，請人工確認科目"
+
+def classify_tax(fields):
+    """回傳 (免稅/應稅外加/應稅內含/零稅率/待確認, 判斷依據)。
+    先讀發票上列印的稅別欄位，再以發票類型判斷外加/內含，最後由廠商固定規則覆蓋特例。"""
+    seller = fields.get("seller_name") or ""
+    for vendor_kw, tax in VENDOR_TAX_OVERRIDES.items():
+        if vendor_kw in seller:
+            return tax, f"廠商固定規則（{vendor_kw}）"
+
+    tax_label = (fields.get("tax_label") or "").strip()
+    inv_type  = (fields.get("invoice_type") or "").strip()
+
+    if tax_label == "免稅":
+        return "免稅", "發票上列印的稅別欄位"
+    if tax_label == "零稅率":
+        return "零稅率", "發票上列印的稅別欄位"
+
+    if tax_label == "應稅" or not tax_label:
+        if inv_type == "三聯式":
+            return "應稅外加", "三聯式發票慣例：金額與稅額分開列印，稅外加"
+        if inv_type == "二聯式":
+            return "應稅內含", "二聯式發票慣例：總額已內含稅"
+        if inv_type == "電子發票":
+            if (fields.get("buyer_tax_id") or "").strip():
+                return "應稅外加", "電子發票已列印買受人統編，比照三聯式外加"
+            return "應稅內含", "電子發票未列印買受人統編，比照二聯式內含"
+        if inv_type == "收據":
+            return "待確認", "收據非統一發票，沒有標準稅別欄位，需人工確認"
+
+    return "待確認", "發票稅別資訊不足，需人工確認"
 
 # ── 解析時間表達式 → 分鐘數 ──────────────────────────────────
 # ── 中文時間表達式本地解析（避免 AI 算錯時間）──────────────────
@@ -1207,7 +1279,7 @@ def _image_result_flex(jin_message, urgent, later):
     }
     return {"type": "flex", "altText": f"清單辨識：緊急{len(urgent)}件，緩{len(later)}件", "contents": bubble}
 
-def _invoice_result_flex(jin_message, fields, validation):
+def _invoice_result_flex(jin_message, fields, validation, classification=None):
     """發票請款檢查結果卡片"""
     _icon = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
 
@@ -1221,6 +1293,23 @@ def _invoice_result_flex(jin_message, fields, validation):
             {"type": "text", "text": _icon.get(c["level"], "•"), "size": "sm", "flex": 0},
             {"type": "text", "text": c["text"], "size": "sm", "color": "#555555", "flex": 1, "wrap": True},
         ]})
+
+    if classification:
+        body_items.append({"type": "separator", "margin": "md"})
+        body_items.append({"type": "text", "text": "📑 鼎新ERP應付憑單建議", "weight": "bold",
+                           "color": _PINK, "size": "sm", "margin": "md"})
+        body_items.append({"type": "box", "layout": "baseline", "spacing": "sm", "margin": "sm", "contents": [
+            {"type": "text", "text": "科目", "size": "xs", "color": _GRAY, "flex": 0},
+            {"type": "text", "text": classification["category"], "size": "sm", "flex": 1, "wrap": True},
+        ]})
+        body_items.append({"type": "text", "text": f"（{classification['category_reason']}）",
+                           "size": "xxs", "color": _GRAY, "wrap": True})
+        body_items.append({"type": "box", "layout": "baseline", "spacing": "sm", "margin": "sm", "contents": [
+            {"type": "text", "text": "稅別", "size": "xs", "color": _GRAY, "flex": 0},
+            {"type": "text", "text": classification["tax_bucket"], "size": "sm", "flex": 1, "wrap": True},
+        ]})
+        body_items.append({"type": "text", "text": f"（{classification['tax_reason']}）",
+                           "size": "xxs", "color": _GRAY, "wrap": True})
 
     summary = fields.get("items_summary") or ""
     if summary:
@@ -1294,7 +1383,14 @@ def process_invoice_image(user_id, reply_token, message_id):
 
         validation = validate_invoice(fields)
 
-        flex_msg = _invoice_result_flex(msg, fields, validation)
+        category, category_reason = classify_category(fields)
+        tax_bucket, tax_reason = classify_tax(fields)
+        classification = {
+            "category": category, "category_reason": category_reason,
+            "tax_bucket": tax_bucket, "tax_reason": tax_reason,
+        }
+
+        flex_msg = _invoice_result_flex(msg, fields, validation, classification)
         line_push_messages(user_id, [flex_msg])
         do_notify(f"{_im['name']} 幫你檢查發票了！", validation["verdict"])
 

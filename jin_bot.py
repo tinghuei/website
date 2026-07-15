@@ -341,7 +341,8 @@ Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and e
 
 For hand-written 收據 specifically, take extra care with amount and items_summary:
 - The total may be written in Chinese numerals (國字大寫，例如 壹貳參肆伍陸柒捌玖拾佰仟萬) instead of Arabic digits — convert it to a plain Arabic number.
-- The total is usually the largest/final number on the page, often near labels like "合計"、"總計"、"共計"、"NT$" — don't confuse it with a unit price or item count.
+- Watch for Chinese magnitude units mixed with digits, e.g. "4萬3" or "4.3萬" both mean 43000, "2仟5" means 2500 — multiply out the full value, don't just take the digits before the unit character at face value.
+- The total is usually the largest/final number on the page, often near labels like "合計"、"總計"、"共計"、"NT$" — don't confuse it with a unit price or item count, and don't truncate it if part of the number is partially obscured (e.g. by an object placed on the receipt, a fold, or a stamp) — say so in "notes" instead of guessing a shorter number.
 - Read every line item to build items_summary rather than guessing from the store name alone.
 - If handwriting is messy, still give your best-effort reading for amount and items_summary instead of leaving them null — note any uncertainty in "notes" (e.g. "金額字跡潦草，NT$1,200 為推測值") instead of giving up.
 
@@ -771,7 +772,7 @@ def validate_invoice(fields, now=None):
 CATEGORY_RULES = [
     # 吃喝玩樂 / 交際應酬類 → 6120 交際費（同時觸發免稅 P17 規則，見 classify_tax）
     (["交際", "招待", "餐廳", "餐費", "聚餐", "飲料", "咖啡", "茶", "下午茶", "甜點",
-      "禮品", "禮券", "送禮", "伴手禮", "花籃", "奠儀", "禮金", "喜慶", "婚喪",
+      "禮品", "禮盒", "禮籃", "禮券", "送禮", "伴手禮", "水果", "花籃", "奠儀", "禮金", "喜慶", "婚喪",
       "宴請", "宴客", "KTV", "唱歌", "續攤", "酒"], "6120 交際費"),
     (["住宿", "飯店", "旅館", "機票", "出差", "簽證費"], "6113-02 旅費"),
     (["加油", "油資", "汽油", "柴油"], "6123 燃料費"),

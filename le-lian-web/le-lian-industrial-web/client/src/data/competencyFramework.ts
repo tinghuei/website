@@ -601,31 +601,52 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-mg-1',
-        category: '領導與管理',
+        category: '領導與管理能力',
         items: [
           { id: 'mfg-mg-1-1', name: '班組日常管理', description: '管理加工組日常工作與人員調度' },
-          { id: 'mfg-mg-1-2', name: '員工指導', description: '指導組員操作規範與技能提升' },
-          { id: 'mfg-mg-1-3', name: '進度監控', description: '監控加工產出進度並回報異常' },
-          { id: 'mfg-mg-1-4', name: '績效評估', description: '評估組員工作績效' },
+          { id: 'mfg-mg-1-2', name: '員工指導與技能傳承', description: '指導組員操作規範，傳承加工技術' },
+          { id: 'mfg-mg-1-3', name: '班前會組織', description: '組織班前會，傳達生產目標與注意事項' },
+          { id: 'mfg-mg-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
         ]
       },
       {
         id: 'mfg-mg-2',
-        category: '品質與安全',
+        category: '生產管理',
         items: [
-          { id: 'mfg-mg-2-1', name: '品質自主檢查', description: '執行加工件尺寸與外觀自主檢查' },
-          { id: 'mfg-mg-2-2', name: '安全操作督導', description: '督導組員遵守機台操作安全規範' },
-          { id: 'mfg-mg-2-3', name: '異常處理與回報', description: '及時處理並回報不良品與設備異常' },
+          { id: 'mfg-mg-2-1', name: '日計畫理解與執行', description: '理解並落實加工組日生產計畫' },
+          { id: 'mfg-mg-2-2', name: '工作分配', description: '依人員能力合理分配加工工作' },
+          { id: 'mfg-mg-2-3', name: '進度監控', description: '監控加工產出進度，掌握達成狀況' },
+          { id: 'mfg-mg-2-4', name: '異常處理與回報', description: '及時處理設備或製程異常並向上回報' },
         ]
       },
       {
         id: 'mfg-mg-3',
+        category: '品質管理',
+        items: [
+          { id: 'mfg-mg-3-1', name: '品質自主檢查督導', description: '督導組員執行加工件尺寸與外觀自主檢查' },
+          { id: 'mfg-mg-3-2', name: '不良品處理', description: '識別、隔離不良品並分析原因' },
+          { id: 'mfg-mg-3-3', name: '品質意識培訓', description: '培訓組員品質標準與自檢方法' },
+          { id: 'mfg-mg-3-4', name: '改善建議提出', description: '識別品質問題根因並提出改善建議' },
+        ]
+      },
+      {
+        id: 'mfg-mg-4',
+        category: '安全管理',
+        items: [
+          { id: 'mfg-mg-4-1', name: '班前安全確認', description: '執行班前安全確認，傳達安全注意事項' },
+          { id: 'mfg-mg-4-2', name: '安全操作督導', description: '督導組員遵守機台操作安全規範與 PPE 使用' },
+          { id: 'mfg-mg-4-3', name: '隱患排查', description: '定期排查加工區域安全隱患' },
+          { id: 'mfg-mg-4-4', name: '事故報告', description: '及時報告事故並協助調查' },
+        ]
+      },
+      {
+        id: 'mfg-mg-5',
         category: '加工技術管理',
         items: [
-          { id: 'mfg-mg-3-1', name: 'CNC 程式基礎判讀', description: '能判讀並確認 CNC 加工程式的基本參數' },
-          { id: 'mfg-mg-3-2', name: '刀具與夾具管理', description: '管理刀具壽命更換與夾具校準作業' },
-          { id: 'mfg-mg-3-3', name: '公差與尺寸管控', description: '掌握公差標準，確保加工尺寸合格' },
-          { id: 'mfg-mg-3-4', name: '加工製程優化', description: '識別加工瓶頸並提出製程改善建議' },
+          { id: 'mfg-mg-5-1', name: 'CNC 程式基礎判讀', description: '能判讀並確認 CNC 加工程式的基本參數' },
+          { id: 'mfg-mg-5-2', name: '刀具與夾具管理', description: '管理刀具壽命更換與夾具校準作業' },
+          { id: 'mfg-mg-5-3', name: '公差與尺寸管控', description: '掌握公差標準，確保加工尺寸合格' },
+          { id: 'mfg-mg-5-4', name: '加工製程優化', description: '識別加工瓶頸並提出製程改善建議' },
         ]
       },
     ]
@@ -637,31 +658,52 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-press-1',
-        category: '領導與管理',
+        category: '領導與管理能力',
         items: [
           { id: 'mfg-press-1-1', name: '班組日常管理', description: '管理沖床組日常工作與人員調度' },
-          { id: 'mfg-press-1-2', name: '員工指導', description: '指導組員沖壓操作規範與安全意識' },
-          { id: 'mfg-press-1-3', name: '進度監控', description: '監控沖壓產出進度並回報異常' },
-          { id: 'mfg-press-1-4', name: '績效評估', description: '評估組員工作績效' },
+          { id: 'mfg-press-1-2', name: '員工指導與技能傳承', description: '指導組員沖壓操作規範，傳承沖壓技術' },
+          { id: 'mfg-press-1-3', name: '班前會組織', description: '組織班前會，傳達生產目標與安全要求' },
+          { id: 'mfg-press-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
         ]
       },
       {
         id: 'mfg-press-2',
-        category: '品質與安全',
+        category: '生產管理',
         items: [
-          { id: 'mfg-press-2-1', name: '沖壓件品質自主檢查', description: '執行沖壓件外觀、尺寸與毛邊自主檢查' },
-          { id: 'mfg-press-2-2', name: '安全操作督導', description: '督導組員落實沖床安全操作程序' },
-          { id: 'mfg-press-2-3', name: '異常處理與回報', description: '及時處理並回報模具異常與不良品' },
+          { id: 'mfg-press-2-1', name: '日計畫理解與執行', description: '理解並落實沖床組日生產計畫' },
+          { id: 'mfg-press-2-2', name: '工作分配', description: '依人員能力合理分配沖壓工作' },
+          { id: 'mfg-press-2-3', name: '進度監控', description: '監控沖壓產出進度，掌握達成狀況' },
+          { id: 'mfg-press-2-4', name: '異常處理與回報', description: '及時處理模具或製程異常並向上回報' },
         ]
       },
       {
         id: 'mfg-press-3',
+        category: '品質管理',
+        items: [
+          { id: 'mfg-press-3-1', name: '沖壓件品質自主檢查督導', description: '督導組員執行外觀、尺寸與毛邊自主檢查' },
+          { id: 'mfg-press-3-2', name: '不良品處理', description: '識別、隔離不良品並分析沖壓原因' },
+          { id: 'mfg-press-3-3', name: '品質意識培訓', description: '培訓組員沖壓品質標準與自檢方法' },
+          { id: 'mfg-press-3-4', name: '改善建議提出', description: '識別沖壓品質問題根因並提出改善建議' },
+        ]
+      },
+      {
+        id: 'mfg-press-4',
+        category: '安全管理',
+        items: [
+          { id: 'mfg-press-4-1', name: '班前安全確認', description: '執行班前安全確認，說明沖床操作風險' },
+          { id: 'mfg-press-4-2', name: '安全操作督導', description: '督導組員落實沖床安全操作程序與 PPE 使用' },
+          { id: 'mfg-press-4-3', name: '隱患排查', description: '定期排查沖床區域安全隱患' },
+          { id: 'mfg-press-4-4', name: '事故報告', description: '及時報告事故並協助調查' },
+        ]
+      },
+      {
+        id: 'mfg-press-5',
         category: '沖壓技術管理',
         items: [
-          { id: 'mfg-press-3-1', name: '模具安裝與調整', description: '掌握模具安裝、調模與保養作業程序' },
-          { id: 'mfg-press-3-2', name: '送料與材料管理', description: '管理料帶送料精度與原材料用量' },
-          { id: 'mfg-press-3-3', name: '沖壓缺陷預防', description: '識別並預防毛邊、裂紋、變形等沖壓缺陷' },
-          { id: 'mfg-press-3-4', name: '機台參數調整', description: '依產品規格調整沖壓速度與壓力參數' },
+          { id: 'mfg-press-5-1', name: '模具安裝與調整', description: '掌握模具安裝、調模與保養作業程序' },
+          { id: 'mfg-press-5-2', name: '送料與材料管理', description: '管理料帶送料精度與原材料用量' },
+          { id: 'mfg-press-5-3', name: '沖壓缺陷預防', description: '識別並預防毛邊、裂紋、變形等沖壓缺陷' },
+          { id: 'mfg-press-5-4', name: '機台參數調整', description: '依產品規格調整沖壓速度與壓力參數' },
         ]
       },
     ]
@@ -673,31 +715,52 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-paint-1',
-        category: '領導與管理',
+        category: '領導與管理能力',
         items: [
           { id: 'mfg-paint-1-1', name: '班組日常管理', description: '管理塗裝組日常工作與人員調度' },
-          { id: 'mfg-paint-1-2', name: '員工指導', description: '指導組員塗裝操作規範與作業標準' },
-          { id: 'mfg-paint-1-3', name: '進度監控', description: '監控塗裝產出進度並回報異常' },
-          { id: 'mfg-paint-1-4', name: '績效評估', description: '評估組員工作績效' },
+          { id: 'mfg-paint-1-2', name: '員工指導與技能傳承', description: '指導組員塗裝操作規範，傳承塗裝技術' },
+          { id: 'mfg-paint-1-3', name: '班前會組織', description: '組織班前會，傳達生產目標與安全要求' },
+          { id: 'mfg-paint-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
         ]
       },
       {
         id: 'mfg-paint-2',
-        category: '品質與安全',
+        category: '生產管理',
         items: [
-          { id: 'mfg-paint-2-1', name: '塗裝品質自主檢查', description: '執行漆膜厚度、外觀色澤與附著力自主檢查' },
-          { id: 'mfg-paint-2-2', name: '化學品安全管理', description: '確保塗料、溶劑等化學品的安全存放與使用' },
-          { id: 'mfg-paint-2-3', name: '環保法規遵循', description: '督導廢氣、廢水排放符合環保規範' },
+          { id: 'mfg-paint-2-1', name: '日計畫理解與執行', description: '理解並落實塗裝組日生產計畫' },
+          { id: 'mfg-paint-2-2', name: '工作分配', description: '依人員能力合理分配塗裝工作' },
+          { id: 'mfg-paint-2-3', name: '進度監控', description: '監控塗裝產出進度，掌握達成狀況' },
+          { id: 'mfg-paint-2-4', name: '異常處理與回報', description: '及時處理設備或製程異常並向上回報' },
         ]
       },
       {
         id: 'mfg-paint-3',
+        category: '品質管理',
+        items: [
+          { id: 'mfg-paint-3-1', name: '塗裝品質自主檢查督導', description: '督導組員執行漆膜厚度、色澤與附著力自主檢查' },
+          { id: 'mfg-paint-3-2', name: '不良品處理', description: '識別並處理塗裝缺陷件，分析不良原因' },
+          { id: 'mfg-paint-3-3', name: '品質意識培訓', description: '培訓組員塗裝品質標準與外觀判定方法' },
+          { id: 'mfg-paint-3-4', name: '改善建議提出', description: '識別塗裝品質問題根因並提出改善建議' },
+        ]
+      },
+      {
+        id: 'mfg-paint-4',
+        category: '安全管理',
+        items: [
+          { id: 'mfg-paint-4-1', name: '化學品安全管理', description: '確保塗料、溶劑等化學品安全存放與正確使用' },
+          { id: 'mfg-paint-4-2', name: '安全操作督導', description: '督導組員落實防護面罩、防毒口罩等 PPE 使用' },
+          { id: 'mfg-paint-4-3', name: '環保法規遵循', description: '督導廢氣、廢液排放符合環保規範' },
+          { id: 'mfg-paint-4-4', name: '事故報告', description: '及時報告化學品暴露或火災事故並協助調查' },
+        ]
+      },
+      {
+        id: 'mfg-paint-5',
         category: '塗裝技術管理',
         items: [
-          { id: 'mfg-paint-3-1', name: '前處理作業管理', description: '管理去油、磷化等前處理作業品質' },
-          { id: 'mfg-paint-3-2', name: '噴塗參數控制', description: '調整噴槍壓力、黏度與膜厚等塗裝參數' },
-          { id: 'mfg-paint-3-3', name: '塗料調配與管理', description: '依規格調配塗料配比並管理塗料庫存' },
-          { id: 'mfg-paint-3-4', name: '塗裝缺陷分析與改善', description: '識別並處理流掛、針孔、縮孔等塗裝缺陷' },
+          { id: 'mfg-paint-5-1', name: '前處理作業管理', description: '管理去油、磷化等前處理作業品質' },
+          { id: 'mfg-paint-5-2', name: '噴塗參數控制', description: '調整噴槍壓力、黏度與膜厚等塗裝參數' },
+          { id: 'mfg-paint-5-3', name: '塗料調配與管理', description: '依規格調配塗料配比並管理塗料庫存' },
+          { id: 'mfg-paint-5-4', name: '塗裝缺陷分析與改善', description: '識別並處理流掛、針孔、縮孔等塗裝缺陷' },
         ]
       },
     ]
@@ -709,31 +772,52 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-asm-1',
-        category: '領導與管理',
+        category: '領導與管理能力',
         items: [
           { id: 'mfg-asm-1-1', name: '班組日常管理', description: '管理組立組日常工作與人員調度' },
-          { id: 'mfg-asm-1-2', name: '員工指導', description: '指導組員組立作業標準與品質意識' },
-          { id: 'mfg-asm-1-3', name: '進度監控', description: '監控組立產出進度並回報異常' },
-          { id: 'mfg-asm-1-4', name: '績效評估', description: '評估組員工作績效' },
+          { id: 'mfg-asm-1-2', name: '員工指導與技能傳承', description: '指導組員組立作業標準，傳承組立技術' },
+          { id: 'mfg-asm-1-3', name: '班前會組織', description: '組織班前會，傳達組立目標與品質要求' },
+          { id: 'mfg-asm-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
         ]
       },
       {
         id: 'mfg-asm-2',
-        category: '品質與安全',
+        category: '生產管理',
         items: [
-          { id: 'mfg-asm-2-1', name: '組立品質自主檢查', description: '執行組立件功能、外觀與尺寸自主檢查' },
-          { id: 'mfg-asm-2-2', name: '安全作業督導', description: '督導組員使用工具的安全操作規範' },
-          { id: 'mfg-asm-2-3', name: '異常處理與回報', description: '及時處理並回報組立不良與零件缺料' },
+          { id: 'mfg-asm-2-1', name: '日計畫理解與執行', description: '理解並落實組立組日生產計畫' },
+          { id: 'mfg-asm-2-2', name: '工作分配', description: '依人員能力合理分配組立工作' },
+          { id: 'mfg-asm-2-3', name: '進度監控', description: '監控組立產出進度，掌握達成狀況' },
+          { id: 'mfg-asm-2-4', name: '異常處理與回報', description: '及時處理組立異常與零件缺料問題並向上回報' },
         ]
       },
       {
         id: 'mfg-asm-3',
+        category: '品質管理',
+        items: [
+          { id: 'mfg-asm-3-1', name: '組立品質自主檢查督導', description: '督導組員執行組立件功能、外觀與尺寸自主檢查' },
+          { id: 'mfg-asm-3-2', name: '不良品處理', description: '識別、隔離不良品並分析組立原因' },
+          { id: 'mfg-asm-3-3', name: '品質意識培訓', description: '培訓組員組立品質標準與判定方法' },
+          { id: 'mfg-asm-3-4', name: '改善建議提出', description: '識別組立品質問題根因並提出改善建議' },
+        ]
+      },
+      {
+        id: 'mfg-asm-4',
+        category: '安全管理',
+        items: [
+          { id: 'mfg-asm-4-1', name: '班前安全確認', description: '執行班前安全確認，說明工具使用風險' },
+          { id: 'mfg-asm-4-2', name: '安全操作督導', description: '督導組員遵守工具操作安全規範與 PPE 使用' },
+          { id: 'mfg-asm-4-3', name: '隱患排查', description: '定期排查組立區域安全隱患' },
+          { id: 'mfg-asm-4-4', name: '事故報告', description: '及時報告事故並協助調查' },
+        ]
+      },
+      {
+        id: 'mfg-asm-5',
         category: '組立技術管理',
         items: [
-          { id: 'mfg-asm-3-1', name: '作業標準書判讀', description: '能正確判讀並執行組立 SOP 與 BOM 表' },
-          { id: 'mfg-asm-3-2', name: '鎖固力矩管控', description: '確保螺絲鎖固扭力符合規格要求' },
-          { id: 'mfg-asm-3-3', name: '零件備料與拉動管理', description: '管理組立零件備料與生產線拉動節奏' },
-          { id: 'mfg-asm-3-4', name: '成品功能測試', description: '執行組立後功能測試並判定合格與否' },
+          { id: 'mfg-asm-5-1', name: '作業標準書判讀', description: '能正確判讀並執行組立 SOP 與 BOM 表' },
+          { id: 'mfg-asm-5-2', name: '鎖固力矩管控', description: '確保螺絲鎖固扭力符合規格要求' },
+          { id: 'mfg-asm-5-3', name: '零件備料與拉動管理', description: '管理組立零件備料與生產線拉動節奏' },
+          { id: 'mfg-asm-5-4', name: '成品功能測試', description: '執行組立後功能測試並判定合格與否' },
         ]
       },
     ]

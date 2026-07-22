@@ -257,6 +257,29 @@ IMPORTANT: First determine if TASK/REMINDER or just CHAT.
 Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的話，繁體中文","tasks":[{{"id":"t1","title":"任務名稱","detail":"細節說明","remind_in_minutes":30,"status":"pending"}}]}}"""
 
+def _build_schedule_context():
+    """整理目前待辦任務與固定行程，讓聊天回覆能自然提到使用者的行程"""
+    try:
+        tasks = load_tasks()
+        pending = [t for t in tasks if t.get("status") == "pending"]
+        pending.sort(key=lambda t: t.get("remind_at", ""))
+        lines = []
+        if pending:
+            lines.append("使用者目前待辦事項（可自然提起、關心進度、或催促）：")
+            for t in pending[:5]:
+                lines.append(f"- {t['title']}（提醒時間：{t.get('remind_at','')}）")
+        else:
+            lines.append("使用者目前沒有待辦事項。")
+
+        recurring = [r for r in load_recurring() if r.get("active", True)]
+        if recurring:
+            lines.append("使用者的固定行程（可自然提起）：")
+            for r in recurring[:5]:
+                lines.append(f"- {r['title']}")
+        return "\n".join(lines)
+    except Exception:
+        return "使用者目前沒有待辦事項。"
+
 def _chat_prompt():
     m = get_member()
     return f"""{m['persona']}
@@ -264,7 +287,13 @@ def _chat_prompt():
 Current datetime: {{now}}
 Current status: {m['status']}
 
+== 使用者目前行程狀態 ==
+{{schedule_context}}
+== END ==
+
 You are having a real conversation with a fan (ARMY).
+Reply in the tone/personality/speech habits of {m['name']} as described above — use their signature phrases, Korean interjections, and mood.
+If relevant to what the user says, naturally reference their pending tasks or fixed schedule above (e.g. remind them warmly, ask how it's going, tease them about procrastinating) — but only when it fits naturally, don't force it into every reply.
 Keep replies 2-5 sentences, conversational and natural.
 Sometimes ask back questions to keep the conversation going.
 Reply ONLY with the message text (no JSON)."""
@@ -636,7 +665,7 @@ def call_claude(text):
 # ── Groq API（純聊天）────────────────────────────────────────
 def call_chat(text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt  = _chat_prompt().replace("{now}", now_str)
+    prompt  = _chat_prompt().replace("{now}", now_str).replace("{schedule_context}", _build_schedule_context())
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user",   "content": text},

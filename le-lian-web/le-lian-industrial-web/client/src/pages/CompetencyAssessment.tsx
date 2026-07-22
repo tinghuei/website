@@ -77,6 +77,22 @@ const POSITIONS_DATA = {
     department: "製造部",
     requiredCompetencies: ["領導能力", "機械設備操作", "安全管理", "品質管理"],
   },
+  "加工組組長": {
+    department: "製造部",
+    requiredCompetencies: ["領導能力", "機械設備操作", "安全管理", "品質管理", "問題解決"],
+  },
+  "沖床組組長": {
+    department: "製造部",
+    requiredCompetencies: ["領導能力", "機械設備操作", "安全管理", "品質管理", "問題解決"],
+  },
+  "塗裝組組長": {
+    department: "製造部",
+    requiredCompetencies: ["領導能力", "機械設備操作", "安全管理", "品質管理", "問題解決"],
+  },
+  "組立組組長": {
+    department: "製造部",
+    requiredCompetencies: ["領導能力", "機械設備操作", "安全管理", "品質管理", "問題解決"],
+  },
   "品保課課長": {
     department: "品質部",
     requiredCompetencies: ["品質管理", "領導能力", "數據分析", "溝通協調"],

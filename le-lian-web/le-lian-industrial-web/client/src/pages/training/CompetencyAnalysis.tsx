@@ -37,16 +37,43 @@ POSITION_NAMES.forEach((name) => {
 });
 const DEPARTMENTS = Object.keys(POSITIONS_BY_DEPT);
 
-// 依職能類別名稱，對應建議進修的課程分類（與課程庫課程分類一致）
+// 依職能類別名稱，對應建議進修的課程（精準對應實際可報名的課程類型）
 function recommendCourseCategory(categoryName: string): string {
-  if (/安全|衛生|危害|防護/.test(categoryName)) return '安全衛生';
-  if (/品質|品檢/.test(categoryName)) return '品質管理';
-  if (/生產|製程|機械設備操作|物料|倉庫|物流|採購|計畫與協調|生產計畫/.test(categoryName)) return '生產管理';
-  if (/領導與管理|領導與管理能力|成本控制|人力資源|行政管理|管理能力|財務|預算|會計|法令|法規|公司法|專案|目標管理|績效管理/.test(categoryName)) return '管理發展課程';
-  if (/溝通|協調|客戶|業務|銷售|市場/.test(categoryName)) return '職場技能';
-  if (/技術|創新|研發|文檔|設備管理|廠房|改善/.test(categoryName)) return '職能發展課程';
-  if (/庶務|清潔|文件管理|行政協助|行政執行/.test(categoryName)) return '行政職能課程';
-  return '職能發展課程';
+  // 安全衛生類
+  if (/安全管理|職安|衛生|危害|防護|化學品安全|環保法規/.test(categoryName)) return '職安法規與勞工安全衛生';
+  // 品質管理類
+  if (/品質管理|品質檢查|品質改善|品保|品檢|量測技術/.test(categoryName)) return 'QC 手法與品質管理實務';
+  // 改善創新類
+  if (/改善與創新|改善推進|精實生產|製程優化/.test(categoryName)) return '精實生產與持續改善（Kaizen）';
+  // 生產管理類
+  if (/生產管理|生產計畫|進度控制|製程管理/.test(categoryName)) return '生產管理與現場效率提升';
+  // 設備維護類
+  if (/設備管理|設備維護|設備與廠務|廠房管理|廠務管理|機械設備操作|自動化技術/.test(categoryName)) return '設備維護保養與 TPM 實務';
+  // 加工/沖壓/塗裝/組立技術類
+  if (/加工技術|沖壓技術|塗裝技術|組立技術/.test(categoryName)) return '製造現場技術能力培訓';
+  // 採購/物料/倉儲類
+  if (/採購管理|採購執行|採購成本|物料管理|物流管理|倉庫管理|供應商管理|供應鏈/.test(categoryName)) return '採購管理與倉儲物流實務';
+  // 研發/技術創新類
+  if (/研發管理|技術創新|技術知識|專案管理/.test(categoryName)) return '研發管理與創新思維課程';
+  // 領導管理類（主管層）
+  if (/領導與管理能力|業務督導|跨部門協調管理|策略規劃/.test(categoryName)) return '主管管理職能培訓（MTP）';
+  // 成本/財務類
+  if (/成本控制|預算管理|財務協助|數據分析與財務/.test(categoryName)) return '成本分析與財務報表解讀';
+  // 業務/銷售/市場類
+  if (/銷售管理|市場管理|客戶服務|業務協助|客戶管理/.test(categoryName)) return '業務行銷與客戶關係管理';
+  // 溝通/協調類
+  if (/溝通與協調|協調與溝通|對外關係|跨部門協調/.test(categoryName)) return '職場溝通與跨部門協作技能';
+  // 法令/合規類
+  if (/法令|法規|合規|勞動法|勞工法/.test(categoryName)) return '勞動法規與企業合規實務';
+  // 人力資源類
+  if (/人力資源|人資管理|員工關係|薪酬|招聘/.test(categoryName)) return '人力資源管理實務課程';
+  // 行政/庶務/文件類
+  if (/行政管理|行政協助|行政執行|庶務管理|庶務執行|文件管理|文管|清潔衛生/.test(categoryName)) return '行政庶務與辦公室管理';
+  // 專案/目標管理類
+  if (/專案與目標管理|目標管理|績效管理|決策支援/.test(categoryName)) return '專案管理與目標管理實務（OKR/KPI）';
+  // 職場基礎
+  if (/職場|素養|基礎|協調與溝通|業務知識|業務技術/.test(categoryName)) return '職場核心能力與專業素養';
+  return '職能發展專業課程';
 }
 
 // ── 分數計算工具 ─────────────────────────────────────────────────────────────────

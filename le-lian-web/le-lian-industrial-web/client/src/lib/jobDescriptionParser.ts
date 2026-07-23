@@ -72,14 +72,25 @@ function extractCheckedPosition(text: string): string | null {
 // 擷取「五、本職位之工作職能及相關技能要求」表格中，指定列（如「專業能力」「教育訓練需求」）的項目清單
 function extractListSection(text: string, label: string, nextLabels: string[]): string[] {
   const nextPattern = nextLabels.length ? `(?:${nextLabels.join('|')})` : '$';
-  const re = new RegExp(`${label}[\\s\\S]{0,400}?(?=${nextPattern})`);
-  const m = text.match(re) ?? (nextLabels.length ? null : text.match(new RegExp(`${label}[\\s\\S]{0,400}`)));
+  const re = new RegExp(`${label}[\\s\\S]{0,1200}?(?=${nextPattern})`);
+  const m = text.match(re) ?? (nextLabels.length ? null : text.match(new RegExp(`${label}[\\s\\S]{0,1200}`)));
   if (!m) return [];
   const segment = m[0];
-  // 逐項擷取「1. xxx」「2. xxx」格式的項目名稱
-  return Array.from(segment.matchAll(/\d+[.、]\s*([^\d]+?)(?=\s*\d+[.、]|$)/g))
-    .map((mm) => trimValue(mm[1]))
-    .filter((s) => s.length > 0 && s.length < 30 && !new RegExp(label).test(s));
+  // 支援多種編號格式：「1. xxx」「1、xxx」「（一）xxx」「一、xxx」「• xxx」「- xxx」「□ xxx」
+  const numericItems = Array.from(segment.matchAll(/\d+[.、)）]\s*([^\n\d]{2,60})/g))
+    .map((mm) => trimValue(mm[1]));
+  const chineseItems = Array.from(segment.matchAll(/[（(][一二三四五六七八九十百][)）]\s*([^\n]{2,60})/g))
+    .map((mm) => trimValue(mm[1]));
+  const bulletItems = Array.from(segment.matchAll(/(?:^|[\n\r])\s*[•·▪▸\-\*＊□■◆]\s+([^\n]{2,60})/gm))
+    .map((mm) => trimValue(mm[1]));
+  const all = [...numericItems, ...chineseItems, ...bulletItems];
+  const seen = new Set<string>();
+  return all.filter((s) => {
+    if (s.length < 2 || s.length > 60 || new RegExp(label).test(s)) return false;
+    if (seen.has(s)) return false;
+    seen.add(s);
+    return true;
+  });
 }
 
 /** 解析工作說明書文字內容，辨識所屬單位、職位、工作摘要與職能技能要求。 */

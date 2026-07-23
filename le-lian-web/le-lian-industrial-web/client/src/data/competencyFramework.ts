@@ -29,52 +29,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'cm-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'cm-1-1', name: '團隊建設與人員管理', description: '招聘、培訓、績效評估' },
-          { id: 'cm-1-2', name: '目標設定與績效管理', description: '制定部門目標、監控進度' },
-          { id: 'cm-1-3', name: '決策制定與問題解決', description: '分析複雜問題、制定解決方案' },
-          { id: 'cm-1-4', name: '跨部門協調與溝通', description: '與其他部門協作、衝突解決' },
+          { id: 'cm-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'cm-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'cm-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'cm-2',
-        category: '安全管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'cm-2-1', name: '安全政策制定與執行', description: '制定安全規程、確保合規' },
-          { id: 'cm-2-2', name: '安全風險評估', description: '識別危害、評估風險等級' },
-          { id: 'cm-2-3', name: '事故調查與改善', description: '分析事故原因、制定預防措施' },
-          { id: 'cm-2-4', name: '安全培訓與宣導', description: '組織安全培訓、提升員工意識' },
-        ]
-      },
-      {
-        id: 'cm-3',
-        category: '成本控制與預算管理',
-        items: [
-          { id: 'cm-3-1', name: '預算編制與監控', description: '制定年度預算、控制支出' },
-          { id: 'cm-3-2', name: '成本分析', description: '分析成本構成、識別降低機會' },
-          { id: 'cm-3-3', name: '設備投資評估', description: '評估 ROI、制定採購計畫' },
-          { id: 'cm-3-4', name: '能源管理', description: '監控能耗、優化使用效率' },
-        ]
-      },
-      {
-        id: 'cm-4',
-        category: '設備與廠務管理',
-        items: [
-          { id: 'cm-4-1', name: '設備維護計畫', description: '制定保養計畫、監控執行' },
-          { id: 'cm-4-2', name: '廠房管理', description: '環境衛生、安全設施維護' },
-          { id: 'cm-4-3', name: '應急預案', description: '制定應急計畫、組織演練' },
-          { id: 'cm-4-4', name: '技術更新與改善', description: '評估新技術、推動改善項目' },
-        ]
-      },
-      {
-        id: 'cm-5',
-        category: '溝通與協調',
-        items: [
-          { id: 'cm-5-1', name: '向上匯報', description: '定期向上級報告、爭取資源支持' },
-          { id: 'cm-5-2', name: '向下溝通', description: '傳達政策、激勵團隊' },
-          { id: 'cm-5-3', name: '橫向協作', description: '與製造、品質等部門協調' },
-          { id: 'cm-5-4', name: '外部溝通', description: '與供應商、客戶溝通' },
+          { id: 'cm-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'cm-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'cm-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -86,52 +54,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mc-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'mc-1-1', name: '團隊建設', description: '招聘、培訓、績效評估' },
-          { id: 'mc-1-2', name: '生產計畫制定', description: '制定月度/周度生產計畫' },
-          { id: 'mc-1-3', name: '目標管理', description: '設定生產目標、監控進度' },
-          { id: 'mc-1-4', name: '人員激勵', description: '激勵團隊、提升士氣' },
+          { id: 'mc-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'mc-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'mc-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'mc-2',
-        category: '生產計畫與控制',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'mc-2-1', name: '生產需求分析', description: '分析訂單、評估產能' },
-          { id: 'mc-2-2', name: '生產計畫制定', description: '制定詳細計畫、分配資源' },
-          { id: 'mc-2-3', name: '進度監控', description: '監控生產進度、及時調整' },
-          { id: 'mc-2-4', name: '產能優化', description: '提升產能、降低成本' },
-        ]
-      },
-      {
-        id: 'mc-3',
-        category: '品質管理',
-        items: [
-          { id: 'mc-3-1', name: '品質標準制定', description: '制定品質標準、明確要求' },
-          { id: 'mc-3-2', name: '品質檢查監督', description: '監督檢查工作、確保品質' },
-          { id: 'mc-3-3', name: '不良品處理', description: '分析不良原因、制定改善' },
-          { id: 'mc-3-4', name: '品質改善推進', description: '推進品質改善項目' },
-        ]
-      },
-      {
-        id: 'mc-4',
-        category: '成本控制',
-        items: [
-          { id: 'mc-4-1', name: '成本分析', description: '分析生產成本、識別浪費' },
-          { id: 'mc-4-2', name: '物料管理', description: '監控物料使用、減少浪費' },
-          { id: 'mc-4-3', name: '效率改善', description: '提升作業效率、降低成本' },
-          { id: 'mc-4-4', name: '預算管理', description: '控制部門預算' },
-        ]
-      },
-      {
-        id: 'mc-5',
-        category: '溝通與協調',
-        items: [
-          { id: 'mc-5-1', name: '向上匯報', description: '定期向高階主管報告生產狀況' },
-          { id: 'mc-5-2', name: '跨部門協調', description: '與品保、資材、業務等部門協調' },
-          { id: 'mc-5-3', name: '向下溝通', description: '傳達政策目標、激勵班組士氣' },
-          { id: 'mc-5-4', name: '問題協調解決', description: '主持跨組問題協調會議' },
+          { id: 'mc-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mc-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'mc-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -143,42 +79,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'bl-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'bl-1-1', name: '班組日常管理', description: '工作分配、進度監控' },
-          { id: 'bl-1-2', name: '員工指導', description: '指導員工操作、傳承技能' },
-          { id: 'bl-1-3', name: '班前會組織', description: '組織班前會、傳達任務' },
-          { id: 'bl-1-4', name: '績效監控', description: '監控班組績效' },
+          { id: 'bl-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'bl-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'bl-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'bl-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'bl-2-1', name: '班組計畫理解', description: '理解日計畫' },
-          { id: 'bl-2-2', name: '工作分配', description: '合理分配工作' },
-          { id: 'bl-2-3', name: '進度監控', description: '監控班組進度' },
-          { id: 'bl-2-4', name: '異常處理', description: '處理生產異常、報告' },
-        ]
-      },
-      {
-        id: 'bl-3',
-        category: '品質管理',
-        items: [
-          { id: 'bl-3-1', name: '品質檢查監督', description: '監督檢查工作' },
-          { id: 'bl-3-2', name: '不良品處理', description: '處理不良品' },
-          { id: 'bl-3-3', name: '員工培訓', description: '培訓員工品質要求' },
-          { id: 'bl-3-4', name: '改善建議', description: '提出改善建議' },
-        ]
-      },
-      {
-        id: 'bl-4',
-        category: '安全管理',
-        items: [
-          { id: 'bl-4-1', name: '班前安全會', description: '組織班前安全會' },
-          { id: 'bl-4-2', name: '安全檢查', description: '日常安全檢查' },
-          { id: 'bl-4-3', name: '隱患排查', description: '排查安全隱患' },
-          { id: 'bl-4-4', name: '事故報告', description: '及時報告事故' },
+          { id: 'bl-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'bl-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'bl-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -190,32 +104,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'te-1',
-        category: '機械設備操作',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'te-1-1', name: '設備操作規程掌握', description: '掌握設備操作方法' },
-          { id: 'te-1-2', name: '正確操作執行', description: '按規程操作設備' },
-          { id: 'te-1-3', name: '設備狀況監控', description: '監控設備運行狀況' },
-          { id: 'te-1-4', name: '簡單故障排除', description: '排除簡單故障' },
+          { id: 'te-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'te-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'te-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'te-2',
-        category: '品質管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'te-2-1', name: '品質標準理解', description: '理解品質要求' },
-          { id: 'te-2-2', name: '自檢執行', description: '執行自檢' },
-          { id: 'te-2-3', name: '不良品報告', description: '報告不良品' },
-          { id: 'te-2-4', name: '改善建議', description: '提出改善建議' },
-        ]
-      },
-      {
-        id: 'te-3',
-        category: '安全管理',
-        items: [
-          { id: 'te-3-1', name: '安全規程遵守', description: '遵守安全規程' },
-          { id: 'te-3-2', name: '個人防護', description: '正確使用 PPE' },
-          { id: 'te-3-3', name: '危害識別', description: '識別危害' },
-          { id: 'te-3-4', name: '事故報告', description: '報告事故' },
+          { id: 'te-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'te-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'te-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -227,32 +129,31 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'qi-1',
-        category: '品質檢查執行',
+        category: '實施品質管理計畫',
         items: [
-          { id: 'qi-1-1', name: '檢查標準理解', description: '理解並掌握各類產品的品質檢查標準' },
-          { id: 'qi-1-2', name: '檢查工作執行', description: '依 SOP 執行外觀、尺寸及功能檢查' },
-          { id: 'qi-1-3', name: '檢查數據記錄', description: '準確記錄檢查結果，維護品質憑證' },
-          { id: 'qi-1-4', name: '不良品報告', description: '識別並標示不良品，及時通報相關人員' },
+          { id: 'qi-1-1', name: '品質監控與執行', description: '依品質計畫及作業SOP執行品質監控，確保製程與產品符合規格' },
+          { id: 'qi-1-2', name: '製程品質巡檢', description: '執行製程中品質巡檢，識別並記錄異常，即時通報相關人員' },
+          { id: 'qi-1-3', name: '品質檢驗與判定', description: '執行進料、製程、成品及包裝完整性等各階段品質檢驗與合格判定' },
+          { id: 'qi-1-4', name: '品質異常處理', description: '於現場確認異常、隔離不良品、追查原因，跨部門協調並撰寫異常處理報告' },
+          { id: 'qi-1-5', name: '協助供應商品質管理', description: '協助追蹤供應商品質問題，提供改善建議' },
         ]
       },
       {
         id: 'qi-2',
-        category: '量測技術應用',
+        category: '彙整品質文件',
         items: [
-          { id: 'qi-2-1', name: '量測儀器操作', description: '正確使用游標卡尺、千分錶等量測工具' },
-          { id: 'qi-2-2', name: '量測誤差認知', description: '了解量測誤差來源與校正方法' },
-          { id: 'qi-2-3', name: '品質記錄文件管理', description: '建立並維護檢查紀錄與品質文件' },
-          { id: 'qi-2-4', name: '規格圖面判讀', description: '能判讀產品工程圖及品質規格' },
+          { id: 'qi-2-1', name: '紀錄與分析品質資料', description: '正確記錄並分析各項品質檢驗數據，提出品質趨勢報告' },
+          { id: 'qi-2-2', name: '品質文件建立與更新', description: '協助建立並維護品質相關SOP、作業標準等文件' },
+          { id: 'qi-2-3', name: '協助維護品質資料庫及文件', description: '協助維護品質資料庫，確保資料完整性與可查性' },
+          { id: 'qi-2-4', name: '品質資料查詢與提供', description: '提供各部門品質資料查詢服務' },
         ]
       },
       {
         id: 'qi-3',
-        category: '安全管理',
+        category: '協助推廣品質觀念與教育訓練',
         items: [
-          { id: 'qi-3-1', name: '安全規程遵守', description: '遵守品檢作業區域安全規程' },
-          { id: 'qi-3-2', name: '個人防護裝備使用', description: '正確配戴 PPE，防止職業暴露風險' },
-          { id: 'qi-3-3', name: '危害辨識', description: '識別品檢環境中的安全危害' },
-          { id: 'qi-3-4', name: '事故報告', description: '及時報告工作環境中的事故與異常' },
+          { id: 'qi-3-1', name: '協助推廣品質觀念', description: '協助推廣品質第一的工作理念，促進品質意識提升' },
+          { id: 'qi-3-2', name: '協助教育訓練', description: '協助辦理品質相關教育訓練課程' },
         ]
       },
     ]
@@ -301,51 +202,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'cm2-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'cm2-1-1', name: '團隊建設與人員管理', description: '招聘、培訓、績效評估' },
-          { id: 'cm2-1-2', name: '目標設定與績效管理', description: '制定部門目標、監控進度' },
-          { id: 'cm2-1-3', name: '決策制定與問題解決', description: '分析複雜問題、制定解決方案' },
-          { id: 'cm2-1-4', name: '跨部門協調', description: '協調各部門廠務需求、資源分配' },
+          { id: 'cm2-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'cm2-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'cm2-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'cm2-2',
-        category: '安全管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'cm2-2-1', name: '安全政策制定與執行', description: '制定安全規程、確保合規' },
-          { id: 'cm2-2-2', name: '安全風險評估', description: '識別危害、評估風險等級' },
-          { id: 'cm2-2-3', name: '事故調查與改善', description: '分析事故原因、制定預防措施' },
-          { id: 'cm2-2-4', name: '安全培訓推動', description: '規劃與推動廠區安全訓練' },
-        ]
-      },
-      {
-        id: 'cm2-3',
-        category: '成本控制與預算管理',
-        items: [
-          { id: 'cm2-3-1', name: '廠務費用預算編制', description: '制定廠務年度預算並追蹤執行' },
-          { id: 'cm2-3-2', name: '成本分析', description: '分析廠務費用構成，識別降本機會' },
-          { id: 'cm2-3-3', name: '能源管理', description: '監控水電能耗，推動節能措施' },
-          { id: 'cm2-3-4', name: '外包商管理', description: '評估並管理廠務外包商績效與費用' },
-        ]
-      },
-      {
-        id: 'cm2-4',
-        category: '設備與廠務管理',
-        items: [
-          { id: 'cm2-4-1', name: '設備保養計畫督導', description: '督導設備保養計畫執行，確保機台可用率' },
-          { id: 'cm2-4-2', name: '廠房環境管理', description: '管理廠房整潔、溫濕度及 5S 推行' },
-          { id: 'cm2-4-3', name: '應急預案制定', description: '制定廠務應急計畫並組織演練' },
-          { id: 'cm2-4-4', name: '技術更新評估', description: '評估新設備或技術引進的效益與可行性' },
-        ]
-      },
-      {
-        id: 'cm2-5',
-        category: '溝通與協調',
-        items: [
-          { id: 'cm2-5-1', name: '向上匯報', description: '定期向廠務經理或高階主管報告廠務狀況' },
-          { id: 'cm2-5-2', name: '橫向協作', description: '與製造、品保等部門協調廠務支援需求' },
-          { id: 'cm2-5-3', name: '對外溝通', description: '代表公司與政府機關、供應商溝通廠務事項' },
+          { id: 'cm2-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'cm2-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'cm2-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -357,32 +227,14 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'ee-1',
-        category: '設備管理與維護',
+        category: '廠務系統維運管理',
         items: [
-          { id: 'ee-1-1', name: '設備維護計畫制定', description: '制定保養計畫、監控執行' },
-          { id: 'ee-1-2', name: '故障診斷與排除', description: '診斷設備故障、排除問題' },
-          { id: 'ee-1-3', name: '設備改造與升級', description: '評估改造需求、實施升級' },
-          { id: 'ee-1-4', name: '技術文檔管理', description: '編寫維護文檔、管理技術資料' },
-        ]
-      },
-      {
-        id: 'ee-2',
-        category: '技術知識',
-        items: [
-          { id: 'ee-2-1', name: '機械原理', description: '掌握機械設備原理' },
-          { id: 'ee-2-2', name: '電氣知識', description: '理解電氣系統' },
-          { id: 'ee-2-3', name: '液壓系統', description: '掌握液壓控制' },
-          { id: 'ee-2-4', name: '自動化技術', description: '理解自動化系統' },
-        ]
-      },
-      {
-        id: 'ee-3',
-        category: '安全管理',
-        items: [
-          { id: 'ee-3-1', name: '設備安全操作規範', description: '制定並執行設備安全操作 SOP' },
-          { id: 'ee-3-2', name: '危害識別與風險評估', description: '識別設備危害點，評估作業風險' },
-          { id: 'ee-3-3', name: '緊急停機處理', description: '熟悉緊急停機程序，確保人員安全' },
-          { id: 'ee-3-4', name: '安全培訓協助', description: '協助廠務安全教育訓練' },
+          { id: 'ee-1-1', name: '執行廠務系統巡檢維護與保養', description: '依規範執行廠務系統定期巡檢、保養及維護，確保系統正常運作' },
+          { id: 'ee-1-2', name: '完善廠務系統評估改善與執行', description: '評估廠務系統效能，提出並執行改善方案，提升系統可靠度' },
+          { id: 'ee-1-3', name: '落實廠務系統規劃發包監造', description: '規劃廠務工程計畫，辦理發包作業，執行施工監造管理' },
+          { id: 'ee-1-4', name: '順暢系統運轉狀況維持', description: '確保廠務供應系統（水電空調等）穩定運轉，維持生產環境所需條件' },
+          { id: 'ee-1-5', name: '系統異常分析及改善評估', description: '發生廠務系統異常時，執行原因分析、緊急應變及改善評估' },
+          { id: 'ee-1-6', name: '主管交辦事項完成', description: '確實完成主管交辦之廠務工安相關事項及派訓事宜' },
         ]
       },
     ]
@@ -394,30 +246,14 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'ca-1',
-        category: '廠房管理',
+        category: '廠務系統維運管理',
         items: [
-          { id: 'ca-1-1', name: '環境衛生維護', description: '維護廠房衛生，執行 5S 作業' },
-          { id: 'ca-1-2', name: '設施維護協助', description: '協助執行廠房設施日常保養' },
-          { id: 'ca-1-3', name: '物資管理', description: '管理廠務消耗品與物資庫存' },
-          { id: 'ca-1-4', name: '工單記錄', description: '記錄廠務維修工單與作業紀錄' },
-        ]
-      },
-      {
-        id: 'ca-2',
-        category: '協調與溝通',
-        items: [
-          { id: 'ca-2-1', name: '部門協調', description: '與各部門協調廠務支援需求' },
-          { id: 'ca-2-2', name: '工作報告', description: '定期向主管報告工作進展' },
-          { id: 'ca-2-3', name: '問題反饋', description: '及時反饋廠務異常問題' },
-        ]
-      },
-      {
-        id: 'ca-3',
-        category: '安全管理',
-        items: [
-          { id: 'ca-3-1', name: '安全規程遵守', description: '遵守廠區安全規程與操作規範' },
-          { id: 'ca-3-2', name: '個人防護', description: '正確配戴 PPE，防範廠區安全風險' },
-          { id: 'ca-3-3', name: '隱患回報', description: '識別廠房安全隱患並及時回報' },
+          { id: 'ca-1-1', name: '執行廠務系統巡檢維護與保養', description: '依規範執行廠務系統定期巡檢、保養及維護，確保系統正常運作' },
+          { id: 'ca-1-2', name: '完善廠務系統評估改善與執行', description: '評估廠務系統效能，提出並執行改善方案，提升系統可靠度' },
+          { id: 'ca-1-3', name: '落實廠務系統規劃發包監造', description: '規劃廠務工程計畫，辦理發包作業，執行施工監造管理' },
+          { id: 'ca-1-4', name: '順暢系統運轉狀況維持', description: '確保廠務供應系統（水電空調等）穩定運轉，維持生產環境所需條件' },
+          { id: 'ca-1-5', name: '系統異常分析及改善評估', description: '發生廠務系統異常時，執行原因分析、緊急應變及改善評估' },
+          { id: 'ca-1-6', name: '主管交辦事項完成', description: '確實完成主管交辦之廠務工安相關事項及派訓事宜' },
         ]
       },
     ]
@@ -429,42 +265,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mc2-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'mc2-1-1', name: '班組管理與人員指導', description: '協助課長管理班組，指導班長與組員' },
-          { id: 'mc2-1-2', name: '目標傳達與績效追蹤', description: '傳達生產目標，追蹤組別績效' },
-          { id: 'mc2-1-3', name: '員工培育', description: '規劃並執行班組技能培訓' },
-          { id: 'mc2-1-4', name: '問題解決與決策', description: '處理班組日常問題，支援課長決策' },
+          { id: 'mc2-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'mc2-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'mc2-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'mc2-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'mc2-2-1', name: '日生產計畫執行督導', description: '督導班組落實日生產計畫' },
-          { id: 'mc2-2-2', name: '進度監控與異常回報', description: '監控各班組進度，及時回報異常' },
-          { id: 'mc2-2-3', name: '資源調配', description: '協助課長調配人員、設備與物料資源' },
-          { id: 'mc2-2-4', name: '效率改善', description: '識別生產瓶頸，提出效率改善建議' },
-        ]
-      },
-      {
-        id: 'mc2-3',
-        category: '品質管理',
-        items: [
-          { id: 'mc2-3-1', name: '品質標準督導執行', description: '確保各班組嚴格執行品質標準' },
-          { id: 'mc2-3-2', name: '不良品分析', description: '分析不良品原因，協調改善措施' },
-          { id: 'mc2-3-3', name: '品質改善推進', description: '推進班組品質改善活動' },
-          { id: 'mc2-3-4', name: '客訴協助處理', description: '協助課長處理客戶品質投訴' },
-        ]
-      },
-      {
-        id: 'mc2-4',
-        category: '安全管理',
-        items: [
-          { id: 'mc2-4-1', name: '安全政策執行', description: '督導各班組落實安全規程' },
-          { id: 'mc2-4-2', name: '安全巡查', description: '定期巡查生產區域安全狀況' },
-          { id: 'mc2-4-3', name: '隱患排查', description: '識別安全隱患並協調改善' },
-          { id: 'mc2-4-4', name: '安全訓練協助', description: '協助辦理班組安全教育訓練' },
+          { id: 'mc2-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mc2-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'mc2-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -476,39 +290,35 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mc3-1',
-        category: '領導與管理能力',
+        category: '採購政策及程序擬定',
         items: [
-          { id: 'mc3-1-1', name: '團隊建設與人員管理', description: '招聘、培訓資材人員，執行績效評估' },
-          { id: 'mc3-1-2', name: '目標設定與績效管理', description: '制定部門 KPI 並追蹤達成' },
-          { id: 'mc3-1-3', name: '決策與問題解決', description: '分析供應鏈問題，制定因應對策' },
+          { id: 'mc3-1-1', name: '判別組織採購需求', description: '分析組織採購需求，識別採購風險及機會，作為政策擬定依據' },
+          { id: 'mc3-1-2', name: '制定並推動採購政策及程序', description: '制定採購相關政策、制度及作業程序，並推動落實執行' },
         ]
       },
       {
         id: 'mc3-2',
-        category: '物料管理',
+        category: '採購策略規劃',
         items: [
-          { id: 'mc3-2-1', name: '物料需求規劃（MRP）', description: '依生產計畫規劃物料需求，確保備料充足' },
-          { id: 'mc3-2-2', name: '庫存水位管理', description: '設定安全庫存，控制呆廢料風險' },
-          { id: 'mc3-2-3', name: '供應商管理', description: '評核供應商績效，推動交期與品質改善' },
-          { id: 'mc3-2-4', name: '採購計畫制定', description: '依需求擬定採購計畫，控制交期風險' },
+          { id: 'mc3-2-1', name: '發展採購策略', description: '依組織目標及市場環境發展短中長期採購策略' },
+          { id: 'mc3-2-2', name: '推動與評估採購策略', description: '推動採購策略執行，定期評估策略效果並滾動修正' },
         ]
       },
       {
         id: 'mc3-3',
-        category: '成本控制',
+        category: '供應商管理及評估',
         items: [
-          { id: 'mc3-3-1', name: '物料成本分析', description: '分析物料成本構成，推動降本措施' },
-          { id: 'mc3-3-2', name: '採購成本談判', description: '主導重要物料的採購價格談判' },
-          { id: 'mc3-3-3', name: '庫存週轉優化', description: '提升庫存週轉率，降低庫存持有成本' },
+          { id: 'mc3-3-1', name: '建立供應商管理制度', description: '建立供應商評鑑、分級及管理制度，確保供應穩定' },
+          { id: 'mc3-3-2', name: '評鑑及開發供應商', description: '定期評鑑現有供應商績效，開發備援供應商降低風險' },
+          { id: 'mc3-3-3', name: '審核採購協議及合約', description: '審核重要採購合約條款，確保合規及維護公司利益' },
         ]
       },
       {
         id: 'mc3-4',
-        category: '計畫與協調',
+        category: '採購業務督導',
         items: [
-          { id: 'mc3-4-1', name: '生產計畫協調', description: '與製造部協調物料供應與生產計畫' },
-          { id: 'mc3-4-2', name: '跨部門協調', description: '協調業務、品保與製造等部門需求' },
-          { id: 'mc3-4-3', name: '向上匯報', description: '定期向高階主管報告資材供應狀況' },
+          { id: 'mc3-4-1', name: '監督採購業務風險', description: '監控採購過程中的供應、價格及合規風險，制定風險因應措施' },
+          { id: 'mc3-4-2', name: '管理採購績效', description: '建立採購績效指標，定期評估採購效益並提出改善方案' },
         ]
       },
     ]
@@ -520,38 +330,27 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mc4-1',
-        category: '領導與管理能力',
+        category: '採購規劃與執行',
         items: [
-          { id: 'mc4-1-1', name: '人員指導與監督', description: '指導資材人員作業規範，督導工作執行' },
-          { id: 'mc4-1-2', name: '工作分配', description: '依任務性質合理分配組員工作' },
-          { id: 'mc4-1-3', name: '績效追蹤', description: '追蹤組員工作績效並給予回饋' },
+          { id: 'mc4-1-1', name: '規劃採購計畫', description: '確認採購需求、蒐集市場資訊、進行詢價，建立採購計畫並取得核定' },
+          { id: 'mc4-1-2', name: '執行採購案', description: '執行詢價比價議價評選，下單並協助簽訂採購合約，建立採購紀錄' },
+          { id: 'mc4-1-3', name: '招標邀標及評選', description: '辦理招標或邀標作業，依評選標準進行供應商評選' },
         ]
       },
       {
         id: 'mc4-2',
-        category: '物料管理',
+        category: '履約及請款',
         items: [
-          { id: 'mc4-2-1', name: '庫存管理', description: '管理物料庫存水位，確保備料正確' },
-          { id: 'mc4-2-2', name: '物料領用管控', description: '管理物料領用作業，確保帳物相符' },
-          { id: 'mc4-2-3', name: '盤點執行', description: '執行定期庫存盤點並追蹤差異' },
-          { id: 'mc4-2-4', name: '異常回報', description: '及時回報物料短缺或品質異常' },
+          { id: 'mc4-2-1', name: '驗收採購項目及請款', description: '驗收採購貨品或服務，核對規格數量，辦理付款請款作業' },
+          { id: 'mc4-2-2', name: '協商及解約', description: '處理採購爭議，必要時辦理合約協商變更或解約' },
         ]
       },
       {
         id: 'mc4-3',
-        category: '採購與供應鏈知識',
+        category: '採購關係維護',
         items: [
-          { id: 'mc4-3-1', name: '採購流程執行', description: '熟悉採購申請、詢價、下單等作業流程' },
-          { id: 'mc4-3-2', name: '供應商聯繫', description: '日常聯繫供應商，追蹤交期與品質' },
-          { id: 'mc4-3-3', name: '收料驗收', description: '執行到料驗收並核對規格與數量' },
-        ]
-      },
-      {
-        id: 'mc4-4',
-        category: '協調與溝通',
-        items: [
-          { id: 'mc4-4-1', name: '部門協調', description: '與製造、業務等部門協調物料供應需求' },
-          { id: 'mc4-4-2', name: '向上匯報', description: '定期向資材課長報告庫存與採購狀況' },
+          { id: 'mc4-3-1', name: '內部溝通協調', description: '與需求單位及相關部門溝通協調採購需求與進度' },
+          { id: 'mc4-3-2', name: '外部溝通協調', description: '與供應商維護良好合作關係，追蹤交期與品質問題' },
         ]
       },
     ]
@@ -563,29 +362,19 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'pa-1',
-        category: '採購執行',
+        category: '協助採購作業',
         items: [
-          { id: 'pa-1-1', name: '採購單據處理', description: '依核准流程建立並追蹤採購訂單' },
-          { id: 'pa-1-2', name: '供應商聯繫', description: '聯繫供應商確認交期與到貨狀況' },
-          { id: 'pa-1-3', name: '收貨驗收', description: '執行到料點收，確認品項與數量' },
-          { id: 'pa-1-4', name: '採購文件管理', description: '建立並維護採購相關文件與紀錄' },
+          { id: 'pa-1-1', name: '執行採購', description: '選擇適當招標方式、評鑑標案，通知供應商並協助簽訂採購合約' },
+          { id: 'pa-1-2', name: '管理承包商', description: '建立溝通策略維護供應商關係，監督履約績效，保存往來紀錄' },
+          { id: 'pa-1-3', name: '確認合約履行', description: '確認所購貨物或服務符合規格，辦理付款作業，處理合約確認與取消' },
         ]
       },
       {
         id: 'pa-2',
-        category: '溝通與協調',
+        category: '整理採購相關資料',
         items: [
-          { id: 'pa-2-1', name: '部門需求確認', description: '確認各部門採購需求，釐清規格' },
-          { id: 'pa-2-2', name: '問題反饋', description: '及時反饋採購異常，協調解決方案' },
-        ]
-      },
-      {
-        id: 'pa-3',
-        category: '數據記錄與文件管理',
-        items: [
-          { id: 'pa-3-1', name: '採購資料建檔', description: '維護供應商資料及物料價格紀錄' },
-          { id: 'pa-3-2', name: '請款對帳', description: '核對供應商發票，協助辦理請款作業' },
-          { id: 'pa-3-3', name: 'ERP 系統操作', description: '熟悉並正確操作採購相關 ERP 功能' },
+          { id: 'pa-2-1', name: '彙集採購資料', description: '蒐集並彙整採購相關資料，協助分析詢比價結果' },
+          { id: 'pa-2-2', name: '維護採購資料庫', description: '建立並維護採購資料庫，更新供應商及物料價格紀錄' },
         ]
       },
     ]
@@ -597,29 +386,27 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'pp-1',
-        category: '採購管理',
+        category: '採購規劃與執行',
         items: [
-          { id: 'pp-1-1', name: '採購需求分析', description: '分析採購需求，確認規格與數量' },
-          { id: 'pp-1-2', name: '供應商評估與開發', description: '評估現有供應商績效，開發備援供應商' },
-          { id: 'pp-1-3', name: '價格談判', description: '執行採購談判，確保價格競爭力' },
-          { id: 'pp-1-4', name: '採購合同管理', description: '擬定並管理採購合約條件' },
+          { id: 'pp-1-1', name: '規劃採購計畫', description: '確認採購需求、蒐集市場資訊、進行詢價，建立採購計畫並取得核定' },
+          { id: 'pp-1-2', name: '執行採購案', description: '執行詢價比價議價評選，下單並協助簽訂採購合約，建立採購紀錄' },
+          { id: 'pp-1-3', name: '招標邀標及評選', description: '辦理招標或邀標作業，依評選標準進行供應商評選' },
         ]
       },
       {
         id: 'pp-2',
-        category: '溝通與協調',
+        category: '履約及請款',
         items: [
-          { id: 'pp-2-1', name: '供應商溝通', description: '主動追蹤交期，解決供應商品質與交期問題' },
-          { id: 'pp-2-2', name: '跨部門協調', description: '協調資材、製造、品保等部門的採購需求' },
+          { id: 'pp-2-1', name: '驗收採購項目及請款', description: '驗收採購貨品或服務，核對規格數量，辦理付款請款作業' },
+          { id: 'pp-2-2', name: '協商及解約', description: '處理採購爭議，必要時辦理合約協商變更或解約' },
         ]
       },
       {
         id: 'pp-3',
-        category: '採購成本分析',
+        category: '採購關係維護',
         items: [
-          { id: 'pp-3-1', name: '詢比價作業', description: '執行詢比價，分析各供應商報價' },
-          { id: 'pp-3-2', name: '成本拆解分析', description: '分析物料成本構成，識別降本機會' },
-          { id: 'pp-3-3', name: '市場行情掌握', description: '掌握原物料市場行情，提供採購策略建議' },
+          { id: 'pp-3-1', name: '內部溝通協調', description: '與需求單位及相關部門溝通協調採購需求與進度' },
+          { id: 'pp-3-2', name: '外部溝通協調', description: '與供應商維護良好合作關係，追蹤交期與品質問題' },
         ]
       },
     ]
@@ -631,29 +418,28 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'pm-1',
-        category: '生產計畫',
+        category: '依規範確認產品及庫存',
         items: [
-          { id: 'pm-1-1', name: '生產計畫理解與執行', description: '理解並落實月/週/日生產計畫' },
-          { id: 'pm-1-2', name: '進度追蹤與回報', description: '追蹤各工序生產進度，及時回報異常' },
-          { id: 'pm-1-3', name: '產能負荷分析', description: '分析各製程產能負荷，協助排程調整' },
-          { id: 'pm-1-4', name: '生產數據記錄', description: '正確記錄生產數量、效率與品質數據' },
+          { id: 'pm-1-1', name: '確認與分類產品', description: '依規範核對並分類進出庫產品，確認產品品項、數量及狀態' },
+          { id: 'pm-1-2', name: '依指示放置產品位置', description: '依倉儲規範及指示，正確放置及儲存產品' },
+          { id: 'pm-1-3', name: '協助相關人員解決存貨識別與位置問題', description: '協助相關人員識別存貨位置，解決庫存識別與調撥問題' },
+          { id: 'pm-1-4', name: '確認存貨轉移的適當性', description: '審核並確認存貨轉移作業符合規範' },
         ]
       },
       {
         id: 'pm-2',
-        category: '協調與溝通',
+        category: '管理資產與設施設備的安全',
         items: [
-          { id: 'pm-2-1', name: '跨部門協調', description: '協調製造、資材、業務的生產相關需求' },
-          { id: 'pm-2-2', name: '工作報告', description: '定期向主管報告生產進度與異常' },
+          { id: 'pm-2-1', name: '規劃與評估安全需求', description: '評估倉儲設施安全需求，規劃安全管理措施' },
+          { id: 'pm-2-2', name: '監控並評估安全計畫', description: '監控倉儲安全計畫執行狀況，定期評估安全績效' },
         ]
       },
       {
         id: 'pm-3',
-        category: '資訊分析與數據管理',
+        category: '維護倉儲紀錄的文件',
         items: [
-          { id: 'pm-3-1', name: 'ERP/生管系統操作', description: '熟悉生管相關 ERP 系統操作與維護' },
-          { id: 'pm-3-2', name: '生產績效分析', description: '彙整生產績效報表（OEE、良率、交期達成率）' },
-          { id: 'pm-3-3', name: '異常分析', description: '分析生產異常原因，提供改善依據' },
+          { id: 'pm-3-1', name: '確認使用者要求的資訊', description: '確認倉儲相關人員對資訊的需求，提供正確資料' },
+          { id: 'pm-3-2', name: '完成倉儲紀錄', description: '正確完成並維護倉儲進出庫、盤點等相關紀錄' },
         ]
       },
     ]
@@ -665,29 +451,28 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'im-1',
-        category: '物流管理',
+        category: '依規範確認產品及庫存',
         items: [
-          { id: 'im-1-1', name: '物料搬運', description: '依規範執行物料搬運，確保物料完整' },
-          { id: 'im-1-2', name: '倉庫環境管理', description: '維護倉庫整潔與物料定位管理' },
-          { id: 'im-1-3', name: '物料標識管理', description: '正確標識物料位置與狀態' },
-          { id: 'im-1-4', name: '進出料作業', description: '執行物料進出庫作業及帳物確認' },
+          { id: 'im-1-1', name: '確認與分類產品', description: '依規範核對並分類進出庫產品，確認產品品項、數量及狀態' },
+          { id: 'im-1-2', name: '依指示放置產品位置', description: '依倉儲規範及指示，正確放置及儲存產品' },
+          { id: 'im-1-3', name: '協助相關人員解決存貨識別與位置問題', description: '協助相關人員識別存貨位置，解決庫存識別與調撥問題' },
+          { id: 'im-1-4', name: '確認存貨轉移的適當性', description: '審核並確認存貨轉移作業符合規範' },
         ]
       },
       {
         id: 'im-2',
-        category: '協調與溝通',
+        category: '管理資產與設施設備的安全',
         items: [
-          { id: 'im-2-1', name: '部門協調', description: '協調製造與採購的物料調撥需求' },
-          { id: 'im-2-2', name: '問題反饋', description: '反饋物流異常及倉儲問題' },
+          { id: 'im-2-1', name: '規劃與評估安全需求', description: '評估倉儲設施安全需求，規劃安全管理措施' },
+          { id: 'im-2-2', name: '監控並評估安全計畫', description: '監控倉儲安全計畫執行狀況，定期評估安全績效' },
         ]
       },
       {
         id: 'im-3',
-        category: '安全管理',
+        category: '維護倉儲紀錄的文件',
         items: [
-          { id: 'im-3-1', name: '搬運安全操作', description: '遵守物料搬運安全規範，防止跌落與碰撞' },
-          { id: 'im-3-2', name: '堆疊安全', description: '依規定高度與方式堆疊物料' },
-          { id: 'im-3-3', name: 'PPE 配戴', description: '搬運作業中正確配戴安全帽、手套等 PPE' },
+          { id: 'im-3-1', name: '確認使用者要求的資訊', description: '確認倉儲相關人員對資訊的需求，提供正確資料' },
+          { id: 'im-3-2', name: '完成倉儲紀錄', description: '正確完成並維護倉儲進出庫、盤點等相關紀錄' },
         ]
       },
     ]
@@ -699,29 +484,28 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'sw-1',
-        category: '倉庫管理',
+        category: '依規範確認產品及庫存',
         items: [
-          { id: 'sw-1-1', name: '成品入庫作業', description: '執行成品點數、核對、入庫與標識' },
-          { id: 'sw-1-2', name: '庫存管理', description: '維護帳物相符，掌握庫存狀況' },
-          { id: 'sw-1-3', name: '出庫管理', description: '依出貨單執行成品揀貨與出庫作業' },
-          { id: 'sw-1-4', name: '盤點工作', description: '執行定期盤點並追蹤差異' },
+          { id: 'sw-1-1', name: '確認與分類產品', description: '依規範核對並分類進出庫產品，確認產品品項、數量及狀態' },
+          { id: 'sw-1-2', name: '依指示放置產品位置', description: '依倉儲規範及指示，正確放置及儲存產品' },
+          { id: 'sw-1-3', name: '協助相關人員解決存貨識別與位置問題', description: '協助相關人員識別存貨位置，解決庫存識別與調撥問題' },
+          { id: 'sw-1-4', name: '確認存貨轉移的適當性', description: '審核並確認存貨轉移作業符合規範' },
         ]
       },
       {
         id: 'sw-2',
-        category: '協調與溝通',
+        category: '管理資產與設施設備的安全',
         items: [
-          { id: 'sw-2-1', name: '出貨協調', description: '與業務、物流確認出貨需求與時程' },
-          { id: 'sw-2-2', name: '問題反饋', description: '及時反饋倉庫異常與庫存問題' },
+          { id: 'sw-2-1', name: '規劃與評估安全需求', description: '評估倉儲設施安全需求，規劃安全管理措施' },
+          { id: 'sw-2-2', name: '監控並評估安全計畫', description: '監控倉儲安全計畫執行狀況，定期評估安全績效' },
         ]
       },
       {
         id: 'sw-3',
-        category: '安全管理',
+        category: '維護倉儲紀錄的文件',
         items: [
-          { id: 'sw-3-1', name: '倉庫安全操作', description: '遵守倉庫安全規範，防止職安事故' },
-          { id: 'sw-3-2', name: '消防安全', description: '熟悉倉庫消防設備位置與使用方法' },
-          { id: 'sw-3-3', name: 'PPE 配戴', description: '依作業需求正確配戴 PPE' },
+          { id: 'sw-3-1', name: '確認使用者要求的資訊', description: '確認倉儲相關人員對資訊的需求，提供正確資料' },
+          { id: 'sw-3-2', name: '完成倉儲紀錄', description: '正確完成並維護倉儲進出庫、盤點等相關紀錄' },
         ]
       },
     ]
@@ -733,38 +517,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'sg-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'sg-1-1', name: '班組日常管理', description: '協助組長管理班組日常工作' },
-          { id: 'sg-1-2', name: '員工指導', description: '指導組員正確操作方法與作業規範' },
-          { id: 'sg-1-3', name: '班前會協助', description: '協助主持班前會，傳達工作任務' },
+          { id: 'sg-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'sg-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'sg-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'sg-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'sg-2-1', name: '日計畫理解', description: '理解班組日生產計畫並督促落實' },
-          { id: 'sg-2-2', name: '進度監控', description: '監控班組生產進度' },
-          { id: 'sg-2-3', name: '異常回報', description: '及時回報生產異常' },
-        ]
-      },
-      {
-        id: 'sg-3',
-        category: '品質管理',
-        items: [
-          { id: 'sg-3-1', name: '品質自主檢查督導', description: '督導組員執行自主品質檢查' },
-          { id: 'sg-3-2', name: '不良品處理', description: '識別並隔離不良品，回報原因' },
-          { id: 'sg-3-3', name: '改善建議', description: '提出現場品質改善建議' },
-        ]
-      },
-      {
-        id: 'sg-4',
-        category: '安全管理',
-        items: [
-          { id: 'sg-4-1', name: '安全操作督導', description: '督導組員遵守安全操作規範' },
-          { id: 'sg-4-2', name: '安全檢查', description: '執行作業區域日常安全檢查' },
-          { id: 'sg-4-3', name: '事故報告', description: '及時報告事故或安全隱患' },
+          { id: 'sg-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'sg-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'sg-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -776,42 +542,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'gl-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'gl-1-1', name: '班組日常管理', description: '管理班組日常工作與人員調度' },
-          { id: 'gl-1-2', name: '員工指導', description: '指導組員操作技能與作業規範' },
-          { id: 'gl-1-3', name: '班前會組織', description: '組織班前會，傳達任務與安全要求' },
-          { id: 'gl-1-4', name: '績效評估', description: '評估組員工作績效並提供回饋' },
+          { id: 'gl-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'gl-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'gl-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'gl-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'gl-2-1', name: '日計畫理解與執行', description: '理解並落實班組日生產計畫' },
-          { id: 'gl-2-2', name: '工作分配', description: '依人員能力合理分配工作' },
-          { id: 'gl-2-3', name: '進度監控', description: '監控班組生產進度' },
-          { id: 'gl-2-4', name: '異常處理', description: '處理生產異常並及時回報' },
-        ]
-      },
-      {
-        id: 'gl-3',
-        category: '品質管理',
-        items: [
-          { id: 'gl-3-1', name: '品質自主檢查督導', description: '督導組員執行自主品質檢查' },
-          { id: 'gl-3-2', name: '不良品處理', description: '識別隔離不良品並分析原因' },
-          { id: 'gl-3-3', name: '改善建議', description: '識別品質問題並提出改善建議' },
-          { id: 'gl-3-4', name: '品質意識培訓', description: '培訓組員品質標準與自檢方法' },
-        ]
-      },
-      {
-        id: 'gl-4',
-        category: '安全管理',
-        items: [
-          { id: 'gl-4-1', name: '班前安全確認', description: '執行班前安全確認，傳達安全注意事項' },
-          { id: 'gl-4-2', name: '安全操作督導', description: '督導組員遵守安全操作規範' },
-          { id: 'gl-4-3', name: '隱患排查', description: '定期排查作業區域安全隱患' },
-          { id: 'gl-4-4', name: '事故報告', description: '及時報告事故並協助調查' },
+          { id: 'gl-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'gl-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'gl-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -823,52 +567,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-mg-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'mfg-mg-1-1', name: '班組日常管理', description: '管理加工組日常工作與人員調度' },
-          { id: 'mfg-mg-1-2', name: '員工指導與技能傳承', description: '指導組員操作規範，傳承加工技術' },
-          { id: 'mfg-mg-1-3', name: '班前會組織', description: '組織班前會，傳達生產目標與注意事項' },
-          { id: 'mfg-mg-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
+          { id: 'mfg-mg-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'mfg-mg-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'mfg-mg-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'mfg-mg-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-mg-2-1', name: '日計畫理解與執行', description: '理解並落實加工組日生產計畫' },
-          { id: 'mfg-mg-2-2', name: '工作分配', description: '依人員能力合理分配加工工作' },
-          { id: 'mfg-mg-2-3', name: '進度監控', description: '監控加工產出進度，掌握達成狀況' },
-          { id: 'mfg-mg-2-4', name: '異常處理與回報', description: '及時處理設備或製程異常並向上回報' },
-        ]
-      },
-      {
-        id: 'mfg-mg-3',
-        category: '品質管理',
-        items: [
-          { id: 'mfg-mg-3-1', name: '品質自主檢查督導', description: '督導組員執行加工件尺寸與外觀自主檢查' },
-          { id: 'mfg-mg-3-2', name: '不良品處理', description: '識別、隔離不良品並分析原因' },
-          { id: 'mfg-mg-3-3', name: '品質意識培訓', description: '培訓組員品質標準與自檢方法' },
-          { id: 'mfg-mg-3-4', name: '改善建議提出', description: '識別品質問題根因並提出改善建議' },
-        ]
-      },
-      {
-        id: 'mfg-mg-4',
-        category: '安全管理',
-        items: [
-          { id: 'mfg-mg-4-1', name: '班前安全確認', description: '執行班前安全確認，傳達安全注意事項' },
-          { id: 'mfg-mg-4-2', name: '安全操作督導', description: '督導組員遵守機台操作安全規範與 PPE 使用' },
-          { id: 'mfg-mg-4-3', name: '隱患排查', description: '定期排查加工區域安全隱患' },
-          { id: 'mfg-mg-4-4', name: '事故報告', description: '及時報告事故並協助調查' },
-        ]
-      },
-      {
-        id: 'mfg-mg-5',
-        category: '加工技術管理',
-        items: [
-          { id: 'mfg-mg-5-1', name: 'CNC 程式基礎判讀', description: '能判讀並確認 CNC 加工程式的基本參數' },
-          { id: 'mfg-mg-5-2', name: '刀具與夾具管理', description: '管理刀具壽命更換與夾具校準作業' },
-          { id: 'mfg-mg-5-3', name: '公差與尺寸管控', description: '掌握公差標準，確保加工尺寸合格' },
-          { id: 'mfg-mg-5-4', name: '加工製程優化', description: '識別加工瓶頸並提出製程改善建議' },
+          { id: 'mfg-mg-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-mg-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'mfg-mg-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -880,52 +592,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-press-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'mfg-press-1-1', name: '班組日常管理', description: '管理沖床組日常工作與人員調度' },
-          { id: 'mfg-press-1-2', name: '員工指導與技能傳承', description: '指導組員沖壓操作規範，傳承沖壓技術' },
-          { id: 'mfg-press-1-3', name: '班前會組織', description: '組織班前會，傳達生產目標與安全要求' },
-          { id: 'mfg-press-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
+          { id: 'mfg-press-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'mfg-press-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'mfg-press-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'mfg-press-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-press-2-1', name: '日計畫理解與執行', description: '理解並落實沖床組日生產計畫' },
-          { id: 'mfg-press-2-2', name: '工作分配', description: '依人員能力合理分配沖壓工作' },
-          { id: 'mfg-press-2-3', name: '進度監控', description: '監控沖壓產出進度，掌握達成狀況' },
-          { id: 'mfg-press-2-4', name: '異常處理與回報', description: '及時處理模具或製程異常並向上回報' },
-        ]
-      },
-      {
-        id: 'mfg-press-3',
-        category: '品質管理',
-        items: [
-          { id: 'mfg-press-3-1', name: '沖壓件品質自主檢查督導', description: '督導組員執行外觀、尺寸與毛邊自主檢查' },
-          { id: 'mfg-press-3-2', name: '不良品處理', description: '識別、隔離不良品並分析沖壓原因' },
-          { id: 'mfg-press-3-3', name: '品質意識培訓', description: '培訓組員沖壓品質標準與自檢方法' },
-          { id: 'mfg-press-3-4', name: '改善建議提出', description: '識別沖壓品質問題根因並提出改善建議' },
-        ]
-      },
-      {
-        id: 'mfg-press-4',
-        category: '安全管理',
-        items: [
-          { id: 'mfg-press-4-1', name: '班前安全確認', description: '執行班前安全確認，說明沖床操作風險' },
-          { id: 'mfg-press-4-2', name: '安全操作督導', description: '督導組員落實沖床安全操作程序與 PPE 使用' },
-          { id: 'mfg-press-4-3', name: '隱患排查', description: '定期排查沖床區域安全隱患' },
-          { id: 'mfg-press-4-4', name: '事故報告', description: '及時報告事故並協助調查' },
-        ]
-      },
-      {
-        id: 'mfg-press-5',
-        category: '沖壓技術管理',
-        items: [
-          { id: 'mfg-press-5-1', name: '模具安裝與調整', description: '掌握模具安裝、調模與保養作業程序' },
-          { id: 'mfg-press-5-2', name: '送料與材料管理', description: '管理料帶送料精度與原材料用量' },
-          { id: 'mfg-press-5-3', name: '沖壓缺陷預防', description: '識別並預防毛邊、裂紋、變形等沖壓缺陷' },
-          { id: 'mfg-press-5-4', name: '機台參數調整', description: '依產品規格調整沖壓速度與壓力參數' },
+          { id: 'mfg-press-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-press-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'mfg-press-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -937,52 +617,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-paint-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'mfg-paint-1-1', name: '班組日常管理', description: '管理塗裝組日常工作與人員調度' },
-          { id: 'mfg-paint-1-2', name: '員工指導與技能傳承', description: '指導組員塗裝操作規範，傳承塗裝技術' },
-          { id: 'mfg-paint-1-3', name: '班前會組織', description: '組織班前會，傳達生產目標與安全要求' },
-          { id: 'mfg-paint-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
+          { id: 'mfg-paint-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'mfg-paint-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'mfg-paint-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'mfg-paint-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-paint-2-1', name: '日計畫理解與執行', description: '理解並落實塗裝組日生產計畫' },
-          { id: 'mfg-paint-2-2', name: '工作分配', description: '依人員能力合理分配塗裝工作' },
-          { id: 'mfg-paint-2-3', name: '進度監控', description: '監控塗裝產出進度，掌握達成狀況' },
-          { id: 'mfg-paint-2-4', name: '異常處理與回報', description: '及時處理設備或製程異常並向上回報' },
-        ]
-      },
-      {
-        id: 'mfg-paint-3',
-        category: '品質管理',
-        items: [
-          { id: 'mfg-paint-3-1', name: '塗裝品質自主檢查督導', description: '督導組員執行漆膜厚度、色澤與附著力自主檢查' },
-          { id: 'mfg-paint-3-2', name: '不良品處理', description: '識別並處理塗裝缺陷件，分析不良原因' },
-          { id: 'mfg-paint-3-3', name: '品質意識培訓', description: '培訓組員塗裝品質標準與外觀判定方法' },
-          { id: 'mfg-paint-3-4', name: '改善建議提出', description: '識別塗裝品質問題根因並提出改善建議' },
-        ]
-      },
-      {
-        id: 'mfg-paint-4',
-        category: '安全管理',
-        items: [
-          { id: 'mfg-paint-4-1', name: '化學品安全管理', description: '確保塗料、溶劑等化學品安全存放與正確使用' },
-          { id: 'mfg-paint-4-2', name: '安全操作督導', description: '督導組員落實防護面罩、防毒口罩等 PPE 使用' },
-          { id: 'mfg-paint-4-3', name: '環保法規遵循', description: '督導廢氣、廢液排放符合環保規範' },
-          { id: 'mfg-paint-4-4', name: '事故報告', description: '及時報告化學品暴露或火災事故並協助調查' },
-        ]
-      },
-      {
-        id: 'mfg-paint-5',
-        category: '塗裝技術管理',
-        items: [
-          { id: 'mfg-paint-5-1', name: '前處理作業管理', description: '管理去油、磷化等前處理作業品質' },
-          { id: 'mfg-paint-5-2', name: '噴塗參數控制', description: '調整噴槍壓力、黏度與膜厚等塗裝參數' },
-          { id: 'mfg-paint-5-3', name: '塗料調配與管理', description: '依規格調配塗料配比並管理塗料庫存' },
-          { id: 'mfg-paint-5-4', name: '塗裝缺陷分析與改善', description: '識別並處理流掛、針孔、縮孔等塗裝缺陷' },
+          { id: 'mfg-paint-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-paint-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'mfg-paint-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -994,52 +642,20 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-asm-1',
-        category: '領導與管理能力',
+        category: '金屬製程規劃及管理',
         items: [
-          { id: 'mfg-asm-1-1', name: '班組日常管理', description: '管理組立組日常工作與人員調度' },
-          { id: 'mfg-asm-1-2', name: '員工指導與技能傳承', description: '指導組員組立作業標準，傳承組立技術' },
-          { id: 'mfg-asm-1-3', name: '班前會組織', description: '組織班前會，傳達組立目標與品質要求' },
-          { id: 'mfg-asm-1-4', name: '績效監控與回饋', description: '監控組員工作績效並提供改善回饋' },
+          { id: 'mfg-asm-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
+          { id: 'mfg-asm-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
+          { id: 'mfg-asm-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
         ]
       },
       {
         id: 'mfg-asm-2',
-        category: '生產管理',
+        category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-asm-2-1', name: '日計畫理解與執行', description: '理解並落實組立組日生產計畫' },
-          { id: 'mfg-asm-2-2', name: '工作分配', description: '依人員能力合理分配組立工作' },
-          { id: 'mfg-asm-2-3', name: '進度監控', description: '監控組立產出進度，掌握達成狀況' },
-          { id: 'mfg-asm-2-4', name: '異常處理與回報', description: '及時處理組立異常與零件缺料問題並向上回報' },
-        ]
-      },
-      {
-        id: 'mfg-asm-3',
-        category: '品質管理',
-        items: [
-          { id: 'mfg-asm-3-1', name: '組立品質自主檢查督導', description: '督導組員執行組立件功能、外觀與尺寸自主檢查' },
-          { id: 'mfg-asm-3-2', name: '不良品處理', description: '識別、隔離不良品並分析組立原因' },
-          { id: 'mfg-asm-3-3', name: '品質意識培訓', description: '培訓組員組立品質標準與判定方法' },
-          { id: 'mfg-asm-3-4', name: '改善建議提出', description: '識別組立品質問題根因並提出改善建議' },
-        ]
-      },
-      {
-        id: 'mfg-asm-4',
-        category: '安全管理',
-        items: [
-          { id: 'mfg-asm-4-1', name: '班前安全確認', description: '執行班前安全確認，說明工具使用風險' },
-          { id: 'mfg-asm-4-2', name: '安全操作督導', description: '督導組員遵守工具操作安全規範與 PPE 使用' },
-          { id: 'mfg-asm-4-3', name: '隱患排查', description: '定期排查組立區域安全隱患' },
-          { id: 'mfg-asm-4-4', name: '事故報告', description: '及時報告事故並協助調查' },
-        ]
-      },
-      {
-        id: 'mfg-asm-5',
-        category: '組立技術管理',
-        items: [
-          { id: 'mfg-asm-5-1', name: '作業標準書判讀', description: '能正確判讀並執行組立 SOP 與 BOM 表' },
-          { id: 'mfg-asm-5-2', name: '鎖固力矩管控', description: '確保螺絲鎖固扭力符合規格要求' },
-          { id: 'mfg-asm-5-3', name: '零件備料與拉動管理', description: '管理組立零件備料與生產線拉動節奏' },
-          { id: 'mfg-asm-5-4', name: '成品功能測試', description: '執行組立後功能測試並判定合格與否' },
+          { id: 'mfg-asm-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-asm-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
+          { id: 'mfg-asm-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
       },
     ]
@@ -1051,40 +667,44 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'qm-1',
-        category: '領導與管理能力',
+        category: '理解客戶要求',
         items: [
-          { id: 'qm-1-1', name: '團隊建設與人員管理', description: '招聘、培訓品保人員，執行績效評估' },
-          { id: 'qm-1-2', name: '目標設定與績效管理', description: '制定部門品質目標，追蹤達成' },
-          { id: 'qm-1-3', name: '決策制定', description: '分析品質問題，制定對策決策' },
+          { id: 'qm-1-1', name: '制訂客戶品質規範', description: '蒐集並分析客戶品質要求及國際品質規範，制訂符合客戶需求的品質技術制度標準' },
         ]
       },
       {
         id: 'qm-2',
-        category: '品質管理',
+        category: '檢驗程序規劃及執行',
         items: [
-          { id: 'qm-2-1', name: '品質政策制定', description: '制定並推行公司品質政策' },
-          { id: 'qm-2-2', name: '品質計畫制定', description: '制定年度品質計畫與目標' },
-          { id: 'qm-2-3', name: '品質檢查監督', description: '監督各製程品質檢查工作' },
-          { id: 'qm-2-4', name: '不良品處置', description: '主導不良品處理決策與客訴回應' },
+          { id: 'qm-2-1', name: '檢驗程序規劃與程序文件製作', description: '規劃品質技術流程，制定各項SOP文件，確保檢驗程序完整且可執行' },
+          { id: 'qm-2-2', name: '製程品質控管（IPQC）', description: '執行製程中品質管控，確保在製品符合品質標準，識別並處理製程異常' },
+          { id: 'qm-2-3', name: '確保成品品質（QC）', description: '執行成品品質檢驗與測試，確認出貨品質符合客戶規範與內部標準' },
         ]
       },
       {
         id: 'qm-3',
-        category: '改善與創新',
+        category: '管理檢驗器具與設備',
         items: [
-          { id: 'qm-3-1', name: '品質改善推進', description: '推進 8D、QC Story 等品質改善活動' },
-          { id: 'qm-3-2', name: '根因分析', description: '主導重大品質問題根因分析' },
-          { id: 'qm-3-3', name: '預防措施制定', description: '制定並追蹤品質預防措施落實' },
-          { id: 'qm-3-4', name: '品質系統維護', description: '維護 ISO/IATF 等品質管理系統' },
+          { id: 'qm-3-1', name: '檢治具及檢驗設備之校正', description: '依校正計畫執行或監督量測設備校正，確保量測結果準確可靠' },
+          { id: 'qm-3-2', name: '檢治具與檢驗設備保養', description: '依保養週期執行或監督檢驗設備保養，維持設備精度與可靠性' },
         ]
       },
       {
         id: 'qm-4',
-        category: '溝通與協調',
+        category: 'NG品異常分析及改善',
         items: [
-          { id: 'qm-4-1', name: '跨部門協調', description: '協調製造、研發等部門的品質問題解決' },
-          { id: 'qm-4-2', name: '客戶品質溝通', description: '與客戶溝通品質問題，處理客訴' },
-          { id: 'qm-4-3', name: '向上匯報', description: '定期向高階主管報告品質狀況' },
+          { id: 'qm-4-1', name: '受理客訴及回覆', description: '受理客戶品質投訴，建立品質履歷資料庫，即時追蹤並回覆客訴處理進度' },
+          { id: 'qm-4-2', name: 'NG品異常狀況檢討', description: '進行NG品異常現況調查，執行外觀、尺寸及功能的檢驗測試' },
+          { id: 'qm-4-3', name: 'NG品異常狀況判定及原因分析', description: '運用8D、5Why等工具執行根因分析，確認品質異常真因' },
+          { id: 'qm-4-4', name: 'NG品異常狀況對策擬定', description: '擬定暫定及永久改善對策，追蹤對策落實效果並驗證改善成效' },
+        ]
+      },
+      {
+        id: 'qm-5',
+        category: '供應商品質管理',
+        items: [
+          { id: 'qm-5-1', name: '協助供應商完成品質管理', description: '對異常供應商開立品質異常報告，協助擬定及追蹤改善對策' },
+          { id: 'qm-5-2', name: '稽核評鑑及監控供應商品質管理系統', description: '定期評鑑供應商製程能力與成品品質，監控其品質管理系統執行狀況' },
         ]
       },
     ]
@@ -1096,38 +716,44 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'qm3-1',
-        category: '領導與管理能力',
+        category: '理解客戶要求',
         items: [
-          { id: 'qm3-1-1', name: '人員指導與督導', description: '指導品檢人員作業，督導工作執行' },
-          { id: 'qm3-1-2', name: '工作分配', description: '合理分配品保組員工作任務' },
-          { id: 'qm3-1-3', name: '績效追蹤', description: '追蹤品保組員績效並給予回饋' },
+          { id: 'qm3-1-1', name: '制訂客戶品質規範', description: '蒐集並分析客戶品質要求及國際品質規範，制訂符合客戶需求的品質技術制度標準' },
         ]
       },
       {
         id: 'qm3-2',
-        category: '品質管理',
+        category: '檢驗程序規劃及執行',
         items: [
-          { id: 'qm3-2-1', name: '品質檢查計畫執行', description: '制定並執行品質檢查計畫' },
-          { id: 'qm3-2-2', name: '檢查工作監督', description: '監督品檢人員確實執行檢查作業' },
-          { id: 'qm3-2-3', name: '品質數據分析', description: '分析品質數據，找出異常趨勢' },
-          { id: 'qm3-2-4', name: '不良品處理', description: '處理不良品，協助分析原因' },
+          { id: 'qm3-2-1', name: '檢驗程序規劃與程序文件製作', description: '規劃品質技術流程，制定各項SOP文件，確保檢驗程序完整且可執行' },
+          { id: 'qm3-2-2', name: '製程品質控管（IPQC）', description: '執行製程中品質管控，確保在製品符合品質標準，識別並處理製程異常' },
+          { id: 'qm3-2-3', name: '確保成品品質（QC）', description: '執行成品品質檢驗與測試，確認出貨品質符合客戶規範與內部標準' },
         ]
       },
       {
         id: 'qm3-3',
-        category: '改善推進',
+        category: '管理檢驗器具與設備',
         items: [
-          { id: 'qm3-3-1', name: '改善活動推進', description: '推進品質改善活動並追蹤效果' },
-          { id: 'qm3-3-2', name: '預防措施追蹤', description: '追蹤品質預防措施的落實情形' },
-          { id: 'qm3-3-3', name: '品質訓練推動', description: '推動組員品質意識與技能培訓' },
+          { id: 'qm3-3-1', name: '檢治具及檢驗設備之校正', description: '依校正計畫執行或監督量測設備校正，確保量測結果準確可靠' },
+          { id: 'qm3-3-2', name: '檢治具與檢驗設備保養', description: '依保養週期執行或監督檢驗設備保養，維持設備精度與可靠性' },
         ]
       },
       {
         id: 'qm3-4',
-        category: '協調與溝通',
+        category: 'NG品異常分析及改善',
         items: [
-          { id: 'qm3-4-1', name: '部門協調', description: '協調製造部門的品質問題處理' },
-          { id: 'qm3-4-2', name: '工作報告', description: '定期向品保課長報告品質狀況' },
+          { id: 'qm3-4-1', name: '受理客訴及回覆', description: '受理客戶品質投訴，建立品質履歷資料庫，即時追蹤並回覆客訴處理進度' },
+          { id: 'qm3-4-2', name: 'NG品異常狀況檢討', description: '進行NG品異常現況調查，執行外觀、尺寸及功能的檢驗測試' },
+          { id: 'qm3-4-3', name: 'NG品異常狀況判定及原因分析', description: '運用8D、5Why等工具執行根因分析，確認品質異常真因' },
+          { id: 'qm3-4-4', name: 'NG品異常狀況對策擬定', description: '擬定暫定及永久改善對策，追蹤對策落實效果並驗證改善成效' },
+        ]
+      },
+      {
+        id: 'qm3-5',
+        category: '供應商品質管理',
+        items: [
+          { id: 'qm3-5-1', name: '協助供應商完成品質管理', description: '對異常供應商開立品質異常報告，協助擬定及追蹤改善對策' },
+          { id: 'qm3-5-2', name: '稽核評鑑及監控供應商品質管理系統', description: '定期評鑑供應商製程能力與成品品質，監控其品質管理系統執行狀況' },
         ]
       },
     ]
@@ -1139,40 +765,18 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'gm-1',
-        category: '領導與管理能力',
+        category: '管理行政庶務',
         items: [
-          { id: 'gm-1-1', name: '團隊建設與人員管理', description: '招聘、培訓總務人員，執行績效評估' },
-          { id: 'gm-1-2', name: '目標設定', description: '制定總務部年度目標與工作計畫' },
-          { id: 'gm-1-3', name: '決策與問題解決', description: '分析行政問題，制定解決方案' },
+          { id: 'gm-1-1', name: '日常庶務管理', description: '規劃指導總務人員工作SOP，管理公文行政文書，安排賓客接待，管理水電環境清潔，執行員工服務' },
+          { id: 'gm-1-2', name: '特殊庶務管理', description: '管理公務車輛，辦理特殊節慶活動，安排員工出差行程' },
         ]
       },
       {
         id: 'gm-2',
-        category: '行政管理',
+        category: '管理總務採購及其他事宜',
         items: [
-          { id: 'gm-2-1', name: '行政政策制定', description: '制定公司行政管理規章與流程' },
-          { id: 'gm-2-2', name: '文件與檔案管理', description: '建立文件控管制度，確保文件完整' },
-          { id: 'gm-2-3', name: '會議組織與管理', description: '組織並主持公司重要會議' },
-          { id: 'gm-2-4', name: '設施與資產管理', description: '管理公司辦公設施與固定資產' },
-        ]
-      },
-      {
-        id: 'gm-3',
-        category: '人力資源',
-        items: [
-          { id: 'gm-3-1', name: '員工管理', description: '處理員工進用、離職及日常事務' },
-          { id: 'gm-3-2', name: '薪酬福利管理', description: '管理薪酬計算與員工福利方案' },
-          { id: 'gm-3-3', name: '勞動法規掌握', description: '熟悉勞基法等相關勞動法規並確保合規' },
-          { id: 'gm-3-4', name: '訓練規劃', description: '規劃並推動公司教育訓練計畫' },
-        ]
-      },
-      {
-        id: 'gm-4',
-        category: '溝通與協調',
-        items: [
-          { id: 'gm-4-1', name: '跨部門協調', description: '協調各部門行政支援需求' },
-          { id: 'gm-4-2', name: '外部聯繫', description: '代表公司與政府機關、廠商溝通行政事項' },
-          { id: 'gm-4-3', name: '向上匯報', description: '定期向高階主管報告總務工作狀況' },
+          { id: 'gm-2-1', name: '管理與督導總務事宜', description: '依ESG策略執行管理督導，洽談合作廠商，與廠商議價執行採購，盤點管理財產目錄，管理各項保險合約' },
+          { id: 'gm-2-2', name: '管理組織相關事務', description: '統籌管理服務事項，管理宿舍，維護建築物公共安全，制定規範，執行績效考核' },
         ]
       },
     ]
@@ -1184,37 +788,18 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'gam-1',
-        category: '領導與管理能力',
+        category: '管理行政庶務',
         items: [
-          { id: 'gam-1-1', name: '人員指導與督導', description: '指導總務人員作業，督導工作執行' },
-          { id: 'gam-1-2', name: '工作分配', description: '合理分配組員日常工作任務' },
-          { id: 'gam-1-3', name: '績效追蹤', description: '追蹤組員工作績效並給予回饋' },
+          { id: 'gam-1-1', name: '日常庶務管理', description: '規劃指導總務人員工作SOP，管理公文行政文書，安排賓客接待，管理水電環境清潔，執行員工服務' },
+          { id: 'gam-1-2', name: '特殊庶務管理', description: '管理公務車輛，辦理特殊節慶活動，安排員工出差行程' },
         ]
       },
       {
         id: 'gam-2',
-        category: '行政管理',
+        category: '管理總務採購及其他事宜',
         items: [
-          { id: 'gam-2-1', name: '文件管理執行', description: '執行文件收發、管控與歸檔' },
-          { id: 'gam-2-2', name: '會議協助', description: '協助籌辦公司各類會議' },
-          { id: 'gam-2-3', name: '行政事務執行', description: '執行採購請款、物資管理等行政作業' },
-        ]
-      },
-      {
-        id: 'gam-3',
-        category: '員工關係',
-        items: [
-          { id: 'gam-3-1', name: '員工事務處理', description: '處理員工出缺勤、請假等日常事務' },
-          { id: 'gam-3-2', name: '勞資關係溝通', description: '協助維護良好勞資關係' },
-          { id: 'gam-3-3', name: '員工關懷', description: '執行員工關懷活動與福利措施' },
-        ]
-      },
-      {
-        id: 'gam-4',
-        category: '協調與溝通',
-        items: [
-          { id: 'gam-4-1', name: '部門協調', description: '協調各部門行政服務需求' },
-          { id: 'gam-4-2', name: '工作報告', description: '定期向總務課長報告工作進展' },
+          { id: 'gam-2-1', name: '管理與督導總務事宜', description: '依ESG策略執行管理督導，洽談合作廠商，與廠商議價執行採購，盤點管理財產目錄，管理各項保險合約' },
+          { id: 'gam-2-2', name: '管理組織相關事務', description: '統籌管理服務事項，管理宿舍，維護建築物公共安全，制定規範，執行績效考核' },
         ]
       },
     ]
@@ -1226,29 +811,18 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'gs-1',
-        category: '行政執行',
+        category: '管理行政庶務',
         items: [
-          { id: 'gs-1-1', name: '文件處理', description: '正確處理公司文件收發與歸檔' },
-          { id: 'gs-1-2', name: '會議協助', description: '協助籌辦會議，整理會議記錄' },
-          { id: 'gs-1-3', name: '員工事務處理', description: '處理員工出缺勤、福利等日常行政事務' },
-          { id: 'gs-1-4', name: '採購請款作業', description: '執行辦公用品採購及廠商請款作業' },
+          { id: 'gs-1-1', name: '日常庶務管理', description: '規劃指導總務人員工作SOP，管理公文行政文書，安排賓客接待，管理水電環境清潔，執行員工服務' },
+          { id: 'gs-1-2', name: '特殊庶務管理', description: '管理公務車輛，辦理特殊節慶活動，安排員工出差行程' },
         ]
       },
       {
         id: 'gs-2',
-        category: '協調與溝通',
+        category: '管理總務採購及其他事宜',
         items: [
-          { id: 'gs-2-1', name: '部門協調', description: '協調各部門行政需求' },
-          { id: 'gs-2-2', name: '問題反饋', description: '及時反饋行政工作問題' },
-        ]
-      },
-      {
-        id: 'gs-3',
-        category: '法規遵循基礎',
-        items: [
-          { id: 'gs-3-1', name: '勞動法規基礎', description: '了解勞基法、職安法等基本法規' },
-          { id: 'gs-3-2', name: '個資保護', description: '依個資法規範妥善處理員工個人資料' },
-          { id: 'gs-3-3', name: '行政流程合規', description: '確保行政作業符合公司內規與法令要求' },
+          { id: 'gs-2-1', name: '管理與督導總務事宜', description: '依ESG策略執行管理督導，洽談合作廠商，與廠商議價執行採購，盤點管理財產目錄，管理各項保險合約' },
+          { id: 'gs-2-2', name: '管理組織相關事務', description: '統籌管理服務事項，管理宿舍，維護建築物公共安全，制定規範，執行績效考核' },
         ]
       },
     ]
@@ -1260,29 +834,18 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'gsa-1',
-        category: '行政協助',
+        category: '管理行政庶務',
         items: [
-          { id: 'gsa-1-1', name: '文件整理與歸檔', description: '整理、分類並歸檔公司文件' },
-          { id: 'gsa-1-2', name: '會議協助', description: '協助準備會議資料與場地' },
-          { id: 'gsa-1-3', name: '員工事務協助', description: '協助辦理員工進退離職等基礎事務' },
-          { id: 'gsa-1-4', name: '辦公物資管理', description: '管理辦公室消耗品與物資請購' },
+          { id: 'gsa-1-1', name: '日常庶務管理', description: '規劃指導總務人員工作SOP，管理公文行政文書，安排賓客接待，管理水電環境清潔，執行員工服務' },
+          { id: 'gsa-1-2', name: '特殊庶務管理', description: '管理公務車輛，辦理特殊節慶活動，安排員工出差行程' },
         ]
       },
       {
         id: 'gsa-2',
-        category: '協調與溝通',
+        category: '管理總務採購及其他事宜',
         items: [
-          { id: 'gsa-2-1', name: '部門協調', description: '協助聯絡各部門行政需求' },
-          { id: 'gsa-2-2', name: '問題反饋', description: '及時反饋工作問題' },
-        ]
-      },
-      {
-        id: 'gsa-3',
-        category: '職場基本素養',
-        items: [
-          { id: 'gsa-3-1', name: '辦公室禮儀', description: '展現良好職場禮儀與服務態度' },
-          { id: 'gsa-3-2', name: '資料保密意識', description: '妥善保管公司機密與員工個人資料' },
-          { id: 'gsa-3-3', name: '時間管理', description: '有效安排工作優先順序，準時完成任務' },
+          { id: 'gsa-2-1', name: '管理與督導總務事宜', description: '依ESG策略執行管理督導，洽談合作廠商，與廠商議價執行採購，盤點管理財產目錄，管理各項保險合約' },
+          { id: 'gsa-2-2', name: '管理組織相關事務', description: '統籌管理服務事項，管理宿舍，維護建築物公共安全，制定規範，執行績效考核' },
         ]
       },
     ]
@@ -1362,37 +925,18 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'clm-1',
-        category: '領導與管理能力',
+        category: '管理行政庶務',
         items: [
-          { id: 'clm-1-1', name: '人員指導與督導', description: '指導庶務人員作業，督導工作執行' },
-          { id: 'clm-1-2', name: '工作分配', description: '合理分配庶務員工作任務' },
-          { id: 'clm-1-3', name: '績效追蹤', description: '追蹤組員工作品質並給予回饋' },
+          { id: 'clm-1-1', name: '日常庶務管理', description: '規劃指導總務人員工作SOP，管理公文行政文書，安排賓客接待，管理水電環境清潔，執行員工服務' },
+          { id: 'clm-1-2', name: '特殊庶務管理', description: '管理公務車輛，辦理特殊節慶活動，安排員工出差行程' },
         ]
       },
       {
         id: 'clm-2',
-        category: '庶務管理',
+        category: '管理總務採購及其他事宜',
         items: [
-          { id: 'clm-2-1', name: '庶務工作規劃', description: '規劃日常清潔、物資補充等庶務工作' },
-          { id: 'clm-2-2', name: '物資管理', description: '管理庶務消耗品庫存與採購申請' },
-          { id: 'clm-2-3', name: '進度監控', description: '監控庶務工作執行狀況與品質' },
-        ]
-      },
-      {
-        id: 'clm-3',
-        category: '安全管理',
-        items: [
-          { id: 'clm-3-1', name: '安全規程督導', description: '督導組員遵守清潔作業安全規範' },
-          { id: 'clm-3-2', name: '化學品安全管理', description: '確保清潔劑等化學品安全存放與使用' },
-          { id: 'clm-3-3', name: '隱患回報', description: '識別並回報工作環境安全隱患' },
-        ]
-      },
-      {
-        id: 'clm-4',
-        category: '協調與溝通',
-        items: [
-          { id: 'clm-4-1', name: '部門協調', description: '協調各部門庶務服務需求' },
-          { id: 'clm-4-2', name: '工作報告', description: '定期向主管報告庶務工作進展' },
+          { id: 'clm-2-1', name: '管理與督導總務事宜', description: '依ESG策略執行管理督導，洽談合作廠商，與廠商議價執行採購，盤點管理財產目錄，管理各項保險合約' },
+          { id: 'clm-2-2', name: '管理組織相關事務', description: '統籌管理服務事項，管理宿舍，維護建築物公共安全，制定規範，執行績效考核' },
         ]
       },
     ]
@@ -1404,29 +948,18 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'ce-1',
-        category: '庶務執行',
+        category: '管理行政庶務',
         items: [
-          { id: 'ce-1-1', name: '環境清潔維護', description: '執行辦公室與公共區域日常清潔' },
-          { id: 'ce-1-2', name: '物資管理', description: '管理辦公消耗品補充與庶務物資' },
-          { id: 'ce-1-3', name: '設施維護協助', description: '協助維護辦公設施，回報損壞狀況' },
-          { id: 'ce-1-4', name: '支援服務', description: '提供各部門日常庶務支援' },
+          { id: 'ce-1-1', name: '日常庶務管理', description: '依工作SOP執行日常清潔、公文行政文書傳遞，協助賓客接待，維護水電環境，提供員工服務' },
+          { id: 'ce-1-2', name: '特殊庶務管理', description: '協助辦理特殊節慶活動，協助安排員工出差相關事務' },
         ]
       },
       {
         id: 'ce-2',
-        category: '協調與溝通',
+        category: '管理總務採購及其他事宜',
         items: [
-          { id: 'ce-2-1', name: '需求確認', description: '確認各部門庶務服務需求' },
-          { id: 'ce-2-2', name: '問題反饋', description: '及時反饋工作異常問題' },
-        ]
-      },
-      {
-        id: 'ce-3',
-        category: '環保與安全知識',
-        items: [
-          { id: 'ce-3-1', name: '清潔劑安全使用', description: '了解並遵守清潔化學品安全使用規範' },
-          { id: 'ce-3-2', name: '廢棄物分類', description: '依環保規定正確分類處理廢棄物' },
-          { id: 'ce-3-3', name: '安全工作習慣', description: '遵守庶務作業的安全防護規定' },
+          { id: 'ce-2-1', name: '管理與督導總務事宜', description: '執行日常物資採購申請，管理辦公消耗品庫存，依規定盤點財產' },
+          { id: 'ce-2-2', name: '管理組織相關事務', description: '配合統籌管理服務事項，協助維護建築物公共環境安全，遵守組織規範' },
         ]
       },
     ]
@@ -1438,29 +971,18 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'cw-1',
-        category: '清潔衛生',
+        category: '管理行政庶務',
         items: [
-          { id: 'cw-1-1', name: '日常清潔作業', description: '依清潔 SOP 執行各區域日常清潔' },
-          { id: 'cw-1-2', name: '環境衛生維護', description: '維護廁所、茶水間等公共區域衛生' },
-          { id: 'cw-1-3', name: '廢棄物處理', description: '依規定分類並定時清運廢棄物' },
-          { id: 'cw-1-4', name: '清潔品質自我檢查', description: '確認清潔作業品質符合標準' },
+          { id: 'cw-1-1', name: '日常庶務管理', description: '依清潔SOP執行各區域日常清潔，維護廁所、茶水間等公共環境衛生，依規定分類清運廢棄物，確認清潔品質符合標準' },
+          { id: 'cw-1-2', name: '特殊庶務管理', description: '依需求執行特殊場合清潔作業，回應各部門臨時清潔服務需求' },
         ]
       },
       {
         id: 'cw-2',
-        category: '協調與溝通',
+        category: '管理總務採購及其他事宜',
         items: [
-          { id: 'cw-2-1', name: '服務需求回應', description: '回應各部門臨時清潔需求' },
-          { id: 'cw-2-2', name: '問題反饋', description: '及時反饋環境異常問題' },
-        ]
-      },
-      {
-        id: 'cw-3',
-        category: '安全管理',
-        items: [
-          { id: 'cw-3-1', name: '清潔劑安全使用', description: '正確識別並安全使用各類清潔化學品' },
-          { id: 'cw-3-2', name: 'PPE 配戴', description: '依作業需求配戴手套、口罩等防護裝備' },
-          { id: 'cw-3-3', name: '危害辨識', description: '識別清潔作業中的滑倒、化學暴露等危害' },
+          { id: 'cw-2-1', name: '管理與督導總務事宜', description: '確實遵守清潔劑等化學品安全存放與使用規範，依規定配戴PPE，及時反饋環境異常問題' },
+          { id: 'cw-2-2', name: '管理組織相關事務', description: '配合組織規範執行清潔作業，協助維護建築物公共環境整潔與安全' },
         ]
       },
     ]

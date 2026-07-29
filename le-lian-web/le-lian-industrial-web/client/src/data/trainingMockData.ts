@@ -1,0 +1,1487 @@
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: 'employee' | 'manager' | 'admin' | 'hr' | 'vp';
+  department: string;
+  managerId?: string;
+  avatar: string;
+  joinDate: string;
+  // 帳號狀態：未設定視為在職（active）。設為 resigned 後該帳號將無法登入系統，
+  // 但保留歷史資料（課程紀錄、稽核日誌等），與直接刪除帳號是兩種不同的操作選項
+  status?: 'active' | 'resigned';
+  // 員工自助填寫的工號／職稱（TrainingDashboard.tsx 入職資料表單）
+  employeeId?: string;
+  title?: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  // 一般使用者作答階段透過 get_quiz_questions RPC 取得時不含正解，避免正解外洩到前端；
+  // 僅 admin/hr 直接查詢，或繳卷後透過 get_quiz_answer_key RPC 取得時才會有值。
+  answerIndex?: number;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  instructor: string;
+  duration: number;
+  mandatory: boolean;
+  thumbnail: string;
+  passingScore: number;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  quizQuestions: QuizQuestion[];
+  videoId?: string; // YouTube video ID (可由管理員在後台設定)
+  localVideo?: boolean; // 是否已上傳影片檔（儲存於 Supabase Storage）
+  localPresentation?: boolean; // 是否已上傳課程簡報/教材檔（儲存於 Supabase Storage）
+  presentationName?: string; // 簡報/教材檔案名稱
+  videoTranscript?: string; // 影片內容文字稿/大綱，由課程建立者貼上，供 AI 測驗生成器依實際影片內容出題
+  externalVideoUrl?: string; // 外部免費影片連結（例如 YouTube 完整網址），用於免費課程庫直接觀看
+}
+
+export interface CourseAssignment {
+  id: string;
+  userId: string;
+  courseId: string;
+  assignedBy: string;
+  assignedByName: string;
+  assignedAt: string;
+  dueDate?: string;
+  note?: string;
+}
+
+export interface Enrollment {
+  id: string;
+  userId: string;
+  courseId: string;
+  status: 'in_progress' | 'pending_review' | 'completed' | 'rejected';
+  progressPercent: number;
+  watchTimeMinutes: number;
+  enrolledAt: string;
+  reportSubmitted: boolean;
+  surveySubmitted: boolean;
+  quizSubmitted: boolean;
+  quizScore: number | null;
+  reviewStatus: 'pending' | 'approved' | 'rejected' | null;
+  certificateIssued: boolean;
+  managerComment: string | null;
+  submittedAt?: string;
+  completedAt?: string;
+  reportContent?: string;
+  surveyData?: Record<string, number | string>;
+  videoWatched?: boolean;
+  managerApproved?: boolean;   // 主管審核通過
+  hrApproved?: boolean;        // 人資審核通過
+  managerApprovedAt?: string;
+  hrApprovedAt?: string;
+  managerApprovedBy?: string;
+  hrApprovedBy?: string;
+}
+
+export interface Discussion {
+  id: string;
+  courseId: string;
+  userId: string;
+  userName: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  target: string;
+  details: string;
+  timestamp: string;
+}
+
+export interface QuestionReport {
+  id: string;
+  courseId: string;
+  courseName: string;
+  questionId: string;
+  questionText: string;
+  userId: string;
+  userName: string;
+  reason: string;
+  comment?: string;
+  createdAt: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  resolvedBy?: string;
+  resolvedAt?: string;
+}
+
+// 免費課程目錄項目（外部平台連結 / 可嵌入影片）。預設目錄為硬編碼於 FreeCourses.tsx 的公開資源，
+// 此處 CUSTOM_FREE_COURSES 為 HR/管理員透過後台表單新增的項目，採附加方式儲存，不覆寫預設目錄。
+export interface FreeCourse {
+  id: string;
+  source: string;
+  sourceColor: string;
+  title: string;
+  category: string;
+  hours: number;
+  langs: string[];
+  isNew: boolean;
+  desc: string;
+  url: string; // 該來源平台的官方網址，供「前往觀看」使用
+  videoId?: string; // 若有可直接嵌入播放的 YouTube 影片 ID（須經人工確認內容與課程相符且可免費觀看）
+  addedBy?: string; // 新增此項目的 HR/管理員姓名
+}
+
+export const CUSTOM_FREE_COURSES: FreeCourse[] = [];
+
+export const USERS: User[] = [
+  {
+    id: '1',
+    name: '王小明',
+    email: 'wang@company.com',
+    password: '1234',
+    role: 'employee',
+    department: '製造課',
+    managerId: '2',
+    avatar: 'W',
+    joinDate: '2023-03-15',
+  },
+  {
+    id: '2',
+    name: '李主管',
+    email: 'li@company.com',
+    password: '1234',
+    role: 'manager',
+    department: '製造課',
+    avatar: 'L',
+    joinDate: '2021-06-01',
+  },
+  {
+    id: '3',
+    name: 'Admin管理員',
+    email: 'admin@company.com',
+    password: '1234',
+    role: 'admin',
+    department: '總務課',
+    avatar: 'A',
+    joinDate: '2020-01-10',
+  },
+  {
+    id: '4',
+    name: '陳小芳',
+    email: 'chen@company.com',
+    password: '1234',
+    role: 'employee',
+    department: '品保課',
+    managerId: '2',
+    avatar: 'C',
+    joinDate: '2023-07-20',
+  },
+  {
+    id: '5',
+    name: '張泰勒',
+    email: 'zhang@company.com',
+    password: '1234',
+    role: 'employee',
+    department: '業務課',
+    managerId: '2',
+    avatar: 'Z',
+    joinDate: '2022-11-05',
+  },
+  {
+    id: '6',
+    name: '林人資',
+    email: 'hr@company.com',
+    password: '1234',
+    role: 'hr',
+    department: '人資安全組',
+    avatar: 'H',
+    joinDate: '2021-09-01',
+  },
+  {
+    id: '7',
+    name: '黃副總',
+    email: 'vp@company.com',
+    password: '1234',
+    role: 'vp',
+    department: '總經理室',
+    avatar: 'V',
+    joinDate: '2019-05-01',
+  },
+];
+
+export const COURSES: Course[] = [
+  // === 法令規範課程 (全體必修) ===
+  {
+    id: 'c1',
+    title: '防災研習--消防演練',
+    description: '本課程涵蓋工廠及辦公環境中的防火、防災知識與實務操作，包含滅火器使用、緊急疏散動線演練及通報程序。每年定期舉辦，確保全體員工具備基本消防安全能力，保障人員與財產安全。',
+    category: '行政職能課程',
+    instructor: '消防安全顧問',
+    duration: 120,
+    mandatory: true,
+    thumbnail: 'bg-red-500',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-01-10',
+    quizQuestions: [
+      { id: 'q1', question: '發現火災時，應優先採取什麼行動？', options: ['繼續工作觀察情況', '按下火警警報並立即疏散', '先找主管報告', '嘗試自行滅火後再通報'], answerIndex: 1 },
+      { id: 'q2', question: '使用乾粉滅火器時，應對準哪個部位噴射？', options: ['火焰頂部', '火焰中部', '火焰根部', '任意位置'], answerIndex: 2 },
+      { id: 'q3', question: '緊急疏散時，以下哪項做法是正確的？', options: ['搭乘電梯快速離開', '攜帶貴重物品再撤離', '按照指定路線有序撤離', '等待上級指示再行動'], answerIndex: 2 },
+    ],
+  },
+  {
+    id: 'c2',
+    title: '性別平等教育',
+    description: '依據性別平等工作法，本課程協助員工了解職場性騷擾的定義、預防措施及申訴程序。課程內容包含性別平等觀念、職場友善環境建立及案例分析，確保所有員工在尊重、平等的環境中工作。',
+    category: '法令規範課程',
+    instructor: '人資安全組',
+    duration: 180,
+    mandatory: true,
+    thumbnail: 'bg-pink-500',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-01-15',
+    quizQuestions: [
+      { id: 'q1', question: '根據性別平等工作法，職場性騷擾的申訴管道為何？', options: ['只能向直屬主管反映', '向公司申訴管道或主管機關申訴', '忍耐不理會', '直接上網公開'], answerIndex: 1 },
+      { id: 'q2', question: '以下哪種行為屬於職場性騷擾？', options: ['給予工作相關的建設性批評', '用曖昧眼神或言語使他人感到不舒服', '討論工作上的意見分歧', '給予績效考核反饋'], answerIndex: 1 },
+      { id: 'q3', question: '建立職場性別平等環境，主要責任在於？', options: ['僅是人資部門的責任', '只有女性員工需注意', '公司、主管與每位員工共同負責', '僅主管需負責'], answerIndex: 2 },
+    ],
+  },
+  {
+    id: 'c3',
+    title: '資訊安全教育(防毒防駭)',
+    description: '本課程介紹企業資訊安全的重要概念，包含釣魚郵件識別、密碼管理、社交工程防範及資料保護規範。員工將學習如何在日常工作中保護公司機密資料，防止資安事件的發生。',
+    category: '法令規範課程',
+    instructor: '資訊部門',
+    duration: 180,
+    mandatory: true,
+    thumbnail: 'bg-blue-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-01-20',
+    quizQuestions: [
+      { id: 'q1', question: '收到要求提供帳號密碼的電子郵件時，應如何處理？', options: ['若郵件看起來正式就提供', '立即刪除並通報IT部門', '轉發給同事確認', '回覆要求對方說明原因'], answerIndex: 1 },
+      { id: 'q2', question: '設定密碼的最佳做法為何？', options: ['使用生日或名字方便記憶', '在所有帳號使用相同密碼', '使用8位以上包含英數字與符號的複雜密碼', '密碼越短越好'], answerIndex: 2 },
+      { id: 'q3', question: '公司機密資料外洩時，應如何處理？', options: ['自行處理不聲張', '立即向主管及IT部門通報', '等看看有無影響再決定', '告訴親近同事討論對策'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c4',
+    title: '一般安全衛生教育訓練',
+    description: '依據職業安全衛生法規，本課程為全體員工必修的安全衛生基礎課程，涵蓋職業傷害預防、危險機械設備操作規範、個人防護具使用及職業病預防等核心知識，確保每位員工具備基本的職場安全知識。',
+    category: '法令規範課程',
+    instructor: '人資安全組',
+    duration: 360,
+    mandatory: true,
+    thumbnail: 'bg-yellow-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-01-05',
+    quizQuestions: [
+      { id: 'q1', question: '操作機械設備前，最重要的安全動作為？', options: ['直接開始操作', '確認機械狀態並穿戴適當防護具', '詢問同事後操作', '只看操作手冊即可'], answerIndex: 1 },
+      { id: 'q2', question: '發生職業傷害時，應立即採取哪些步驟？', options: ['忍耐繼續工作', '自行處理後通知主管', '立即停止工作、通報主管並就醫', '先完成手邊工作再處理'], answerIndex: 2 },
+      { id: 'q3', question: '噪音超過多少分貝時，必須配戴聽力防護具？', options: ['70分貝以上', '85分貝以上', '100分貝以上', '任何噪音都不需要'], answerIndex: 1 },
+    ],
+  },
+  // === 核心提升課程 ===
+  {
+    id: 'c5',
+    title: 'AI超能主管班：從溝通到帶人決策全方位',
+    description: '專為主管與資深員工設計的AI應用課程，學習如何運用人工智慧工具提升管理效能。課程涵蓋AI輔助決策、智慧溝通策略、數據分析應用及團隊帶領新思維，協助主管在數位時代具備更強的領導競爭力。',
+    category: '核心提升課程',
+    instructor: '外部AI顧問',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-violet-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-02-10',
+    quizQuestions: [
+      { id: 'q1', question: 'AI在管理決策中最主要的應用價值為？', options: ['完全取代人類決策', '協助分析數據提供決策參考', '只能處理簡單重複工作', '不適合用於管理'], answerIndex: 1 },
+      { id: 'q2', question: '運用AI工具進行績效管理時，主管應特別注意什麼？', options: ['完全依賴AI的評估結果', '結合人性判斷與AI數據分析', '避免使用任何AI工具', '只看量化數據'], answerIndex: 1 },
+      { id: 'q3', question: '主管在帶領團隊時，運用AI工具的正確態度是？', options: ['以AI取代人員溝通', '將AI視為提升效率的輔助工具', '禁止部屬使用AI', '只在緊急時才用AI'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c6',
+    title: 'AI職場加速術：高效應用×智慧工作',
+    description: '本課程教導一般員工掌握主流AI工具（如ChatGPT、Copilot等）在職場中的實際應用，包含文件撰寫、資料整理、簡報製作及流程優化等。學員將透過大量實例練習，快速提升工作效率，適應AI時代的職場環境。',
+    category: '核心提升課程',
+    instructor: '外部AI顧問',
+    duration: 840,
+    mandatory: false,
+    thumbnail: 'bg-cyan-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-02-15',
+    quizQuestions: [
+      { id: 'q1', question: '使用AI工具撰寫商業文件時，最重要的是？', options: ['直接複製AI輸出不需修改', '核實AI產出內容的準確性並適當調整', 'AI寫的一定比人好', '不應使用AI寫公文'], answerIndex: 1 },
+      { id: 'q2', question: '向AI工具下達指令(Prompt)時，效果最好的方式為？', options: ['越簡短越好', '越詳細說明需求與背景', '隨意輸入測試', '只用問句形式'], answerIndex: 1 },
+      { id: 'q3', question: '使用AI工具處理公司機密資料時，應注意？', options: ['直接輸入所有資料', '確認工具的隱私政策並避免輸入敏感資訊', 'AI工具都是安全的不需顧慮', '讓主管操作AI即可'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c7',
+    title: '企業全流程認識ERP管理需求(上)',
+    description: '本課程為ERP系統導入前的基礎認識課程（上集），涵蓋企業資源規劃的核心概念、各部門業務流程分析及ERP系統的功能架構。學員將了解ERP如何整合採購、生產、庫存、財務等業務流程，提升整體營運效率。',
+    category: '核心提升課程',
+    instructor: 'ERP系統顧問',
+    duration: 360,
+    mandatory: true,
+    thumbnail: 'bg-teal-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-01',
+    quizQuestions: [
+      { id: 'q1', question: 'ERP系統中「整合」的主要意義是？', options: ['只整合財務數據', '整合企業各部門的業務流程與資料', '整合多個品牌的產品', '整合不同廠商的系統'], answerIndex: 1 },
+      { id: 'q2', question: 'ERP系統對生產管理最大的幫助是？', options: ['自動操作機械設備', '即時掌握生產狀態與物料需求', '減少員工工作量到零', '取代所有人工作業'], answerIndex: 1 },
+      { id: 'q3', question: '導入ERP系統時，員工最重要的配合事項是？', options: ['拒絕改變原有工作方式', '積極學習新系統並確實輸入正確資料', '讓IT部門全權負責', '等其他人先用再說'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c8',
+    title: '企業全流程認識ERP管理需求(下)',
+    description: '本課程為ERP系統認識課程（下集），深入探討ERP系統的操作實務，包含各模組使用方法、異常處理流程、系統資料維護及報表應用。學員將能更熟練地使用ERP系統，提升日常業務處理效率。',
+    category: '核心提升課程',
+    instructor: 'ERP系統顧問',
+    duration: 360,
+    mandatory: true,
+    thumbnail: 'bg-teal-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-08',
+    quizQuestions: [
+      { id: 'q1', question: 'ERP系統資料輸入錯誤時，正確的處理方式是？', options: ['不理會系統自動修正', '按照規定程序申請更正', '直接刪除重建', '告訴主管讓主管處理'], answerIndex: 1 },
+      { id: 'q2', question: 'ERP系統中的採購模組主要功能是？', options: ['記錄員工出缺勤', '管理供應商及採購訂單', '處理客戶投訴', '計算員工薪資'], answerIndex: 1 },
+      { id: 'q3', question: '定期維護ERP系統資料的目的是？', options: ['讓IT人員有事做', '確保資料準確性以支援管理決策', '系統強制要求', '減少硬碟空間使用'], answerIndex: 1 },
+    ],
+  },
+  // === 品保課專業課程 ===
+  {
+    id: 'c9',
+    title: 'ISO 9001/IATF 16949量測儀器校正管理實務',
+    description: '本課程針對品保人員設計，深入說明ISO 9001與IATF 16949標準中對量測儀器管理的要求，包含校正計畫制定、校正記錄維護、儀器精度分析（MSA）及不合格儀器處理程序，強化品質管控能力。',
+    category: '專業領域課程',
+    instructor: '品質系統工程師',
+    duration: 420,
+    mandatory: true,
+    thumbnail: 'bg-indigo-600',
+    passingScore: 75,
+    status: 'active',
+    createdAt: '2025-03-15',
+    quizQuestions: [
+      { id: 'q1', question: '量測儀器校正的主要目的是？', options: ['讓儀器外觀更新', '確保量測結果的準確性與可追溯性', '減少儀器使用次數', '符合主管要求'], answerIndex: 1 },
+      { id: 'q2', question: 'MSA（量測系統分析）中，GR&R主要評估什麼？', options: ['量具的外觀品質', '量測人員與量具引起的變異', '零件的尺寸規格', '生產速度'], answerIndex: 1 },
+      { id: 'q3', question: '發現量測儀器超過校正有效期限時，應如何處理？', options: ['繼續使用直到下次定期校正', '立即停止使用並貼上停用標籤送校', '只記錄在日誌中', '報告主管等候指示後繼續使用'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c10',
+    title: 'QCC品管圈實務培訓班',
+    description: '品管圈（QCC）是基層員工自主改善的重要工具。本課程教導員工如何組成品管圈、運用PDCA循環、七大品管手法（魚骨圖、柏拉圖等）進行問題分析，並完成改善成果發表，培養全員品質改善的文化。',
+    category: '核心提升課程',
+    instructor: '品質改善顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-green-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-20',
+    quizQuestions: [
+      { id: 'q1', question: 'QCC品管圈活動的核心理念是？', options: ['主管指派任務完成', '基層員工自發性的持續改善', '外部顧問主導改善', '只有品保部門參與'], answerIndex: 1 },
+      { id: 'q2', question: '魚骨圖（特性要因圖）主要用於分析什麼？', options: ['生產數量統計', '問題發生的原因分析', '員工績效評估', '財務損益計算'], answerIndex: 1 },
+      { id: 'q3', question: 'PDCA循環中，「C」代表什麼？', options: ['創造(Create)', '確認/查核(Check)', '溝通(Communicate)', '計算(Calculate)'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c11',
+    title: 'IATF 16949內部稽核員訓練',
+    description: '本課程培訓具備IATF 16949汽車品質管理系統內部稽核能力的人員，涵蓋稽核計畫制定、稽核技術、不符合事項開立及矯正措施追蹤等實務訓練，確保公司品質管理系統持續有效運作。',
+    category: '專業領域課程',
+    instructor: '認證稽核員',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-indigo-700',
+    passingScore: 75,
+    status: 'active',
+    createdAt: '2025-04-01',
+    quizQuestions: [
+      { id: 'q1', question: '內部稽核的主要目的是？', options: ['懲罰不符合規定的員工', '驗證品質管理系統的有效性並找出改善機會', '向客戶展示公司規範', '取代外部稽核'], answerIndex: 1 },
+      { id: 'q2', question: '稽核中發現不符合事項時，稽核員應？', options: ['幫受稽核方找解決方法', '客觀記錄事實並開立不符合報告', '立即要求停工', '口頭告知不需記錄'], answerIndex: 1 },
+      { id: 'q3', question: '矯正措施的「根本原因分析」目的是？', options: ['找到責任人加以懲處', '找出問題根本原因以防止再發', '完成文件交差', '縮短問題處理時間'], answerIndex: 1 },
+    ],
+  },
+  // === 研發課專業課程 ===
+  {
+    id: 'c12',
+    title: 'Solid Edge 3D繪圖',
+    description: '本課程為Solid Edge 3D CAD軟體的系統化培訓，從基礎操作到進階零件建模、組合設計及工程圖生成，培養研發人員熟練運用Solid Edge進行產品設計的能力，提升設計效率與品質。',
+    category: '專業領域課程',
+    instructor: '外部CAD講師',
+    duration: 1920,
+    mandatory: false,
+    thumbnail: 'bg-blue-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-05',
+    quizQuestions: [
+      { id: 'q1', question: 'Solid Edge中，建立3D零件的基本步驟是？', options: ['直接輸入尺寸即可', '先繪製2D草圖再施加特徵（如拉伸、旋轉）', '從外部匯入完成', '只能修改現有範本'], answerIndex: 1 },
+      { id: 'q2', question: '組合設計中，「約束條件」的作用是？', options: ['讓零件隨機排列', '定義零件間的相對位置關係', '增加檔案大小', '美化外觀'], answerIndex: 1 },
+      { id: 'q3', question: '工程圖中，「公差標註」的重要性為？', options: ['讓圖面看起來更專業', '確保製造時零件尺寸符合設計要求', '只是裝飾性標記', '方便客戶欣賞'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c13',
+    title: '模具設計與製造實務',
+    description: '本課程深入介紹沖壓模具、塑膠模具的設計原理與製造流程，包含模具結構設計、材料選用、加工工藝及試模調整技術。學員將掌握模具設計的核心知識，能獨立進行簡單模具的設計與問題診斷。',
+    category: '專業領域課程',
+    instructor: '資深模具工程師',
+    duration: 840,
+    mandatory: false,
+    thumbnail: 'bg-gray-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-10',
+    quizQuestions: [
+      { id: 'q1', question: '沖壓模具設計中，「間隙」(clearance)的設定原則是？', options: ['越大越好', '根據材料厚度與種類計算適當比例', '固定為0.1mm', '不需要設定間隙'], answerIndex: 1 },
+      { id: 'q2', question: '試模時發現零件有毛邊，可能的原因是？', options: ['模具太新', '沖裁間隙過大或模具刃口磨損', '速度太慢', '材料太薄'], answerIndex: 1 },
+      { id: 'q3', question: '模具壽命管理的最佳實務是？', options: ['使用到損壞再修復', '定期保養清潔並記錄使用次數', '盡量少用', '委外全權管理'], answerIndex: 1 },
+    ],
+  },
+  // === 業務課/營業部專業課程 ===
+  {
+    id: 'c14',
+    title: '採購成本分析與價格管理',
+    description: '本課程針對採購及資材人員設計，教導如何進行供應商成本分析、議價策略制定及總成本管理。課程內容涵蓋成本結構拆解、價格趨勢分析、詢比議價技巧及長期供應商關係維護，協助企業有效控制採購成本。',
+    category: '核心提升課程',
+    instructor: '採購管理顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-orange-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-25',
+    quizQuestions: [
+      { id: 'q1', question: '採購議價時，「總成本分析」的目的是？', options: ['只看採購單價', '全面評估含運費、品質成本、交期等的總體成本', '讓供應商知道預算上限', '簡化採購流程'], answerIndex: 1 },
+      { id: 'q2', question: '多家供應商詢報價的最主要優點是？', options: ['增加採購工作量', '取得競爭報價並了解市場行情', '建立更多供應商關係', '讓採購更複雜'], answerIndex: 1 },
+      { id: 'q3', question: '維護長期供應商關係的關鍵是？', options: ['持續壓低價格', '公平對待、及時付款與信息共享', '減少溝通頻率', '頻繁更換供應商'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c15',
+    title: '顧客應對與客訴處理技巧',
+    description: '本課程教導業務及客服人員如何專業地處理客戶投訴與需求，包含客訴類型分析、情緒安撫技巧、問題快速解決流程及客訴預防策略。透過角色扮演練習，提升學員在高壓情境下的溝通能力與問題解決能力。',
+    category: '核心提升課程',
+    instructor: '客戶服務顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-emerald-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-15',
+    quizQuestions: [
+      { id: 'q1', question: '客戶情緒激動時，首要的應對方式是？', options: ['立即提供解決方案打斷客戶', '先傾聽並表示理解客戶感受', '轉交給主管處理', '告知客戶需按規定流程'], answerIndex: 1 },
+      { id: 'q2', question: '處理客訴時，「8D報告」主要用途是？', options: ['向客戶收取服務費', '系統化分析問題根因並提出矯正預防措施', '記錄客訴歷史', '評估客戶滿意度'], answerIndex: 1 },
+      { id: 'q3', question: '預防客訴發生的最有效方法是？', options: ['減少與客戶的聯繫', '主動了解客戶需求並在交貨前做好品質確認', '制定嚴格的客訴懲罰制度', '增加客戶服務人員'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c16',
+    title: '船務工作完全通',
+    description: '本課程全面介紹國際貿易中的船務作業，涵蓋出口文件準備（提單、商業發票、裝箱單等）、信用狀操作、海關報關程序、貨物保險及各種貿易條件（Incoterms）的實務應用，適合業務及資材部門人員。',
+    category: '核心提升課程',
+    instructor: '貿易實務顧問',
+    duration: 840,
+    mandatory: false,
+    thumbnail: 'bg-sky-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-01',
+    quizQuestions: [
+      { id: 'q1', question: '提單（B/L）在國際貿易中的主要功能是？', options: ['只是收據', '貨物所有權憑證及運送合約', '報關文件', '付款憑證'], answerIndex: 1 },
+      { id: 'q2', question: 'FOB條件下，賣方的主要義務是？', options: ['負責到買方倉庫', '貨物裝船上後風險移轉給買方', '負責全程運費與保險', '只到工廠門口'], answerIndex: 1 },
+      { id: 'q3', question: '信用狀（L/C）付款方式對出口商的主要保障是？', options: ['確保買方一定付款', '只要單據相符，銀行承擔付款責任', '避免關稅風險', '加快通關速度'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c17',
+    title: '業務談判與銷售策略',
+    description: '本課程提升業務人員的談判能力與銷售技巧，涵蓋客戶需求分析、解決方案銷售法、談判策略制定、價格談判技巧及長期客戶關係維護。透過情境演練，幫助業務人員在競爭激烈的市場中取得更好的業績。',
+    category: '核心提升課程',
+    instructor: '業務發展顧問',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-amber-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-10',
+    quizQuestions: [
+      { id: 'q1', question: '解決方案銷售法的核心概念是？', options: ['強調產品功能特點', '以客戶需求與痛點為核心提供整體解決方案', '以最低價格取勝', '快速完成銷售'], answerIndex: 1 },
+      { id: 'q2', question: '談判中遇到客戶要求大幅降價時，最佳策略是？', options: ['立即答應避免失去訂單', '了解降價背後原因並提出對應方案', '拒絕並結束談判', '詢問主管再回覆'], answerIndex: 1 },
+      { id: 'q3', question: '建立長期客戶關係最重要的因素是？', options: ['給予最低價格', '持續提供價值並建立信任關係', '頻繁拜訪客戶', '送禮物給客戶'], answerIndex: 1 },
+    ],
+  },
+  // === 製造課/廠務專業課程 ===
+  {
+    id: 'c18',
+    title: '沖壓作業安全與品質管理',
+    description: '本課程針對沖床組操作人員，介紹沖壓作業的安全規範、模具裝卸程序、異常狀況判斷及品質自主檢查方法。學員將了解如何在確保安全的前提下提升沖壓作業品質，減少不良品的產生。',
+    category: '專業領域課程',
+    instructor: '製造技術部門',
+    duration: 420,
+    mandatory: true,
+    thumbnail: 'bg-zinc-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-10',
+    quizQuestions: [
+      { id: 'q1', question: '沖壓作業中，防止手部傷害最重要的安全措施是？', options: ['快速操作減少危險時間', '確認安全裝置正常並嚴格遵守雙手操作規定', '戴一般手套操作', '觀察有無主管再決定'], answerIndex: 1 },
+      { id: 'q2', question: '模具換模後，首件確認的目的是？', options: ['測試機器是否正常', '確認首件產品尺寸與外觀符合規格後才量產', '讓主管確認換模完成', '增加生產記錄'], answerIndex: 1 },
+      { id: 'q3', question: '沖壓過程中發現異音，應採取什麼行動？', options: ['繼續生產觀察', '立即停機並通知設備工程師', '加快速度確認問題', '記錄後繼續'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c19',
+    title: '塗裝品質管理與作業規範',
+    description: '本課程為塗裝組人員設計，涵蓋塗裝前處理、塗料特性認識、噴塗技術、烘烤固化條件及塗裝缺陷分析（如起泡、流掛、色差等）的診斷與改善方法，確保塗裝產品品質達到客戶規格要求。',
+    category: '專業領域課程',
+    instructor: '塗裝技術顧問',
+    duration: 420,
+    mandatory: true,
+    thumbnail: 'bg-lime-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-20',
+    quizQuestions: [
+      { id: 'q1', question: '塗裝前處理的主要目的是？', options: ['讓產品更亮', '去除表面油污與雜質，確保塗料附著性', '增加產品重量', '縮短塗裝時間'], answerIndex: 1 },
+      { id: 'q2', question: '塗裝作業時，溶劑型塗料使用的安全注意事項是？', options: ['可在密閉空間作業', '保持良好通風並遠離火源', '無需特別防護', '快速完成減少暴露時間'], answerIndex: 1 },
+      { id: 'q3', question: '塗裝出現「橘皮」缺陷的主要原因是？', options: ['塗料品質不好', '噴塗距離過遠或塗料黏度過高', '烘烤溫度不足', '顏色選擇錯誤'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c20',
+    title: '精密加工技術與品質提升',
+    description: '本課程針對加工組人員，介紹CNC加工中心操作要點、精密量測技術應用及加工品質提升方法。學員將學習如何設定適當的加工參數、使用量測工具確認加工精度，以及常見加工問題的診斷與改善。',
+    category: '專業領域課程',
+    instructor: '精密加工技術師',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-slate-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-05',
+    quizQuestions: [
+      { id: 'q1', question: 'CNC加工中，「程式原點」設定的重要性是？', options: ['只是慣例沒有實際意義', '確保加工座標基準正確，影響尺寸精度', '讓機器運作更流暢', '方便操作員記憶'], answerIndex: 1 },
+      { id: 'q2', question: '加工過程中，刀具磨損對加工品質的影響是？', options: ['沒有影響', '導致尺寸偏差與表面粗糙度劣化', '讓加工速度加快', '讓刀具壽命延長'], answerIndex: 1 },
+      { id: 'q3', question: '精密加工的量測應在什麼條件下進行？', options: ['任何環境都可以', '溫度穩定的量測室，工件恢復至室溫後量測', '加工完成立即量測', '在機台上邊加工邊量測'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c21',
+    title: '生產線效率改善與精實生產',
+    description: '本課程以精實生產（Lean Manufacturing）為核心，介紹生產線平衡分析、瓶頸管理、看板系統（Kanban）及快速換模（SMED）技術。透過實際案例分析，學員將能識別生產線中的浪費並提出有效的改善方案。',
+    category: '核心提升課程',
+    instructor: '精實製造顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-green-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-20',
+    quizQuestions: [
+      { id: 'q1', question: '精實生產中「七大浪費」不包括哪項？', options: ['等待浪費', '搬運浪費', '良好溝通', '過度加工'], answerIndex: 2 },
+      { id: 'q2', question: '生產線平衡分析的主要目的是？', options: ['讓所有員工工作量相同', '消除瓶頸站點、均衡各工站負荷以提升效率', '增加生產人員', '減少工站數量'], answerIndex: 1 },
+      { id: 'q3', question: 'SMED（快速換模）的目標是？', options: ['永久不換模', '將換模時間縮短至10分鐘以內', '增加模具數量', '自動化所有換模動作'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c22',
+    title: '設備保養與預防維護(TPM)',
+    description: '本課程介紹全員生產保全（TPM）的理念與實施方法，包含自主保全活動、計畫保養制度建立、設備效率指標（OEE）計算及故障分析。讓操作人員主動參與設備保養，降低設備故障率，延長設備壽命。',
+    category: '核心提升課程',
+    instructor: '設備管理顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-orange-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-01',
+    quizQuestions: [
+      { id: 'q1', question: 'TPM自主保全的核心理念是？', options: ['設備問題全交維修部門處理', '操作人員主動參與設備清潔、潤滑與日常點檢', '定期外包保養', '只在設備故障時才保養'], answerIndex: 1 },
+      { id: 'q2', question: 'OEE（整體設備效率）由哪三個因素計算？', options: ['成本、品質、速度', '稼動率、性能效率、良品率', '人員、設備、材料', '計畫、執行、控制'], answerIndex: 1 },
+      { id: 'q3', question: '預防保養的主要優點是？', options: ['增加維護成本', '降低突發故障率並延長設備壽命', '減少保養次數', '讓設備看起來更新'], answerIndex: 1 },
+    ],
+  },
+  // === 財務部專業課程 ===
+  {
+    id: 'c23',
+    title: '財務報表解讀與管理應用',
+    description: '本課程幫助非財務主管與財務人員了解財務報表（損益表、資產負債表、現金流量表）的閱讀方法與管理意涵，掌握財務比率分析技巧，能夠運用財務數據進行管理決策，提升財務管理能力。',
+    category: '核心提升課程',
+    instructor: '財務管理顧問',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-yellow-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-10',
+    quizQuestions: [
+      { id: 'q1', question: '損益表中，「毛利率」的計算公式是？', options: ['(凈利/收入)×100%', '(收入-銷貨成本)/收入×100%', '(總資產/負債)×100%', '(現金流入/流出)×100%'], answerIndex: 1 },
+      { id: 'q2', question: '企業現金流量表中，「營業活動現金流」為負值代表什麼？', options: ['公司一定虧損', '日常營業活動消耗的現金多於產生的現金', '公司沒有收入', '財報有問題'], answerIndex: 1 },
+      { id: 'q3', question: '「流動比率」主要評估企業的什麼能力？', options: ['長期獲利能力', '短期償債能力', '資產利用效率', '股東報酬率'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c24',
+    title: '成本控制與預算管理實務',
+    description: '本課程教導各部門主管如何制定年度預算、監控部門成本支出及進行預算差異分析。課程包含標準成本制度介紹、成本中心管理及降低成本的系統化方法，提升各部門的成本意識與管控能力。',
+    category: '核心提升課程',
+    instructor: '管理會計師',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-yellow-800',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-20',
+    quizQuestions: [
+      { id: 'q1', question: '年度預算制定時，最重要的前提是？', options: ['比去年減少10%', '以公司策略目標為基礎，評估各項資源需求', '盡量少報預算', '完全依據過去數據'], answerIndex: 1 },
+      { id: 'q2', question: '發現實際成本大幅超出預算時，主管應？', options: ['等年底再說', '立即分析差異原因並提出改善方案', '刪減其他費用補回', '向財務部要求增加預算'], answerIndex: 1 },
+      { id: 'q3', question: '「零基預算法」的特點是？', options: ['以上年度預算為基礎加減', '每年重新從零開始評估所有支出的必要性', '預算固定不動', '只評估新增項目'], answerIndex: 1 },
+    ],
+  },
+  // === 人資安全組/管理部 ===
+  {
+    id: 'c25',
+    title: '勞動法令與人資管理實務',
+    description: '本課程全面介紹台灣勞動基準法、職業安全衛生法及相關法規的重要規定，包含工時管理、勞資爭議處理、員工申訴機制及人事管理的合法程序。協助主管與HR人員在合法合規的框架下進行人力資源管理。',
+    category: '法令規範課程',
+    instructor: '勞工法律顧問',
+    duration: 360,
+    mandatory: true,
+    thumbnail: 'bg-rose-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-02-20',
+    quizQuestions: [
+      { id: 'q1', question: '依勞動基準法，一般勞工正常工時上限為？', options: ['每日9小時，每週45小時', '每日8小時，每週40小時', '每日10小時，每週50小時', '無限制由雙方協議'], answerIndex: 1 },
+      { id: 'q2', question: '員工提出資遣申請，公司應至少提前幾天通知？', options: ['一律10天', '依年資決定10至30天', '一律30天', '無需提前通知'], answerIndex: 1 },
+      { id: 'q3', question: '雇主對員工實施懲戒，必須符合的原則是？', options: ['主管個人判斷即可', '依工作規則規定，懲戒程度需與違規情節相當', '一律開除', '只需口頭警告'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c26',
+    title: '職業安全衛生管理系統(ISO 45001)',
+    description: '本課程介紹ISO 45001職業安全衛生管理系統的架構與要求，包含危害辨識、風險評估、法規符合性管理及緊急應變計畫。幫助安全衛生人員建立系統化的職安管理能力，保障員工安全健康。',
+    category: '專業領域課程',
+    instructor: '職安衛顧問',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-red-700',
+    passingScore: 75,
+    status: 'active',
+    createdAt: '2025-03-01',
+    quizQuestions: [
+      { id: 'q1', question: 'ISO 45001標準中，危害辨識的範圍應包括？', options: ['只有生產作業區域', '所有可能影響員工安全健康的活動與環境', '只有高危險作業', '只有主要製程'], answerIndex: 1 },
+      { id: 'q2', question: '風險評估後，「不可接受風險」應如何處理？', options: ['紀錄後靜待', '立即採取管控措施降低風險至可接受範圍', '通知員工注意即可', '申請豁免'], answerIndex: 1 },
+      { id: 'q3', question: '緊急應變計畫應定期進行演練的原因是？', options: ['法規強制要求', '確保人員熟悉程序，發現計畫缺失並改善', '讓員工有機會休息', '展示公司安全文化'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c27',
+    title: '績效管理制度與面談技巧',
+    description: '本課程幫助主管了解績效管理制度的設計原理，掌握KPI目標設定（SMART原則）、績效評估面談技巧及員工發展計畫制定方法。透過實際演練，提升主管進行績效面談的能力，促進員工持續成長。',
+    category: '核心提升課程',
+    instructor: '人力資源顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-purple-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-01',
+    quizQuestions: [
+      { id: 'q1', question: 'SMART目標設定中，「M」代表什麼？', options: ['有意義的(Meaningful)', '可衡量的(Measurable)', '有激勵的(Motivating)', '可管理的(Manageable)'], answerIndex: 1 },
+      { id: 'q2', question: '績效面談時，主管應如何給予負面回饋？', options: ['當眾指責以警示他人', '私下以具體事實為基礎，提供建設性建議', '避免討論以維持士氣', '在書面績效表上直接標示'], answerIndex: 1 },
+      { id: 'q3', question: '有效的員工發展計畫應包括？', options: ['只列出要改善的缺點', '明確的發展目標、行動計畫及時間表', '主管單方面決定', '等員工主動提出'], answerIndex: 1 },
+    ],
+  },
+  // === 跨部門核心課程 ===
+  {
+    id: 'c28',
+    title: '簡報設計與表達技巧',
+    description: '本課程提升員工的簡報設計能力與口語表達技巧，從投影片視覺設計原則、故事性架構規劃到台上表達技巧與問答應對，幫助員工能夠清晰有力地傳達資訊，在內外部簡報中展現專業形象。',
+    category: '核心提升課程',
+    instructor: '溝通技巧顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-fuchsia-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-05',
+    quizQuestions: [
+      { id: 'q1', question: '有效的簡報投影片，每頁應遵循什麼原則？', options: ['放越多資訊越好', '一個概念一張投影片，保持簡潔', '文字越多越專業', '使用最多顏色'], answerIndex: 1 },
+      { id: 'q2', question: '簡報開場最有效的方式是？', options: ['先介紹自己的背景', '以提問、數據或故事引起聽眾興趣', '直接進入正題', '詢問聽眾是否有問題'], answerIndex: 1 },
+      { id: 'q3', question: '處理聽眾提問時，遇到不知道答案的問題應？', options: ['隨意回答假裝知道', '誠實說不確定，承諾查詢後回覆', '迴避問題繼續簡報', '反問提問者'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c29',
+    title: '問題分析與解決(8D/A3方法論)',
+    description: '本課程教導員工系統化的問題分析與解決方法，重點介紹8D問題解決法與豐田A3報告格式的應用，包含問題定義、根因分析、臨時對策、矯正措施及水平展開，適用於各類工作問題的解決。',
+    category: '核心提升課程',
+    instructor: '品質改善顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-orange-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-10',
+    quizQuestions: [
+      { id: 'q1', question: '8D方法論中，D4「根本原因分析」最常用的工具是？', options: ['甘特圖', '5Why分析法', '流程圖', '組織圖'], answerIndex: 1 },
+      { id: 'q2', question: '「臨時對策」(D3)的目的是？', options: ['永久解決問題', '在找到根本原因前，暫時遏制問題影響', '結束8D流程', '向客戶報告'], answerIndex: 1 },
+      { id: 'q3', question: '8D的「水平展開」(D7)意義是？', options: ['擴大生產規模', '將本次改善方案推展到類似的製程或產品', '增加改善人員', '整理文件歸檔'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c30',
+    title: '領導力發展與高效團隊建立',
+    description: '本課程針對現任及潛力主管設計，探討不同領導風格的適用情境、如何激勵多元背景的團隊成員、建立心理安全感的方法及衝突管理技巧。透過案例討論與自我評估，幫助學員成為更有效能的領導者。',
+    category: '核心提升課程',
+    instructor: '領導力發展顧問',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-violet-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-15',
+    quizQuestions: [
+      { id: 'q1', question: '情境式領導理論中，對高能力低意願的下屬，應採用哪種領導風格？', options: ['指示型（高任務低關係）', '激勵型（低任務高關係）', '授權型（低任務低關係）', '參與型（低任務高關係）'], answerIndex: 1 },
+      { id: 'q2', question: '建立團隊「心理安全感」最重要的方法是？', options: ['讓所有決策民主表決', '鼓勵成員坦誠表達意見並對犯錯採寬容態度', '避免挑戰性工作', '頻繁舉辦團隊活動'], answerIndex: 1 },
+      { id: 'q3', question: '當團隊成員間發生衝突時，主管最適當的角色是？', options: ['直接裁決哪方是對的', '作為中立促進者幫助雙方找到共識', '忽視讓他們自行解決', '處罰衝突雙方'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c31',
+    title: '數位轉型與工業4.0應用',
+    description: '本課程介紹工業4.0的核心概念與數位轉型趨勢，包含物聯網（IoT）、大數據分析、智慧製造、雲端應用及數位化改善案例。幫助員工理解數位轉型對製造業的影響，掌握相關技術的基本應用方向。',
+    category: '核心提升課程',
+    instructor: '數位轉型顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-cyan-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-06-01',
+    quizQuestions: [
+      { id: 'q1', question: '工業4.0中，「物聯網(IoT)」在製造業的主要應用是？', options: ['讓工廠連接網路購物', '透過感測器即時收集設備與生產數據', '控制員工手機使用', '取代工廠所有人員'], answerIndex: 1 },
+      { id: 'q2', question: '大數據分析在製造業中最有價值的應用為？', options: ['分析社群媒體貼文', '預測設備故障、優化排程及品質管控', '計算員工年資', '追蹤競爭對手'], answerIndex: 1 },
+      { id: 'q3', question: '企業推進數位轉型時，最常遇到的挑戰是？', options: ['技術不存在', '員工抗拒改變及舊有系統整合困難', '成本完全無法負擔', '政府法規不允許'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c32',
+    title: '倉儲管理與物料控制',
+    description: '本課程介紹現代倉儲管理的最佳實務，包含倉庫佈局規劃、先進先出（FIFO）原則、庫存盤點方法、物料識別系統（條碼/QR碼）及庫存準確性提升技巧。學員將能建立有效的倉儲管理制度，降低庫存損耗。',
+    category: '核心提升課程',
+    instructor: '物料管理顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-stone-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-20',
+    quizQuestions: [
+      { id: 'q1', question: 'FIFO（先進先出）原則在倉儲管理中的意義是？', options: ['讓倉庫更美觀', '先入庫的物料優先出庫，防止材料過期或老化', '方便搬運', '增加儲存空間'], answerIndex: 1 },
+      { id: 'q2', question: '庫存盤點不準確的最主要原因是？', options: ['天氣影響', '入出庫記錄不即時或錯誤', '倉庫太大', '物料太多種'], answerIndex: 1 },
+      { id: 'q3', question: '導入倉儲管理系統（WMS）最主要的效益是？', options: ['增加倉庫人員', '即時掌握庫存位置與數量，提升出入庫效率', '減少管理系統', '讓倉庫自動化'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c33',
+    title: '環境管理與節能減碳',
+    description: '本課程介紹ISO 14001環境管理系統及企業節能減碳的實務做法，包含企業碳盤查、溫室氣體減量策略、廢棄物管理法規及環保稽核準備。協助企業符合環保法規並建立永續發展的環境管理文化。',
+    category: '法令規範課程',
+    instructor: '環境管理顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-green-800',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-25',
+    quizQuestions: [
+      { id: 'q1', question: '企業進行碳盤查的主要目的是？', options: ['應付政府要求', '了解自身溫室氣體排放量作為減量基準', '增加企業報告', '向客戶展示'], answerIndex: 1 },
+      { id: 'q2', question: '工廠廢棄物處理應依循什麼原則？', options: ['能省錢就好', '依廢棄物清理法規分類、委託合法業者清除', '自行丟棄節省成本', '儲存等待最佳時機'], answerIndex: 1 },
+      { id: 'q3', question: '辦公室節能最有效的做法是？', options: ['關閉所有電源設備', '建立節能習慣（隨手關燈、關閉待機設備）並設定節能指標', '縮短工作時間', '改用手工作業'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c34',
+    title: '文件管理與記錄控制',
+    description: '本課程介紹品質管理系統中文件管理的重要性與實務做法，包含文件分類、版本控制、發行管理、記錄保存及文件廢止程序。確保公司所有作業文件的有效性與可追溯性，符合ISO及客戶稽核要求。',
+    category: '核心提升課程',
+    instructor: '文件管理專員',
+    duration: 180,
+    mandatory: true,
+    thumbnail: 'bg-gray-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-02-25',
+    quizQuestions: [
+      { id: 'q1', question: '文件版本控制的主要目的是？', options: ['讓文件看起來更正式', '確保所有人員使用最新有效版本', '增加文件數量', '方便稽核'], answerIndex: 1 },
+      { id: 'q2', question: '作業記錄（如檢驗記錄）需保存的主要理由是？', options: ['佔用存儲空間', '提供可追溯性，證明符合要求及支援改善分析', '法規未要求', '方便員工查閱'], answerIndex: 1 },
+      { id: 'q3', question: '文件作廢時，應採取什麼措施？', options: ['直接丟棄', '標示作廢日期，從使用場所收回並依程序處置', '繼續保留在工作崗位', '等下次更新時一起處理'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c35',
+    title: '跨部門溝通與協作',
+    description: '本課程提升員工在跨部門合作中的溝通能力，包含如何有效表達需求、處理部門間的利益衝突、會議主持技巧及工作協作工具的應用。幫助員工打破部門隔閡，提升跨功能團隊的協作效率。',
+    category: '核心提升課程',
+    instructor: '組織發展顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-indigo-500',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-06-01',
+    quizQuestions: [
+      { id: 'q1', question: '跨部門溝通中，最常見的障礙是？', options: ['語言不通', '各部門目標不一致及資訊不透明', '辦公室距離太遠', '人員太多'], answerIndex: 1 },
+      { id: 'q2', question: '主持跨部門會議時，確保效率的關鍵是？', options: ['邀請所有相關人員參加', '事前準備明確議程，會議中聚焦議題並做出決議', '讓最資深的人主持', '拉長會議時間'], answerIndex: 1 },
+      { id: 'q3', question: '跨部門合作遇到利益衝突時，最佳的解決方式是？', options: ['由最高主管裁決', '以公司整體利益為優先，找出各方可接受的共識', '各自堅持立場', '避免合作'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c36',
+    title: '新進員工職前訓練',
+    description: '本課程為所有新進員工提供公司基本認識，包含公司歷史與文化、組織架構、各部門職能介紹、員工福利制度、工廠安全規定及基本工作規則。幫助新員工快速融入公司環境，了解工作規範與企業文化。',
+    category: '行政職能課程',
+    instructor: '人資安全組',
+    duration: 240,
+    mandatory: true,
+    thumbnail: 'bg-teal-500',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-01-10',
+    quizQuestions: [
+      { id: 'q1', question: '員工對工作規則或公司政策有疑問時，應向誰詢問？', options: ['不需要了解', '直接主管或人資部門', '自行判斷執行', '查看網路資料'], answerIndex: 1 },
+      { id: 'q2', question: '新進員工的試用期主要目的是？', options: ['降低公司薪資成本', '觀察員工是否適合職位並幫助員工適應工作', '測試員工極限', '沒有特別目的'], answerIndex: 1 },
+      { id: 'q3', question: '員工希望請假時，正確的程序是？', options: ['直接不來上班', '事前填寫請假單並取得主管核准', '請同事代為告知', '事後補假單即可'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c37',
+    title: '品質意識與客戶滿意',
+    description: '本課程培養全體員工的品質意識，強調「下一道工序就是客戶」的理念，包含品質成本概念、零缺陷思維、日常工作中的品質管控要點及客戶滿意度的重要性。幫助所有員工將品質融入日常工作習慣。',
+    category: '核心提升課程',
+    instructor: '品質推廣講師',
+    duration: 240,
+    mandatory: true,
+    thumbnail: 'bg-emerald-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-02-01',
+    quizQuestions: [
+      { id: 'q1', question: '「下一道工序是客戶」這個理念的含意是？', options: ['生產速度比品質重要', '每道工序都應確保傳給下一個工序的是合格品', '客戶就是外部的', '只有最後一道工序需要注意品質'], answerIndex: 1 },
+      { id: 'q2', question: '品質成本中，「失敗成本」包括？', options: ['預防活動費用', '廢料、重工及客戶退貨等損失', '品質訓練費用', '量測儀器採購費'], answerIndex: 1 },
+      { id: 'q3', question: '員工發現產品有不良時，應如何處理？', options: ['趕工期先過再說', '立即停止生產、隔離不良品並通報品管', '自行判斷是否嚴重', '繼續生產等下班後處理'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c38',
+    title: '危險物品與化學品管理',
+    description: '本課程針對使用化學品的部門人員設計，介紹危險物品的分類與標示（GHS/SDS）、化學品安全儲存規範、個人防護設備選用及化學品洩漏緊急應變程序。確保人員在正確認識的前提下安全使用化學品。',
+    category: '法令規範課程',
+    instructor: '化工安全顧問',
+    duration: 360,
+    mandatory: true,
+    thumbnail: 'bg-orange-800',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-02-10',
+    quizQuestions: [
+      { id: 'q1', question: 'GHS制度中，「安全資料表（SDS）」的主要功用是？', options: ['化學品的採購憑證', '提供化學品危害特性、安全使用及緊急應變資訊', '記錄化學品庫存', '品質合格證明'], answerIndex: 1 },
+      { id: 'q2', question: '化學品洩漏時，應優先採取什麼行動？', options: ['快速清理不讓主管知道', '人員立即撤離，通報主管及安全人員', '繼續工作', '用水直接沖洗'], answerIndex: 1 },
+      { id: 'q3', question: '化學品儲存時，哪兩種物質通常不能混放？', options: ['固體和液體', '強酸和強鹼', '有機物和無機物', '高溫和低溫物質'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c39',
+    title: '供應鏈管理與供應商評鑑',
+    description: '本課程介紹現代供應鏈管理的核心概念，包含供應商開發評鑑流程、合格供應商名冊管理、供應商績效KPI設定及供應鏈風險管理。幫助採購及相關人員建立完整的供應商管理體系，確保供應穩定性與品質。',
+    category: '核心提升課程',
+    instructor: '供應鏈管理顧問',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-blue-800',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-25',
+    quizQuestions: [
+      { id: 'q1', question: '供應商評鑑的主要評估指標通常包括？', options: ['只看價格', '品質、交期、服務、價格及財務穩健度', '只看規模大小', '只看地理位置'], answerIndex: 1 },
+      { id: 'q2', question: '供應鏈風險管理中，「單一供應商風險」的最佳對應策略是？', options: ['接受風險繼續合作', '開發替代供應商並建立安全庫存', '終止與該供應商合作', '要求供應商保固'], answerIndex: 1 },
+      { id: 'q3', question: '合格供應商名冊（AVL）的維護重點是？', options: ['名冊越大越好', '定期評鑑績效，淘汰不合格者並補充新供應商', '固定不需更新', '只記錄聯絡資訊'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c40',
+    title: '專案管理基礎(PMP概念)',
+    description: '本課程介紹專案管理的基本框架，包含專案生命週期、WBS工作分解、甘特圖製作、風險管理及專案追蹤方法。幫助員工能夠有效規劃並執行跨部門專案，準時完成目標任務。',
+    category: '核心提升課程',
+    instructor: '專案管理顧問',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-teal-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-15',
+    quizQuestions: [
+      { id: 'q1', question: 'WBS（工作分解結構）的主要用途是？', options: ['追蹤員工工時', '將專案分解為可管理的小工作包', '計算專案成本', '評估員工績效'], answerIndex: 1 },
+      { id: 'q2', question: '甘特圖中，「要徑（Critical Path）」的意義是？', options: ['最容易完成的路徑', '決定專案最短完工時間的任務鏈', '最昂貴的工作路徑', '主管最關心的任務'], answerIndex: 1 },
+      { id: 'q3', question: '專案風險應對策略中，「轉移」的方法是？', options: ['忽略風險', '透過外包或保險將風險轉給他方', '直接面對風險', '拒絕執行有風險的任務'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c41',
+    title: '焊接技術與安全操作',
+    description: '本課程針對焊接作業人員，介紹MIG/TIG/電弧焊接的基本技術、焊材選用、焊接缺陷判識及焊接作業安全規範（通風、防護具使用、電擊預防）。確保焊接人員具備安全且品質穩定的焊接技能。',
+    category: '專業領域課程',
+    instructor: '資深焊接技師',
+    duration: 420,
+    mandatory: true,
+    thumbnail: 'bg-amber-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-05',
+    quizQuestions: [
+      { id: 'q1', question: '焊接作業時，對眼部傷害最大的危害是？', options: ['焊接煙霧', '弧光輻射（紫外線）', '高溫', '噪音'], answerIndex: 1 },
+      { id: 'q2', question: '焊接後出現「氣孔」缺陷的主要原因是？', options: ['電流過大', '焊接區域含有水分、油污或鏽蝕', '焊接速度太慢', '焊材不足'], answerIndex: 1 },
+      { id: 'q3', question: '密閉空間內進行焊接作業前，必須做的確認是？', options: ['確認有工具', '確認通風良好並測定氧氣含量', '確認焊機功率', '確認工作時間'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c42',
+    title: '外語職場溝通（英語）',
+    description: '本課程針對需要與外國客戶或廠商溝通的人員，提升商業英語書寫（Email、報告）及口語溝通能力，包含商業用語、國際電話會議技巧及英語簡報基礎，幫助員工在國際商業往來中更有信心。',
+    category: '核心提升課程',
+    instructor: '商業英語講師',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-blue-500',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-05-20',
+    quizQuestions: [
+      { id: 'q1', question: '商務英語Email的開頭稱謂，最專業的寫法是？', options: ['Hey John,', 'Dear Mr. Smith,', 'Hello there,', 'To whom,'], answerIndex: 1 },
+      { id: 'q2', question: '向外國客戶說明產品延誤時，首要的表達重點是？', options: ['先解釋延誤原因', '先誠懇道歉並說明影響', '推卸責任給物流', '不需特別解釋'], answerIndex: 1 },
+      { id: 'q3', question: '國際電話會議中，若聽不清楚對方說的話，應如何處理？', options: ['隨意回應假裝聽到', '禮貌地請對方重複或放慢語速', '保持沉默', '結束通話'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c43',
+    title: '新進主管培訓班',
+    description: '本課程針對首次升任主管職位的人員設計，涵蓋主管角色轉換、目標設定與任務分配、員工輔導技巧、紀律管理及主管的法律責任。幫助新主管快速建立管理能力，順利完成角色轉換。',
+    category: '核心提升課程',
+    instructor: '管理培訓講師',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-purple-600',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-15',
+    quizQuestions: [
+      { id: 'q1', question: '從員工晉升為主管，最重要的心態轉變是？', options: ['繼續自己做最多工作', '從「自己完成工作」轉為「透過他人完成工作」', '避免與舊同事往來', '展現比部屬更強的技術能力'], answerIndex: 1 },
+      { id: 'q2', question: '對表現不佳的員工進行輔導面談時，應遵循什麼原則？', options: ['當眾批評以示警惕', '私下以具體事實說明問題，共同制定改善計畫', '直接要求離職', '忽視問題避免衝突'], answerIndex: 1 },
+      { id: 'q3', question: '主管在執行員工紀律管理時，需確保？', options: ['依個人喜好決定', '依公司規定一致執行，保留書面記錄', '嚴格懲罰所有違規', '私下口頭處理即可'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c44',
+    title: '生產排程與物料需求計畫(MRP)',
+    description: '本課程教導生管及資材人員如何進行生產排程規劃與物料需求計算，包含主生產排程（MPS）制定、MRP運算邏輯、產能規劃及交期承諾方法，協助降低庫存成本並提高準時交貨率。',
+    category: '專業領域課程',
+    instructor: '生產管理顧問',
+    duration: 360,
+    mandatory: false,
+    thumbnail: 'bg-green-700',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-04-10',
+    quizQuestions: [
+      { id: 'q1', question: 'MRP（物料需求計畫）的三個主要輸入是？', options: ['人員、設備、材料', '主生產排程、物料清單(BOM)、庫存記錄', '訂單、庫存、採購', '銷售、生產、財務'], answerIndex: 1 },
+      { id: 'q2', question: '生產排程中，「瓶頸工站」應如何管理？', options: ['增加休息時間', '最大化瓶頸產能利用並讓非瓶頸配合', '減少生產數量', '外包給其他工廠'], answerIndex: 1 },
+      { id: 'q3', question: '「安全庫存」的主要目的是？', options: ['減少採購頻率', '應對需求波動或供應延誤，防止缺料停線', '增加庫存成本', '展示公司實力'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c45',
+    title: '統計分析與SPC管制圖應用',
+    description: '本課程介紹統計製程管制（SPC）的原理與實務，包含常態分布概念、控制圖（Xbar-R、P管制圖）的繪製與判讀、製程能力分析（Cp、Cpk）及異常判讀規則。幫助品管及製造人員透過數據分析確保製程穩定。',
+    category: '專業領域課程',
+    instructor: '統計品質工程師',
+    duration: 420,
+    mandatory: false,
+    thumbnail: 'bg-indigo-800',
+    passingScore: 75,
+    status: 'active',
+    createdAt: '2025-04-20',
+    quizQuestions: [
+      { id: 'q1', question: 'SPC管制圖中，點落在管制界限外代表？', options: ['製程完全正常', '製程可能存在特殊原因變異，需立即調查', '品質非常好', '可以繼續生產'], answerIndex: 1 },
+      { id: 'q2', question: 'Cpk值大於1.33表示什麼？', options: ['製程不穩定', '製程能力充足，產品尺寸在規格內的機率很高', '需要立即改善', '規格設定過寬'], answerIndex: 1 },
+      { id: 'q3', question: 'P管制圖適用於監控？', options: ['連續數值資料', '不良率（計數資料）', '設備溫度', '員工出勤率'], answerIndex: 1 },
+    ],
+  },
+  {
+    id: 'c46',
+    title: '辦公室安全衛生與工作環境改善',
+    description: '本課程針對辦公室工作人員，介紹長時間使用電腦的人體工學設定、眼睛保健、久坐健康管理及辦公室緊急應變措施。幫助辦公室員工了解工作環境潛在的健康風險並建立正確的工作習慣。',
+    category: '法令規範課程',
+    instructor: '職業衛生師',
+    duration: 180,
+    mandatory: false,
+    thumbnail: 'bg-blue-400',
+    passingScore: 70,
+    status: 'active',
+    createdAt: '2025-03-15',
+    quizQuestions: [
+      { id: 'q1', question: '使用電腦螢幕時，眼睛與螢幕的建議距離是？', options: ['30公分', '50-70公分', '1公尺以上', '越近越好'], answerIndex: 1 },
+      { id: 'q2', question: '長時間坐辦公的健康建議是？', options: ['盡量不移動以保持效率', '每小時起身活動5-10分鐘並做伸展', '趴在桌上休息', '一直喝咖啡提神'], answerIndex: 1 },
+      { id: 'q3', question: '辦公室椅子高度的正確設定是？', options: ['越高越好', '腳踏平地，膝蓋約90度彎曲', '越低越舒適', '不需要調整'], answerIndex: 1 },
+    ],
+  },
+];
+
+export const ENROLLMENTS: Enrollment[] = [
+  {
+    id: 'e1',
+    userId: '1',
+    courseId: 'c4',
+    status: 'in_progress',
+    progressPercent: 75,
+    watchTimeMinutes: 270,
+    enrolledAt: '2025-03-01',
+    reportSubmitted: false,
+    surveySubmitted: false,
+    quizSubmitted: false,
+    quizScore: null,
+    reviewStatus: null,
+    certificateIssued: false,
+    managerComment: null,
+  },
+  {
+    id: 'e2',
+    userId: '1',
+    courseId: 'c21',
+    status: 'pending_review',
+    progressPercent: 100,
+    watchTimeMinutes: 360,
+    enrolledAt: '2025-02-10',
+    reportSubmitted: true,
+    surveySubmitted: true,
+    quizSubmitted: true,
+    quizScore: 85,
+    reviewStatus: 'pending',
+    certificateIssued: false,
+    managerComment: null,
+    submittedAt: '2025-02-28',
+  },
+  {
+    id: 'e3',
+    userId: '1',
+    courseId: 'c1',
+    status: 'completed',
+    progressPercent: 100,
+    watchTimeMinutes: 120,
+    enrolledAt: '2025-01-15',
+    reportSubmitted: true,
+    surveySubmitted: true,
+    quizSubmitted: true,
+    quizScore: 90,
+    reviewStatus: 'approved',
+    certificateIssued: true,
+    managerComment: null,
+    submittedAt: '2025-01-25',
+    completedAt: '2025-01-28',
+  },
+  {
+    id: 'e4',
+    userId: '1',
+    courseId: 'c2',
+    status: 'completed',
+    progressPercent: 100,
+    watchTimeMinutes: 180,
+    enrolledAt: '2025-01-20',
+    reportSubmitted: true,
+    surveySubmitted: true,
+    quizSubmitted: true,
+    quizScore: 80,
+    reviewStatus: 'approved',
+    certificateIssued: true,
+    managerComment: null,
+    submittedAt: '2025-01-30',
+    completedAt: '2025-02-03',
+  },
+  {
+    id: 'e5',
+    userId: '4',
+    courseId: 'c4',
+    status: 'pending_review',
+    progressPercent: 100,
+    watchTimeMinutes: 360,
+    enrolledAt: '2025-03-02',
+    reportSubmitted: true,
+    surveySubmitted: true,
+    quizSubmitted: true,
+    quizScore: 78,
+    reviewStatus: 'pending',
+    certificateIssued: false,
+    managerComment: null,
+    submittedAt: '2025-03-20',
+  },
+  {
+    id: 'e6',
+    userId: '4',
+    courseId: 'c9',
+    status: 'in_progress',
+    progressPercent: 60,
+    watchTimeMinutes: 252,
+    enrolledAt: '2025-04-01',
+    reportSubmitted: false,
+    surveySubmitted: false,
+    quizSubmitted: false,
+    quizScore: null,
+    reviewStatus: null,
+    certificateIssued: false,
+    managerComment: null,
+  },
+  {
+    id: 'e7',
+    userId: '4',
+    courseId: 'c10',
+    status: 'rejected',
+    progressPercent: 100,
+    watchTimeMinutes: 360,
+    enrolledAt: '2025-02-15',
+    reportSubmitted: true,
+    surveySubmitted: true,
+    quizSubmitted: true,
+    quizScore: 55,
+    reviewStatus: 'rejected',
+    certificateIssued: false,
+    managerComment: '測驗成績未達標準（55分），請重新複習後再次提交。',
+    submittedAt: '2025-03-05',
+  },
+  {
+    id: 'e8',
+    userId: '5',
+    courseId: 'c15',
+    status: 'pending_review',
+    progressPercent: 100,
+    watchTimeMinutes: 360,
+    enrolledAt: '2025-04-10',
+    reportSubmitted: true,
+    surveySubmitted: true,
+    quizSubmitted: true,
+    quizScore: 80,
+    reviewStatus: 'pending',
+    certificateIssued: false,
+    managerComment: null,
+    submittedAt: '2025-04-28',
+  },
+  {
+    id: 'e9',
+    userId: '5',
+    courseId: 'c16',
+    status: 'in_progress',
+    progressPercent: 45,
+    watchTimeMinutes: 378,
+    enrolledAt: '2025-05-01',
+    reportSubmitted: false,
+    surveySubmitted: false,
+    quizSubmitted: false,
+    quizScore: null,
+    reviewStatus: null,
+    certificateIssued: false,
+    managerComment: null,
+  },
+];
+
+export const DISCUSSIONS: Discussion[] = [
+  {
+    id: 'd1',
+    courseId: 'c4',
+    userId: '1',
+    userName: '王小明',
+    message: '安全衛生訓練非常實用！之前工廠發生過一次小意外，如果早點學到正確的防護步驟就好了。',
+    timestamp: '2025-03-10 14:30',
+  },
+  {
+    id: 'd2',
+    courseId: 'c4',
+    userId: '4',
+    userName: '陳小芳',
+    message: '關於個人防護裝備的部分講解得很清楚，建議增加更多實際操作示範影片。',
+    timestamp: '2025-03-12 09:15',
+  },
+  {
+    id: 'd3',
+    courseId: 'c4',
+    userId: '2',
+    userName: '李主管',
+    message: '感謝大家的積極參與！這門課是所有員工的必修課，請務必認真學習並確實落實。',
+    timestamp: '2025-03-13 11:00',
+  },
+  {
+    id: 'd4',
+    courseId: 'c21',
+    userId: '1',
+    userName: '王小明',
+    message: '學了精實生產後，開始注意生產線上的浪費，光是減少等待就提升不少效率！',
+    timestamp: '2025-02-20 16:45',
+  },
+  {
+    id: 'd5',
+    courseId: 'c21',
+    userId: '2',
+    userName: '李主管',
+    message: '精實生產的概念很好，建議部門同仁都能參加，一起推動生產改善活動。',
+    timestamp: '2025-02-21 10:30',
+  },
+  {
+    id: 'd6',
+    courseId: 'c9',
+    userId: '4',
+    userName: '陳小芳',
+    message: '量測儀器的校正管理很重要，這門課讓我了解了GR&R分析的實際操作方法，受益很多。',
+    timestamp: '2025-04-15 13:20',
+  },
+  {
+    id: 'd7',
+    courseId: 'c15',
+    userId: '5',
+    userName: '張泰勒',
+    message: '客訴處理技巧的角色扮演練習很真實，讓我知道如何在客戶情緒激動時保持冷靜應對。',
+    timestamp: '2025-04-22 15:00',
+  },
+  {
+    id: 'd8',
+    courseId: 'c1',
+    userId: '1',
+    userName: '王小明',
+    message: '消防演練課程讓我知道滅火器的正確使用方式，建議大家都認真完成，緊急時刻很有用。',
+    timestamp: '2025-01-25 09:00',
+  },
+];
+
+export const NOTIFICATIONS: Notification[] = [
+  {
+    id: 'n1',
+    userId: '1',
+    type: 'review_approved',
+    message: '您的「防災研習--消防演練」課程已通過審核，證書已核發！',
+    read: false,
+    createdAt: '2025-01-28 10:00',
+  },
+  {
+    id: 'n2',
+    userId: '1',
+    type: 'enrollment_reminder',
+    message: '提醒：「一般安全衛生教育訓練」課程尚未完成，請盡快完成學習。',
+    read: false,
+    createdAt: '2025-03-20 09:00',
+  },
+  {
+    id: 'n3',
+    userId: '2',
+    type: 'review_pending',
+    message: '有 3 份課程完成申請等待您審核，請前往審核面板處理。',
+    read: false,
+    createdAt: '2025-04-28 14:00',
+  },
+  {
+    id: 'n4',
+    userId: '4',
+    type: 'review_rejected',
+    message: '您的「QCC品管圈實務培訓班」課程審核未通過，請查看主管意見後重新提交。',
+    read: true,
+    createdAt: '2025-03-08 11:30',
+  },
+  {
+    id: 'n5',
+    userId: '4',
+    type: 'review_approved',
+    message: '您的「一般安全衛生教育訓練」課程已通過審核！',
+    read: false,
+    createdAt: '2025-03-22 16:00',
+  },
+];
+
+export const AUDIT_LOGS: AuditLog[] = [
+  {
+    id: 'al1',
+    userId: '3',
+    userName: 'Admin管理員',
+    action: '新增課程',
+    target: '一般安全衛生教育訓練',
+    timestamp: '2025-01-05 09:00',
+    details: '建立新課程，設定為全體必修課程（6小時）',
+  },
+  {
+    id: 'al2',
+    userId: '3',
+    userName: 'Admin管理員',
+    action: '新增課程',
+    target: '防災研習--消防演練',
+    timestamp: '2025-01-10 10:30',
+    details: '建立新課程，設定為全體必修課程',
+  },
+  {
+    id: 'al3',
+    userId: '2',
+    userName: '李主管',
+    action: '審核通過',
+    target: '王小明 - 防災研習--消防演練',
+    timestamp: '2025-01-28 10:00',
+    details: '審核通過並核發結業證書',
+  },
+  {
+    id: 'al4',
+    userId: '2',
+    userName: '李主管',
+    action: '審核退回',
+    target: '陳小芳 - QCC品管圈實務培訓班',
+    timestamp: '2025-03-08 11:30',
+    details: '測驗成績未達標準（55分），退回重新提交',
+  },
+  {
+    id: 'al5',
+    userId: '1',
+    userName: '王小明',
+    action: '完成課程報名',
+    target: '一般安全衛生教育訓練',
+    timestamp: '2025-03-01 08:30',
+    details: '員工自主報名必修課程',
+  },
+  {
+    id: 'al6',
+    userId: '3',
+    userName: 'Admin管理員',
+    action: '上傳教材',
+    target: 'ISO 9001/IATF 16949量測儀器校正管理實務',
+    timestamp: '2025-03-15 14:00',
+    details: '新增品保課專業課程，AI 自動生成測驗題目',
+  },
+  {
+    id: 'al7',
+    userId: '3',
+    userName: 'Admin管理員',
+    action: '新增課程',
+    target: 'AI職場加速術：高效應用×智慧工作',
+    timestamp: '2025-02-15 09:00',
+    details: '新增AI應用核心課程，開放全體員工選修',
+  },
+];
+
+
+export const ASSIGNMENTS: CourseAssignment[] = [
+  {
+    id: 'a1',
+    userId: '1',
+    courseId: 'c4',
+    assignedBy: '3',
+    assignedByName: 'Admin管理員',
+    assignedAt: '2025-01-05',
+    dueDate: '2025-03-31',
+    note: '法定必修，請於Q1完成',
+  },
+  {
+    id: 'a2',
+    userId: '4',
+    courseId: 'c4',
+    assignedBy: '3',
+    assignedByName: 'Admin管理員',
+    assignedAt: '2025-01-05',
+    dueDate: '2025-03-31',
+    note: '法定必修，請於Q1完成',
+  },
+  {
+    id: 'a3',
+    userId: '5',
+    courseId: 'c4',
+    assignedBy: '3',
+    assignedByName: 'Admin管理員',
+    assignedAt: '2025-01-05',
+    dueDate: '2025-03-31',
+    note: '法定必修，請於Q1完成',
+  },
+];
+
+export const COMPANY_ANNOUNCEMENTS = [
+  {
+    id: 'ann1',
+    title: '2026年度訓練計畫公告',
+    content: '本年度教育訓練計畫已完成制定，請各部門主管配合督導同仁於規定期限前完成各項必修課程。年度訓練時數目標：每人至少 24 小時。詳細課程排程請參閱年度計劃頁面。',
+    category: '訓練通知',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-02',
+    pinned: true,
+    important: true,
+  },
+  {
+    id: 'ann2',
+    title: '消防演練日期通知 (2026/01/15)',
+    content: '本次全廠消防演練訂於 2026 年 1 月 15 日（三）下午 14:00 舉行，請全體員工屆時配合疏散至指定集合點。各部門主管請事先完成人員清點分組，疏散路線圖已張貼於各樓層。',
+    category: '安全通知',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-08',
+    pinned: true,
+    important: true,
+  },
+  {
+    id: 'ann3',
+    title: 'ERP系統導入訓練班開放報名',
+    content: '企業全流程 ERP 管理需求課程（上）（下）已開放報名，課程分為兩梯次於 3 月份舉行，每梯次限額 30 名。有意參加之同仁請於 2/28 前向人資部報名，額滿為止。',
+    category: '課程公告',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-02-01',
+    pinned: false,
+    important: false,
+  },
+  {
+    id: 'ann4',
+    title: '年度績效考核制度更新說明',
+    content: '2026 年起績效考核制度調整，訓練時數完成率納入個人年度考核項目，佔比 10%。年度訓練時數未達標者，考核等級上限為「符合預期」，敬請各同仁重視教育訓練參與。',
+    category: '人事公告',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-15',
+    pinned: false,
+    important: false,
+  },
+  {
+    id: 'ann5',
+    title: '外語職場溝通課程開放申請補助',
+    content: '「外語職場溝通（英語）」課程符合勞動力發展署補助資格，員工可申請最高 70% 訓練費用補助。有意報名者請攜帶在職證明向人資部辦理，申請截止日期為 2026/11/30。',
+    category: '補助資訊',
+    publishedBy: 'Admin管理員',
+    publishedAt: '2026-01-20',
+    pinned: false,
+    important: false,
+  },
+];
+
+// 員工於測驗作答時回報的題目問題（如題目與影片內容不符、答案錯誤等），預設為空，
+// 由 HR/管理員於後台處理。
+export const QUESTION_REPORTS: QuestionReport[] = [];

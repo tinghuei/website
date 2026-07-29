@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 70" width="220" height="70">
+  <!-- Geometric C mark -->
+  <!-- Blue parallelogram top -->
+  <polygon points="8,6 46,6 38,22 0,22" fill="#1565C0"/>
+  <!-- Green parallelogram bottom -->
+  <polygon points="16,28 54,28 46,44 8,44" fill="#2E7D32"/>
+  <!-- Blue parallelogram bottom right -->
+  <polygon points="24,50 62,50 54,66 16,66" fill="#1565C0"/>
+
+  <!-- CHOICE text -->
+  <text x="72" y="46" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="32" fill="#1a1a1a" letter-spacing="2">CHOICE</text>
+
+  <!-- Registered trademark -->
+  <text x="206" y="22" font-family="Arial, sans-serif" font-size="12" fill="#1a1a1a">®</text>
+</svg>

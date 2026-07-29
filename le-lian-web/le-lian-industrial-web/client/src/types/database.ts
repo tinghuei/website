@@ -212,6 +212,9 @@ export interface CompetencySelfAssessmentRow {
   self_scores: Record<string, number> | null;
   manager_scores: Record<string, number> | null;
   submitted_at: string;
+  manager_submitted_at: string | null;
+  manager_id: string | null;
+  manager_name: string | null;
 }
 
 export interface OrgSnapshotRow {

@@ -15,7 +15,7 @@ import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCatego
 import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';
 import { loadOverrides, saveOverrides, type PositionCompetencyOverride } from '../../lib/competencyOverrides';
 import { loadEmployeeJDs, saveEmployeeJDs, type EmployeeJDRecord } from '../../lib/employeeJobDescriptions';
-import { loadSelfAssessments, saveSelfAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
+import { loadSelfAssessments, saveSelfAssessment, saveManagerAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 // 職能分數以「職能類別 id」為鍵（例如 cm-1, cm-2...），各職位的類別數量與名稱皆不同（約 2～6 項）
@@ -95,15 +95,6 @@ function buildStandardScores(position: PositionData): CompetencyScores {
   return scores;
 }
 
-// 模擬主管評估分數（於標準值附近隨機波動）
-function buildManagerScores(position: PositionData): CompetencyScores {
-  const target = Math.min(100, position.requiredLevel * 20);
-  const scores: CompetencyScores = {};
-  position.competencies.forEach((c) => {
-    scores[c.id] = Math.min(100, Math.max(30, target + Math.round((Math.random() - 0.4) * 20)));
-  });
-  return scores;
-}
 
 function getDimensions(position: PositionData): DimensionMeta[] {
   return position.competencies.map((c) => ({
@@ -487,6 +478,7 @@ export default function CompetencyAnalysis() {
 
   // 全體員工職能自評紀錄（以使用者 id 為鍵），供跨職位職能缺口總覽彙整使用；僅於送出自評時逐筆更新
   const [selfAssessments, setSelfAssessments] = useState<Record<string, CompetencySelfAssessment>>({});
+  const restoredRef = useRef(false);
   useEffect(() => {
     loadSelfAssessments().then((data) => {
       const map: Record<string, CompetencySelfAssessment> = {};
@@ -494,6 +486,22 @@ export default function CompetencyAnalysis() {
       setSelfAssessments(map);
     });
   }, []);
+
+  // 登入後載入本人既有自評紀錄，恢復已提交狀態（僅執行一次）
+  useEffect(() => {
+    if (!currentUser || restoredRef.current || Object.keys(selfAssessments).length === 0) return;
+    const myRecord = selfAssessments[currentUser.id];
+    if (!myRecord) return;
+    restoredRef.current = true;
+    if (Object.keys(myRecord.selfScores).length > 0) {
+      setSelfScores(myRecord.selfScores);
+      setSubmitted(true);
+    }
+    if (myRecord.managerSubmittedAt && Object.keys(myRecord.managerScores).length > 0) {
+      setManagerScores(myRecord.managerScores);
+      setShowManager(true);
+    }
+  }, [currentUser?.id, selfAssessments]);
 
   // 管理員／人資查看特定員工資料時，暫時覆寫職位職能標準（不影響職位共用的 overrides）
   const [viewingEmployeeName, setViewingEmployeeName] = useState<string | null>(null);
@@ -507,7 +515,7 @@ export default function CompetencyAnalysis() {
   const dimensions = useMemo(() => getDimensions(position), [position]);
 
   const [selfScores, setSelfScores] = useState<CompetencyScores>(() => buildInitialScores(position));
-  const [managerScores, setManagerScores] = useState<CompetencyScores>(() => buildManagerScores(position));
+  const [managerScores, setManagerScores] = useState<CompetencyScores>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [assessmentSaveError, setAssessmentSaveError] = useState<string | null>(null);
@@ -515,6 +523,12 @@ export default function CompetencyAnalysis() {
   const [targetDept, setTargetDept] = useState(DEPARTMENTS[0]);
   const [fitScore, setFitScore] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+
+  // Manager evaluation states (主管評估)
+  const [managerEvalTarget, setManagerEvalTarget] = useState<CompetencySelfAssessment | null>(null);
+  const [managerEvalScores, setManagerEvalScores] = useState<CompetencyScores>({});
+  const [managerEvalSubmitting, setManagerEvalSubmitting] = useState(false);
+  const [managerEvalError, setManagerEvalError] = useState<string | null>(null);
 
   const standards = (empOverride ?? overrides[positionName])?.standards ?? buildStandardScores(position);
 
@@ -528,10 +542,9 @@ export default function CompetencyAnalysis() {
   function handlePositionChange(name: string) {
     setEmpOverride(null);
     setViewingEmployeeName(null);
-    const next = getEffectivePosition(name, overrides);
     setPositionName(name);
-    setSelfScores(buildInitialScores(next));
-    setManagerScores(buildManagerScores(next));
+    setSelfScores(buildInitialScores(getEffectivePosition(name, overrides)));
+    setManagerScores({});
     setSubmitted(false);
     setShowManager(false);
     setFitScore(null);
@@ -601,7 +614,6 @@ export default function CompetencyAnalysis() {
   async function handleSubmit() {
     if (!currentUser) {
       setSubmitted(true);
-      setShowManager(true);
       return;
     }
     setSubmitting(true);
@@ -612,19 +624,58 @@ export default function CompetencyAnalysis() {
       department: currentUser.department || position.category,
       positionName,
       selfScores,
-      managerScores,
+      managerScores: {},
       submittedAt: new Date().toISOString(),
     };
     try {
       await saveSelfAssessment(record);
       setSelfAssessments((prev) => ({ ...prev, [record.userId]: record }));
       setSubmitted(true);
-      // Mock: manager has assessed this user
-      setShowManager(true);
+      // showManager will only become true when manager actually submits their evaluation
     } catch {
       setAssessmentSaveError('儲存自評紀錄失敗，請稍後再試');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // 主管開始評估：以職能標準分數預填，讓主管從標準位置調整
+  function handleStartManagerEval(assessment: CompetencySelfAssessment) {
+    const evalPos = getEffectivePosition(assessment.positionName, overrides);
+    setManagerEvalTarget(assessment);
+    setManagerEvalScores(buildStandardScores(evalPos));
+    setManagerEvalError(null);
+  }
+
+  // 主管送出評估分數
+  async function handleSubmitManagerEval() {
+    if (!managerEvalTarget || !currentUser) return;
+    setManagerEvalSubmitting(true);
+    setManagerEvalError(null);
+    try {
+      await saveManagerAssessment(
+        managerEvalTarget.userId,
+        managerEvalScores,
+        currentUser.id,
+        currentUser.name,
+      );
+      const now = new Date().toISOString();
+      setSelfAssessments((prev) => ({
+        ...prev,
+        [managerEvalTarget.userId]: {
+          ...prev[managerEvalTarget.userId],
+          managerScores: managerEvalScores,
+          managerSubmittedAt: now,
+          managerId: currentUser.id,
+          managerName: currentUser.name,
+        },
+      }));
+      setManagerEvalTarget(null);
+      setManagerEvalScores({});
+    } catch {
+      setManagerEvalError('送出失敗，請稍後再試');
+    } finally {
+      setManagerEvalSubmitting(false);
     }
   }
 
@@ -747,10 +798,9 @@ export default function CompetencyAnalysis() {
     setEmpOverride(null);
     setViewingEmployeeName(null);
 
-    const nextPosition = getEffectivePosition(correctedPositionName, nextOverrides);
     setPositionName(correctedPositionName);
-    setSelfScores(buildInitialScores(nextPosition));
-    setManagerScores(buildManagerScores(nextPosition));
+    setSelfScores(buildInitialScores(getEffectivePosition(correctedPositionName, nextOverrides)));
+    setManagerScores({});
     setSubmitted(false);
     setShowManager(false);
     setFitScore(null);
@@ -767,9 +817,8 @@ export default function CompetencyAnalysis() {
     delete nextOverrides[positionName];
     setOverrides(nextOverrides);
 
-    const nextPosition = getEffectivePosition(positionName, nextOverrides);
-    setSelfScores(buildInitialScores(nextPosition));
-    setManagerScores(buildManagerScores(nextPosition));
+    setSelfScores(buildInitialScores(getEffectivePosition(positionName, nextOverrides)));
+    setManagerScores({});
     setSubmitted(false);
     setShowManager(false);
     setFitScore(null);
@@ -857,9 +906,8 @@ export default function CompetencyAnalysis() {
     setEmpOverride(over);
     setPositionName(record.positionName);
     setViewingEmployeeName(employeeName);
-    const nextPos = { ...DETAILED_COMPETENCY_FRAMEWORK[record.positionName], competencies: over.competencies };
-    setSelfScores(buildInitialScores(nextPos));
-    setManagerScores(buildManagerScores(nextPos));
+    setSelfScores(buildInitialScores({ ...DETAILED_COMPETENCY_FRAMEWORK[record.positionName], competencies: over.competencies }));
+    setManagerScores({});
     setSubmitted(false);
     setShowManager(false);
     setFitScore(null);
@@ -945,6 +993,12 @@ export default function CompetencyAnalysis() {
     [positionGapSummaries]
   );
 
+  // 待完成主管評估：已提交自評但尚無主管評估紀錄的員工
+  const pendingManagerEvals = useMemo(
+    () => Object.values(selfAssessments).filter((a) => !a.managerSubmittedAt),
+    [selfAssessments]
+  );
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* ── Page title ── */}
@@ -1010,6 +1064,104 @@ export default function CompetencyAnalysis() {
               <p className="text-xs font-semibold text-gray-600 mb-1.5">尚無自評資料的職位（{unassessedPositions.length}）</p>
               <p className="text-xs text-gray-500 leading-relaxed">{unassessedPositions.join('、')}</p>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 主管職能評估（主管／人資／管理員）── */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center">
+              <Users size={18} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-gray-900">主管職能評估</h2>
+              <p className="text-xs text-gray-500">
+                {pendingManagerEvals.length > 0
+                  ? `${pendingManagerEvals.length} 位員工已提交自評，等待主管填寫評估分數`
+                  : '目前無待評估的員工自評資料'}
+              </p>
+            </div>
+          </div>
+
+          {pendingManagerEvals.length > 0 && !managerEvalTarget && (
+            <div className="space-y-2 mb-3">
+              {pendingManagerEvals.map((a) => (
+                <div key={a.userId} className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-gray-900">{a.employeeName}</span>
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{a.positionName}</span>
+                      {a.department && <span className="text-xs text-gray-500">{a.department}</span>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      自評提交：{new Date(a.submittedAt).toLocaleDateString('zh-TW')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleStartManagerEval(a)}
+                    className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex-shrink-0"
+                  >
+                    開始評估
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {managerEvalTarget && (() => {
+            const evalPos = getEffectivePosition(managerEvalTarget.positionName, overrides);
+            const evalDims = getDimensions(evalPos);
+            const evalStd = overrides[managerEvalTarget.positionName]?.standards ?? buildStandardScores(evalPos);
+            return (
+              <div className="border border-amber-200 rounded-xl bg-amber-50/40 p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => { setManagerEvalTarget(null); setManagerEvalScores({}); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline"
+                  >
+                    ← 返回列表
+                  </button>
+                  <span className="text-sm font-bold text-gray-900">
+                    評估 {managerEvalTarget.employeeName}（{managerEvalTarget.positionName}）
+                  </span>
+                </div>
+                {evalDims.map(({ id, label }) => (
+                  <div key={id} className="space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-gray-700">{label}</span>
+                      <span className="font-bold text-green-600 tabular-nums">{managerEvalScores[id] ?? 0}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={managerEvalScores[id] ?? 0}
+                      onChange={(e) => setManagerEvalScores((prev) => ({ ...prev, [id]: Number(e.target.value) }))}
+                      className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-green-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>0</span>
+                      <span className="text-gray-500">員工自評：{managerEvalTarget.selfScores[id] ?? 0}｜標準：{evalStd[id] ?? 0}</span>
+                      <span>100</span>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={handleSubmitManagerEval}
+                  disabled={managerEvalSubmitting}
+                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
+                >
+                  {managerEvalSubmitting ? '送出中...' : `提交對 ${managerEvalTarget.employeeName} 的主管評估`}
+                </button>
+                {managerEvalError && <p className="text-xs text-red-600">{managerEvalError}</p>}
+              </div>
+            );
+          })()}
+
+          {pendingManagerEvals.length === 0 && !managerEvalTarget && (
+            <p className="text-xs text-gray-400 text-center py-4">目前無待評估的員工自評資料</p>
           )}
         </div>
       )}
@@ -1581,7 +1733,7 @@ export default function CompetencyAnalysis() {
             </RadarChart>
           </ResponsiveContainer>
           {!showManager && (
-            <p className="text-xs text-gray-400 text-center mt-2">主管評估尚未完成，提交自評後可查看對比</p>
+            <p className="text-xs text-gray-400 text-center mt-2">主管評估尚未完成，主管提交後雷達圖將顯示主管評估曲線</p>
           )}
         </div>
       </div>
@@ -1747,14 +1899,22 @@ export default function CompetencyAnalysis() {
             </button>
             {assessmentSaveError && <p className="text-xs text-red-600">{assessmentSaveError}</p>}
           </div>
-        ) : (
+        ) : showManager ? (
           <div className="flex items-center gap-2 text-green-700 font-medium text-sm">
             <CheckCircle size={18} />
             自評已提交，已收到主管評估結果
           </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-amber-600 font-medium text-sm">
+              <AlertCircle size={18} />
+              自評已提交，等待主管評估中...
+            </div>
+            <p className="text-xs text-gray-400">主管完成評估後，此頁面將顯示自評與主管評估的對比結果。若主管已評估，請重新整理頁面查看。</p>
+          </div>
         )}
 
-        {/* Comparison table after submit */}
+        {/* Comparison table - only shown after manager has submitted */}
         {submitted && showManager && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">

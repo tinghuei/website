@@ -450,19 +450,19 @@ function buildCategoryQuestions(category: CompetencyCategory): GapQuizQuestion[]
 // 依職能落差，從落差最大的職能向度自動生成測驗題
 function generateGapQuiz(position: PositionData, selfScores: CompetencyScores, standards: CompetencyScores): GapQuizQuestion[] {
   const ranked = [...position.competencies].sort((a, b) => {
-    const gapA = (standards[a.id] ?? 0) - (selfScores[a.id] ?? 0);
-    const gapB = (standards[b.id] ?? 0) - (selfScores[b.id] ?? 0);
-    return gapB - gapA;
+    const gapA = (selfScores[a.id] ?? 0) - (standards[a.id] ?? 0);
+    const gapB = (selfScores[b.id] ?? 0) - (standards[b.id] ?? 0);
+    return gapA - gapB; // 最負（落差最大）排前面
   });
 
   const questions: GapQuizQuestion[] = [];
   for (const category of ranked) {
-    const gap = (standards[category.id] ?? 0) - (selfScores[category.id] ?? 0);
+    const gap = (selfScores[category.id] ?? 0) - (standards[category.id] ?? 0);
     const qs = buildCategoryQuestions(category);
-    const take = gap > 15 ? Math.min(2, qs.length) : Math.min(1, qs.length);
+    const take = gap < -15 ? Math.min(2, qs.length) : Math.min(1, qs.length);
     questions.push(...qs.slice(0, take));
     if (questions.length >= 8) break;
-    if (questions.length >= 4 && gap <= 0) break;
+    if (questions.length >= 4 && gap >= 0) break;
   }
   return questions.slice(0, 8);
 }
@@ -585,15 +585,15 @@ export default function CompetencyAnalysis() {
     ...(showManager ? { 主管評估: managerScores[id] ?? 0 } : {}),
   }));
 
-  // Gap analysis helpers
+  // Gap analysis helpers（正數 = 超出標準、綠色；負數 = 低於標準、紅色）
   function getGapColor(gap: number) {
-    if (gap <= 0) return 'bg-green-100 border-green-300 text-green-800';
-    if (gap <= 15) return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+    if (gap >= 0) return 'bg-green-100 border-green-300 text-green-800';
+    if (gap >= -15) return 'bg-yellow-100 border-yellow-300 text-yellow-800';
     return 'bg-red-100 border-red-300 text-red-800';
   }
   function getGapIcon(gap: number) {
-    if (gap <= 0) return <CheckCircle size={16} className="text-green-600" />;
-    if (gap <= 15) return <AlertCircle size={16} className="text-yellow-600" />;
+    if (gap >= 0) return <CheckCircle size={16} className="text-green-600" />;
+    if (gap >= -15) return <AlertCircle size={16} className="text-yellow-600" />;
     return <XCircle size={16} className="text-red-600" />;
   }
 
@@ -914,7 +914,7 @@ export default function CompetencyAnalysis() {
         const dimGapTotals: Record<string, number> = {};
         assessments.forEach((a) => {
           dims.forEach(({ id }) => {
-            const gap = (std[id] ?? 0) - (a.selfScores[id] ?? 0);
+            const gap = (a.selfScores[id] ?? 0) - (std[id] ?? 0);
             totalGap += gap;
             totalCount += 1;
             dimGapTotals[id] = (dimGapTotals[id] ?? 0) + gap;
@@ -923,10 +923,10 @@ export default function CompetencyAnalysis() {
         const avgGap = totalCount > 0 ? Math.round(totalGap / totalCount) : 0;
 
         let worstDimension: string | null = null;
-        let worstGap = -Infinity;
+        let worstGap = Infinity;
         dims.forEach(({ id, label }) => {
           const avg = (dimGapTotals[id] ?? 0) / assessments.length;
-          if (avg > worstGap) { worstGap = avg; worstDimension = label; }
+          if (avg < worstGap) { worstGap = avg; worstDimension = label; }
         });
 
         return {
@@ -937,7 +937,7 @@ export default function CompetencyAnalysis() {
           worstDimension,
         };
       })
-      .sort((a, b) => b.avgGap - a.avgGap);
+      .sort((a, b) => a.avgGap - b.avgGap); // 落差最大（最負）排前面
   }, [selfAssessments, overrides]);
 
   const unassessedPositions = useMemo(
@@ -975,7 +975,7 @@ export default function CompetencyAnalysis() {
               <h2 className="text-sm font-bold text-gray-900">全職位職能缺口總覽</h2>
               <p className="text-xs text-gray-500">
                 {positionGapSummaries.length > 0
-                  ? `已有 ${positionGapSummaries.length} 個職位累積員工自評資料，依平均落差由大到小排序`
+                  ? `已有 ${positionGapSummaries.length} 個職位累積員工自評資料，依落差由大到小排序（負數＝低於標準）`
                   : '尚無員工自評紀錄；員工於下方完成「提交自評」後，將自動彙整至此總覽'}
               </p>
             </div>
@@ -990,12 +990,12 @@ export default function CompetencyAnalysis() {
                     {getGapIcon(s.avgGap)}
                   </div>
                   <p className="text-xs opacity-75">{s.department}・{s.assessmentCount} 筆自評</p>
-                  <div className="text-lg font-bold tabular-nums">{s.avgGap > 0 ? `+${s.avgGap}` : s.avgGap}</div>
-                  <p className="text-xs opacity-75">{s.avgGap <= 0 ? '已達標準' : `平均落差 ${s.avgGap} 分`}</p>
-                  {s.worstDimension && s.avgGap > 0 && (
+                  <div className="text-lg font-bold tabular-nums">{s.avgGap >= 0 ? `+${s.avgGap}` : s.avgGap}</div>
+                  <p className="text-xs opacity-75">{s.avgGap >= 0 ? '已達或超過標準' : `平均落差 ${Math.abs(s.avgGap)} 分`}</p>
+                  {s.worstDimension && s.avgGap < 0 && (
                     <p className="text-xs opacity-75">最大落差向度：{s.worstDimension}</p>
                   )}
-                  {s.avgGap > 15 && (
+                  {s.avgGap < -15 && (
                     <span className="inline-block text-xs px-1.5 py-0.5 bg-white bg-opacity-60 rounded-md border border-current border-opacity-30 leading-tight font-medium">
                       建議優先訓練
                     </span>
@@ -1593,7 +1593,7 @@ export default function CompetencyAnalysis() {
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {dimensions.map(({ id, label, course }) => {
-            const gap = (standards[id] ?? 0) - (selfScores[id] ?? 0);
+            const gap = (selfScores[id] ?? 0) - (standards[id] ?? 0);
             return (
               <div
                 key={id}
@@ -1604,12 +1604,12 @@ export default function CompetencyAnalysis() {
                   <span className="text-xs font-semibold">{label}</span>
                 </div>
                 <div className="text-lg font-bold tabular-nums">
-                  {gap > 0 ? `+${gap}` : gap}
+                  {gap >= 0 ? `+${gap}` : gap}
                 </div>
                 <div className="text-xs opacity-75">
-                  {gap <= 0 ? '已達標準' : `落差 ${gap} 分`}
+                  {gap >= 0 ? '已達或超過標準' : `落差 ${Math.abs(gap)} 分`}
                 </div>
-                {gap > 0 && (
+                {gap < 0 && (
                   <span className="inline-block text-xs px-1.5 py-0.5 bg-white bg-opacity-60 rounded-md border border-current border-opacity-30 leading-tight">
                     建議：{course}
                   </span>

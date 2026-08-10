@@ -803,6 +803,24 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
           { id: 'gm-2-2', name: '管理組織相關事務', description: '統籌管理服務事項，管理宿舍，維護建築物公共安全，制定規範，執行績效考核' },
         ]
       },
+      {
+        id: 'gm-3',
+        category: '設施與環境管理',
+        items: [
+          { id: 'gm-3-1', name: '廠區設施維護管理', description: '規劃並督導廠區建築、水電、空調等基礎設施的定期維護與修繕作業' },
+          { id: 'gm-3-2', name: '環境清潔與綠化管理', description: '維護辦公及廠區環境整潔，規劃綠化美化及廢棄物清除作業' },
+          { id: 'gm-3-3', name: '節能與ESG管理', description: '推動節能減碳措施，配合公司ESG政策執行環境管理改善方案' },
+        ]
+      },
+      {
+        id: 'gm-4',
+        category: '法規合規與安全管理',
+        items: [
+          { id: 'gm-4-1', name: '職安衛法規遵循', description: '確認廠區相關設施符合職業安全衛生法規要求，執行安全檢查與改善' },
+          { id: 'gm-4-2', name: '消防與緊急應變', description: '規劃執行消防設備維護及緊急應變演練，確保廠區安全' },
+          { id: 'gm-4-3', name: '保險與法律事務協助', description: '管理各項財產與意外保險合約，協助處理與總務相關之法律事務' },
+        ]
+      },
     ]
   },
   '總務課副課長': {

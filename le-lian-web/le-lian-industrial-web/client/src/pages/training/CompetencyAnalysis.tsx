@@ -118,11 +118,17 @@ interface RecognizedDoc {
   extractedItems: string[];
 }
 
-// 依職位的職能評分標準覆寫資料，計算「有效」職位資料：若該職位已有自訂覆寫，以覆寫的職能類別取代框架預設值
+// 依職位的職能評分標準覆寫資料，計算「有效」職位資料。
+// 若 override 存在，將基礎 iCAP 框架中 override 未涵蓋的職能類別補入（保留公司自訂技能），
+// 避免舊版 override 因框架更新而遺漏較新的職能向度。
 function getEffectivePosition(name: string, overridesMap: Record<string, PositionCompetencyOverride>): PositionData {
   const base = DETAILED_COMPETENCY_FRAMEWORK[name];
   const override = overridesMap[name];
-  return override ? { ...base, competencies: override.competencies } : base;
+  if (!override) return base;
+  const overrideIds = new Set(override.competencies.map((c) => c.id));
+  const missing = base.competencies.filter((c) => !overrideIds.has(c.id));
+  const competencies = missing.length ? [...override.competencies, ...missing] : override.competencies;
+  return { ...base, competencies };
 }
 
 // 依檔名長度由長到短比對職位名稱，避免「組長」誤判蓋掉「副組長」等較長的職位名稱

@@ -299,10 +299,9 @@ function simulateRecognitionFromFileName(fileName: string): RecognizedDoc {
   };
 }
 
-// 判斷擷取出的技能名稱是否已被現有 iCAP 職能類別涵蓋（相同或高度相似）。
+// 判斷擷取出的技能名稱是否已被現有 iCAP 職能類別涵蓋（完全相同或高度重疊）。
 // 比對邏輯：去除空白後先做完整包含比對；再以短字串的獨特字元集與長字串做重疊率比較。
-// 閾值 0.55 可過濾「行政協助」≈「行政協助」、「數據分析能力」≈「數據分析與財務協助」等情形，
-// 同時保留「跨機能適應能力」「自我管理能力」等框架中確實不存在的新維度。
+// 閾值 0.75：需要 75% 以上的字元重疊才視為重複，避免過度過濾不同的技能名稱。
 function isDuplicateSkill(skill: string, existingCategories: CompetencyCategory[]): boolean {
   const ns = skill.replace(/\s/g, '');
   if (ns.length < 2) return false;
@@ -314,7 +313,7 @@ function isDuplicateSkill(skill: string, existingCategories: CompetencyCategory[
     const longer = ns.length > nc.length ? ns : nc;
     const uniqueChars = Array.from(new Set(Array.from(shorter)));
     const overlap = uniqueChars.filter((ch) => longer.includes(ch)).length;
-    return overlap / uniqueChars.length >= 0.55;
+    return overlap / uniqueChars.length >= 0.75;
   });
 }
 

@@ -69,14 +69,38 @@ function extractCheckedPosition(text: string): string | null {
   return checked.length ? checked.join('、') : null;
 }
 
-// 擷取「五、本職位之工作職能及相關技能要求」表格中，指定列（如「專業能力」「教育訓練需求」）的項目清單
-function extractListSection(text: string, label: string, nextLabels: string[]): string[] {
-  const nextPattern = nextLabels.length ? `(?:${nextLabels.join('|')})` : '$';
-  const re = new RegExp(`${label}[\\s\\S]{0,1200}?(?=${nextPattern})`);
-  const m = text.match(re) ?? (nextLabels.length ? null : text.match(new RegExp(`${label}[\\s\\S]{0,1200}`)));
+// 常見「專業能力」區塊的各種標題用法（依比對優先序排列）
+const SKILL_LABELS = [
+  '專業能力',
+  '本職位之工作職能及相關技能要求',
+  '工作職能及相關技能要求',
+  '工作職能',
+  '職能要求',
+  '技能要求',
+  '專業技能',
+  '核心職能',
+  '職能及技能',
+  '工作技能',
+];
+
+// 常見「教育訓練需求」區塊的各種標題用法
+const TRAINING_LABELS = [
+  '教育訓練需求',
+  '訓練需求',
+  '教育訓練',
+  '培訓需求',
+];
+
+// 擷取工作說明書中指定區段的項目清單；支援多種編號與條列格式
+function extractListSection(text: string, label: string, stopLabels: string[]): string[] {
+  const stopPattern = stopLabels.length ? `(?:${stopLabels.join('|')})` : null;
+  const re = stopPattern
+    ? new RegExp(`${label}[\\s\\S]{0,1200}?(?=${stopPattern})`)
+    : new RegExp(`${label}[\\s\\S]{0,1200}`);
+  const m = text.match(re);
   if (!m) return [];
   const segment = m[0];
-  // 支援多種編號格式：「1. xxx」「1、xxx」「（一）xxx」「一、xxx」「• xxx」「- xxx」「□ xxx」
+  // 支援多種編號格式：「1. xxx」「1、xxx」「（一）xxx」「• xxx」「- xxx」「□ xxx」
   const numericItems = Array.from(segment.matchAll(/\d+[.、)）]\s*([^\n\d]{2,60})/g))
     .map((mm) => trimValue(mm[1]));
   const chineseItems = Array.from(segment.matchAll(/[（(][一二三四五六七八九十百][)）]\s*([^\n]{2,60})/g))
@@ -93,15 +117,25 @@ function extractListSection(text: string, label: string, nextLabels: string[]): 
   });
 }
 
+// 依優先序逐一嘗試各種標籤，回傳第一個成功擷取到項目的結果
+function extractListSectionMulti(text: string, labels: string[], stopLabels: string[]): string[] {
+  for (const label of labels) {
+    const items = extractListSection(text, label, stopLabels);
+    if (items.length > 0) return items;
+  }
+  return [];
+}
+
 /** 解析工作說明書文字內容，辨識所屬單位、職位、工作摘要與職能技能要求。 */
 export function parseJobDescriptionText(text: string): ParsedJobDescription {
   const normalized = despaceChinese(text);
+  const allStopLabels = [...SKILL_LABELS, ...TRAINING_LABELS];
 
   return {
     department: extractLabelValue(normalized, '所屬單位'),
     jobSummary: extractLabelValue(normalized, '工作摘要'),
     positionTitle: extractCheckedPosition(normalized),
-    professionalSkills: extractListSection(normalized, '專業能力', ['教育訓練需求']),
-    trainingNeeds: extractListSection(normalized, '教育訓練需求', []),
+    professionalSkills: extractListSectionMulti(normalized, SKILL_LABELS, TRAINING_LABELS),
+    trainingNeeds: extractListSectionMulti(normalized, TRAINING_LABELS, allStopLabels.filter((l) => !TRAINING_LABELS.includes(l))),
   };
 }

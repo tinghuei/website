@@ -188,6 +188,25 @@ JSONBIN_BIN_RECURRING = os.environ.get("JSONBIN_BIN_RECURRING", "6a229182da38895
 JSONBIN_BIN_USER      = os.environ.get("JSONBIN_BIN_USER",      "6a22916af5f4af5e29bcd01c")
 USE_JSONBIN = bool(JSONBIN_API_KEY) and IS_CLOUD
 
+# ── Outlook（Microsoft Graph）整合 ─────────────────────────────
+# 在 Azure Portal 註冊應用程式後，把 Client ID 填到 MS_CLIENT_ID 環境變數
+# 主管信箱地址填到 MS_BOSS_EMAIL 環境變數（可用逗號分隔多個）
+MS_CLIENT_ID     = os.environ.get("MS_CLIENT_ID", "")
+MS_BOSS_EMAILS   = [e.strip().lower() for e in os.environ.get("MS_BOSS_EMAIL", "").split(",") if e.strip()]
+JSONBIN_BIN_MS_TOKEN = os.environ.get("JSONBIN_BIN_MS_TOKEN", "")
+JSONBIN_BIN_MS_SEEN  = os.environ.get("JSONBIN_BIN_MS_SEEN", "")
+USE_MS_MAIL = bool(MS_CLIENT_ID) and USE_JSONBIN and bool(JSONBIN_BIN_MS_TOKEN)
+
+# 科目／請款方式分類規則：關鍵字 → (科目, 請款方式)
+# 依實際需求增修，找不到符合的關鍵字時會交給 AI 判斷
+CLASSIFY_RULES = [
+    # (關鍵字列表, 科目, 請款方式)
+    (["計程車", "taxi", "uber", "交通"], "交通費", "先行墊付"),
+    (["餐", "飯店", "住宿", "招待", "會議"], "招待費", "信用卡"),
+    (["文具", "耗材", "用品"], "文具用品", "先行墊付"),
+    (["快遞", "郵寄", "運費"], "郵電費", "先行墊付"),
+]
+
 def _jb_get(bin_id):
     ctx = ssl.create_default_context()
     conn = http.client.HTTPSConnection("api.jsonbin.io", context=ctx)
@@ -226,6 +245,218 @@ def _jb_create(name, init_data):
     body = json.loads(r.read().decode("utf-8"))
     conn.close()
     return body.get("metadata", {}).get("id", "")
+
+# ── Outlook / Microsoft Graph 串接 ─────────────────────────────
+MS_AUTHORITY = "https://login.microsoftonline.com/consumers"
+
+def _ms_load_token():
+    if not JSONBIN_BIN_MS_TOKEN:
+        return {}
+    try:
+        d = _jb_get(JSONBIN_BIN_MS_TOKEN)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+def _ms_save_token(d):
+    if not JSONBIN_BIN_MS_TOKEN:
+        return
+    try:
+        _jb_put(JSONBIN_BIN_MS_TOKEN, d)
+    except Exception as e:
+        print(f"[ms_save_token] {e}")
+
+def _ms_load_seen():
+    if not JSONBIN_BIN_MS_SEEN:
+        return []
+    try:
+        d = _jb_get(JSONBIN_BIN_MS_SEEN)
+        return d.get("ids", []) if isinstance(d, dict) else []
+    except Exception:
+        return []
+
+def _ms_save_seen(ids):
+    if not JSONBIN_BIN_MS_SEEN:
+        return
+    try:
+        _jb_put(JSONBIN_BIN_MS_SEEN, {"ids": ids[-500:]})
+    except Exception as e:
+        print(f"[ms_save_seen] {e}")
+
+def _ms_post_form(path, params):
+    import urllib.parse as _up
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("login.microsoftonline.com", context=ctx)
+    body = _up.urlencode(params)
+    conn.request("POST", f"/consumers{path}", body=body, headers={
+        "Content-Type": "application/x-www-form-urlencoded",
+    })
+    r = conn.getresponse()
+    data = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    return data
+
+def ms_start_device_flow(user_id):
+    """啟動 Outlook 裝置授權流程：傳登入連結給使用者，背景輪詢直到完成"""
+    if not MS_CLIENT_ID:
+        line_push(user_id, "⚠️ 尚未設定 MS_CLIENT_ID，請先到 Azure Portal 註冊應用程式並設定環境變數。", quick_reply=MAIN_MENU)
+        return
+    try:
+        resp = _ms_post_form("/oauth2/v2.0/devicecode", {
+            "client_id": MS_CLIENT_ID,
+            "scope": "offline_access Mail.Read",
+        })
+        if "device_code" not in resp:
+            line_push(user_id, f"⚠️ 無法啟動 Outlook 授權：{resp}", quick_reply=MAIN_MENU)
+            return
+
+        line_push(user_id,
+            f"🔗 請在瀏覽器打開：\n{resp['verification_uri']}\n\n"
+            f"輸入代碼：{resp['user_code']}\n\n"
+            f"登入完成後我會自動通知你！（{int(resp.get('expires_in',900)/60)}分鐘內有效）",
+            quick_reply=MAIN_MENU)
+
+        interval = resp.get("interval", 5)
+        deadline = time.time() + resp.get("expires_in", 900)
+        while time.time() < deadline:
+            time.sleep(interval)
+            token_resp = _ms_post_form("/oauth2/v2.0/token", {
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                "client_id": MS_CLIENT_ID,
+                "device_code": resp["device_code"],
+            })
+            if "access_token" in token_resp:
+                token_resp["obtained_at"] = int(time.time())
+                _ms_save_token(token_resp)
+                line_push(user_id, "✅ Outlook 已成功連接！之後主管的請款信會自動幫你分類並通知你。", quick_reply=MAIN_MENU)
+                return
+            err = token_resp.get("error", "")
+            if err == "authorization_pending":
+                continue
+            elif err == "authorization_declined":
+                line_push(user_id, "❌ Outlook 授權被拒絕了，需要的話再傳「連接outlook」重新開始。", quick_reply=MAIN_MENU)
+                return
+            elif err == "expired_token":
+                line_push(user_id, "⏰ 授權逾時了，請重新傳「連接outlook」再試一次。", quick_reply=MAIN_MENU)
+                return
+            else:
+                line_push(user_id, f"⚠️ Outlook 授權失敗：{token_resp}", quick_reply=MAIN_MENU)
+                return
+    except Exception as e:
+        print(f"[ms_start_device_flow] {e}")
+        line_push(user_id, f"⚠️ 連接 Outlook 時發生錯誤：{e}", quick_reply=MAIN_MENU)
+
+def ms_get_access_token():
+    """取得有效的 access token，過期就用 refresh_token 換新的"""
+    tok = _ms_load_token()
+    if not tok.get("refresh_token"):
+        return None
+    obtained_at = tok.get("obtained_at", 0)
+    expires_in = tok.get("expires_in", 3600)
+    if time.time() < obtained_at + expires_in - 120:
+        return tok.get("access_token")
+
+    resp = _ms_post_form("/oauth2/v2.0/token", {
+        "grant_type": "refresh_token",
+        "client_id": MS_CLIENT_ID,
+        "refresh_token": tok["refresh_token"],
+        "scope": "offline_access Mail.Read",
+    })
+    if "access_token" not in resp:
+        print(f"[ms_get_access_token] refresh failed: {resp}")
+        return None
+    resp["obtained_at"] = int(time.time())
+    _ms_save_token(resp)
+    return resp["access_token"]
+
+def _ms_graph_get(path):
+    token = ms_get_access_token()
+    if not token:
+        return None
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("graph.microsoft.com", context=ctx)
+    conn.request("GET", path, headers={"Authorization": f"Bearer {token}"})
+    r = conn.getresponse()
+    data = json.loads(r.read().decode("utf-8"))
+    conn.close()
+    return data
+
+def classify_expense(subject, preview):
+    """依關鍵字規則分類科目/請款方式，找不到就交給 AI 判斷"""
+    text = f"{subject} {preview}"
+    for keywords, category, method in CLASSIFY_RULES:
+        if any(kw in text for kw in keywords):
+            return {"category": category, "method": method}
+    try:
+        prompt = (
+            "根據以下請款信件內容，判斷最可能的「會計科目」與「請款方式」（例如：交通費/招待費/文具用品/其他，"
+            "先行墊付/信用卡/匯款），只回傳 JSON，不要其他文字：\n"
+            f"{text[:500]}\n"
+            '格式：{"category":"科目","method":"請款方式"}'
+        )
+        raw = _call_groq_raw([{"role": "user", "content": prompt}], max_tokens=60)
+        parsed = _safe_json(raw)
+        if parsed.get("category"):
+            return {"category": parsed.get("category", "其他"), "method": parsed.get("method", "未指定")}
+    except Exception as e:
+        print(f"[classify_expense] {e}")
+    return {"category": "其他", "method": "未指定"}
+
+def check_boss_mail():
+    """檢查主管信箱是否有新的請款信，分類後推播 LINE 通知"""
+    if not USE_MS_MAIL or not MS_BOSS_EMAILS:
+        return
+    uid = load_user_id()
+    if not uid:
+        return
+    try:
+        data = _ms_graph_get(
+            "/v1.0/me/mailFolders/inbox/messages"
+            "?$top=15&$orderby=receivedDateTime desc"
+            "&$select=id,subject,from,bodyPreview,receivedDateTime"
+        )
+        if not data or "value" not in data:
+            return
+        seen = set(_ms_load_seen())
+        new_seen = list(seen)
+        m = get_member()
+
+        for msg in data["value"]:
+            mid = msg.get("id", "")
+            if not mid or mid in seen:
+                continue
+            sender = (msg.get("from", {}) or {}).get("emailAddress", {}).get("address", "").lower()
+            if sender not in MS_BOSS_EMAILS:
+                continue
+
+            subject = msg.get("subject", "（無主旨）")
+            preview = msg.get("bodyPreview", "")
+            is_expense = any(kw in (subject + preview) for kw in
+                              ["請款", "報帳", "費用", "核銷", "發票", "收據", "invoice", "expense"])
+            new_seen.append(mid)
+
+            if is_expense:
+                info = classify_expense(subject, preview)
+                push_msg = (
+                    f"{m['emoji']} 主管請款信通知！\n\n"
+                    f"📧 主旨：{subject}\n"
+                    f"📂 科目：{info['category']}\n"
+                    f"💳 請款方式：{info['method']}\n\n"
+                    f"📝 內容摘要：{preview[:120]}\n\n"
+                    f"時間：{msg.get('receivedDateTime','')[:16].replace('T',' ')}"
+                )
+            else:
+                push_msg = (
+                    f"{m['emoji']} 主管來信通知\n\n"
+                    f"📧 主旨：{subject}\n📝 {preview[:120]}"
+                )
+            line_push(uid, push_msg, quick_reply=MAIN_MENU)
+            print(f"[Outlook] 新信件通知：{subject}")
+
+        if new_seen != list(seen):
+            _ms_save_seen(new_seen)
+    except Exception as e:
+        print(f"[check_boss_mail] {e}")
 
 # ── BTS 目前動態（可手動更新）────────────────────────────────
 BTS_STATUS = """
@@ -1904,6 +2135,19 @@ def _dispatch(user_id, reply_token, text):
                 "items": [{"type": "action", "action": {"type": "camera", "label": "📸 拍發票"}}]
             })
 
+    # ── 連接 Outlook ──
+    elif text in ["連接outlook", "連接Outlook", "設定outlook", "設定Outlook", "outlook", "Outlook"]:
+        if not MS_CLIENT_ID:
+            line_reply(reply_token,
+                "⚠️ 尚未設定 Outlook 串接（缺少 MS_CLIENT_ID）。\n"
+                "請先到 Azure Portal 註冊應用程式，並在 Render 環境變數設定：\n"
+                "MS_CLIENT_ID、MS_BOSS_EMAIL\n"
+                "還需要 JSONBIN_BIN_MS_TOKEN、JSONBIN_BIN_MS_SEEN 兩個新的 JSONBin bin。",
+                quick_reply=MAIN_MENU)
+        else:
+            line_reply(reply_token, "🔄 正在啟動 Outlook 連接，請稍等...", quick_reply=MAIN_MENU)
+            threading.Thread(target=ms_start_device_flow, args=(user_id,), daemon=True).start()
+
     # ── 使用說明 ──
     elif text in ["幫助", "help", "Help", "？", "?", "使用說明"]:
         line_reply(reply_token,
@@ -1923,6 +2167,7 @@ def _dispatch(user_id, reply_token, text):
             "📅 記住 每月25號...\n"
             "📅 查看固定行程\n"
             f"🗑️ 刪除固定 名稱\n\n"
+            "📧 連接outlook → 連接主管信箱，自動分類請款信通知\n\n"
             f"{m['name']} 全程監督！{m['emoji']}",
             quick_reply=MAIN_MENU)
 
@@ -2348,6 +2593,8 @@ def run_scheduler():
     schedule.every(1).minutes.do(check_reminders)
     schedule.every(2).hours.do(check_and_checkin)
     schedule.every().day.at("08:00").do(check_recurring)
+    if USE_MS_MAIL:
+        schedule.every(10).minutes.do(check_boss_mail)
     # 每日固定關心訊息（3 個時段各設一個）
     # 每日關心訊息（暫時關閉以節省 LINE 推播額度，需要時取消註解）
     # schedule.every().day.at("08:30").do(send_daily_checkin, "08:30", "morning",   "早安！")

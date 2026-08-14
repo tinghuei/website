@@ -186,6 +186,9 @@ JSONBIN_API_KEY  = os.environ.get("JSONBIN_API_KEY", "")
 JSONBIN_BIN_TASKS     = os.environ.get("JSONBIN_BIN_TASKS",     "6a229193f5f4af5e29bcd0d7")
 JSONBIN_BIN_RECURRING = os.environ.get("JSONBIN_BIN_RECURRING", "6a229182da38895dfe8b48b2")
 JSONBIN_BIN_USER      = os.environ.get("JSONBIN_BIN_USER",      "6a22916af5f4af5e29bcd01c")
+# 多使用者支援：每個使用者的成員選擇、Rich Menu 對照表（沒設定時退回單一全域設定，僅適合單人使用）
+JSONBIN_BIN_MEMBER    = os.environ.get("JSONBIN_BIN_MEMBER",    "")
+JSONBIN_BIN_RICHMENU  = os.environ.get("JSONBIN_BIN_RICHMENU",  "")
 USE_JSONBIN = bool(JSONBIN_API_KEY) and IS_CLOUD
 
 # ── Outlook（Microsoft Graph）整合 ─────────────────────────────
@@ -327,6 +330,7 @@ def ms_start_device_flow(user_id):
             })
             if "access_token" in token_resp:
                 token_resp["obtained_at"] = int(time.time())
+                token_resp["owner_uid"] = user_id
                 _ms_save_token(token_resp)
                 line_push(user_id, "✅ Outlook 已成功連接！之後主管的請款信會自動幫你分類並通知你。", quick_reply=MAIN_MENU)
                 return
@@ -403,10 +407,10 @@ def classify_expense(subject, preview):
     return {"category": "其他", "method": "未指定"}
 
 def check_boss_mail():
-    """檢查主管信箱是否有新的請款信，分類後推播 LINE 通知"""
+    """檢查主管信箱是否有新的請款信，分類後推播 LINE 通知給設定此串接的使用者"""
     if not USE_MS_MAIL or not MS_BOSS_EMAILS:
         return
-    uid = load_user_id()
+    uid = _ms_load_token().get("owner_uid", "")
     if not uid:
         return
     try:
@@ -419,7 +423,7 @@ def check_boss_mail():
             return
         seen = set(_ms_load_seen())
         new_seen = list(seen)
-        m = get_member()
+        m = get_member(uid)
 
         for msg in data["value"]:
             mid = msg.get("id", "")
@@ -467,8 +471,8 @@ Jin 目前心情：開心、活潑、很想跟ARMY互動，常常在直播搞笑
 """
 
 # ── 動態 prompt（根據當前成員生成）─────────────────────────────
-def _task_prompt():
-    m = get_member()
+def _task_prompt(uid=None):
+    m = get_member(uid)
     return f"""{m['persona']}
 
 Current datetime: {{now}}
@@ -488,10 +492,10 @@ IMPORTANT: First determine if TASK/REMINDER or just CHAT.
 Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的話，繁體中文","tasks":[{{"id":"t1","title":"任務名稱","detail":"細節說明","remind_in_minutes":30,"status":"pending"}}]}}"""
 
-def _build_schedule_context():
+def _build_schedule_context(uid):
     """整理目前待辦任務與固定行程，讓聊天回覆能自然提到使用者的行程"""
     try:
-        tasks = load_tasks()
+        tasks = load_tasks(uid)
         pending = [t for t in tasks if t.get("status") == "pending"]
         pending.sort(key=lambda t: t.get("remind_at", ""))
         lines = []
@@ -502,7 +506,7 @@ def _build_schedule_context():
         else:
             lines.append("使用者目前沒有待辦事項。")
 
-        recurring = [r for r in load_recurring() if r.get("active", True)]
+        recurring = [r for r in load_recurring(uid) if r.get("active", True)]
         if recurring:
             lines.append("使用者的固定行程（可自然提起）：")
             for r in recurring[:5]:
@@ -511,8 +515,8 @@ def _build_schedule_context():
     except Exception:
         return "使用者目前沒有待辦事項。"
 
-def _chat_prompt():
-    m = get_member()
+def _chat_prompt(uid=None):
+    m = get_member(uid)
     return f"""{m['persona']}
 
 Current datetime: {{now}}
@@ -529,8 +533,8 @@ Keep replies 2-5 sentences, conversational and natural.
 Sometimes ask back questions to keep the conversation going.
 Reply ONLY with the message text (no JSON)."""
 
-def _checkin_prompt():
-    m = get_member()
+def _checkin_prompt(uid=None):
+    m = get_member(uid)
     return f"""{m['persona']}
 
 Current datetime: {{now}}
@@ -540,8 +544,8 @@ The user has no pending tasks. Send a warm, spontaneous check-in message.
 2-4 sentences. Match {m['name']}'s personality.
 Reply ONLY with the message text."""
 
-def _daily_checkin_prompt(slot_name):
-    m = get_member()
+def _daily_checkin_prompt(slot_name, uid=None):
+    m = get_member(uid)
     slot_ctx = {
         "morning": "This is a morning greeting. Be energetic and motivating.",
         "afternoon": "This is an afternoon check-in. Be casual and friendly.",
@@ -563,8 +567,8 @@ Time expression: "{expr}"
 Reply ONLY with a single integer (minutes). Must be > 0. No other text."""
 
 # 圖片分析 prompt（動態，根據成員生成）
-def _image_prompt():
-    m = get_member()
+def _image_prompt(uid=None):
+    m = get_member(uid)
     return f"""{m['persona']}
 
 Look at this handwritten to-do list image carefully.
@@ -579,8 +583,8 @@ Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的話，繁體中文","urgent":[{{"title":"任務名稱","detail":"為什麼緊急或截止時間","remind_in_minutes":30}}],"later":[{{"title":"任務名稱","detail":"建議什麼時候做","remind_in_minutes":120}}]}}"""
 
 # 發票辨識 prompt（動態，根據成員生成）
-def _invoice_prompt():
-    m = get_member()
+def _invoice_prompt(uid=None):
+    m = get_member(uid)
     return f"""{m['persona']}
 
 Look at this photo of a Taiwan invoice/receipt (發票或收據) carefully and extract the following fields.
@@ -611,8 +615,8 @@ Reply ONLY with JSON:
 {{"jin_message":"{m['name']}風格的一句話，繁體中文","invoice_type":"三聯式","invoice_number":"AB12345678","invoice_date":"2026-06-01","amount":1200,"seller_name":"...","buyer_tax_id":null,"tax_label":"應稅","untaxed_amount":null,"tax_amount":null,"receipt_has_seller_stamp":null,"seller_tax_id":null,"items_summary":"...","notes":""}}"""
 
 # 固定行程解析 prompt（動態，根據成員生成）
-def _recurring_prompt(now=""):
-    m = get_member()
+def _recurring_prompt(now="", uid=None):
+    m = get_member(uid)
     return f"""{m['persona']}
 
 The user is telling you about a recurring/fixed schedule item they want you to remember.
@@ -665,59 +669,102 @@ Examples:
 - "每月1號和15號..." → items有2筆, 分別 month_day=1 和 month_day=15
 - 用戶說的複雜多日期描述 → 拆成多筆分別記錄"""
 
-def get_remind_templates():
-    """返回當前成員的提醒模板，使用 jin 的模板作為後備"""
-    return BTS_MEMBERS[load_member()].get('remind_templates',
+def get_remind_templates(uid=None):
+    """返回該使用者目前成員的提醒模板，使用 jin 的模板作為後備"""
+    return BTS_MEMBERS[load_member(uid)].get('remind_templates',
         BTS_MEMBERS['jin']['remind_templates'])
 
-# ── 工具函數 ──────────────────────────────────────────────────
-def load_tasks():
+# ── 工具函數（多使用者資料以 user_id 為 key 分開儲存，避免共用帳號互相混淆）──
+def _bin_get_users_map(bin_id):
+    """讀取 {"users": {uid: value}} 結構的 bin，失敗回傳空 dict"""
+    try:
+        d = _jb_get(bin_id)
+        return d.get("users", {}) if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+def load_tasks(uid):
     if USE_JSONBIN and JSONBIN_BIN_TASKS:
-        try:
-            d = _jb_get(JSONBIN_BIN_TASKS)
-            return d.get("data", []) if isinstance(d, dict) else d or []
-        except Exception: pass
+        return _bin_get_users_map(JSONBIN_BIN_TASKS).get(uid, [])
     return json.loads(TASKS_FILE.read_text(encoding="utf-8")) if TASKS_FILE.exists() else []
 
-def save_tasks(t):
+def save_tasks(uid, t):
     if USE_JSONBIN and JSONBIN_BIN_TASKS:
-        try: _jb_put(JSONBIN_BIN_TASKS, {"data": t}); return
+        users = _bin_get_users_map(JSONBIN_BIN_TASKS)
+        users[uid] = t
+        try: _jb_put(JSONBIN_BIN_TASKS, {"users": users}); return
         except Exception: pass
+        return
     TASKS_FILE.write_text(json.dumps(t, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def load_user_id():
+_known_users_cache = None
+
+def load_users():
+    """回傳目前所有已知使用者的 user_id 清單"""
+    global _known_users_cache
+    if _known_users_cache is not None:
+        return _known_users_cache
     if USE_JSONBIN and JSONBIN_BIN_USER:
         try:
             d = _jb_get(JSONBIN_BIN_USER)
-            return d.get("uid", "") if isinstance(d, dict) else ""
-        except Exception: pass
-    return USER_FILE.read_text(encoding="utf-8").strip() if USER_FILE.exists() else ""
+            if isinstance(d, dict) and "users" in d:
+                _known_users_cache = d["users"]
+            elif isinstance(d, dict) and d.get("uid"):
+                # 相容舊格式（單一使用者）
+                _known_users_cache = [d["uid"]]
+            else:
+                _known_users_cache = []
+        except Exception:
+            _known_users_cache = []
+    else:
+        _known_users_cache = [USER_FILE.read_text(encoding="utf-8").strip()] if USER_FILE.exists() else []
+    return _known_users_cache
 
-def save_user_id(uid):
+def register_user(uid):
+    """記錄新的使用者 user_id（每人資料各自獨立，第一次互動時呼叫）"""
+    global _known_users_cache
+    if not uid:
+        return
+    users = load_users()
+    if uid in users:
+        return
+    users = users + [uid]
+    _known_users_cache = users
     if USE_JSONBIN and JSONBIN_BIN_USER:
-        try: _jb_put(JSONBIN_BIN_USER, {"uid": uid}); return
+        try: _jb_put(JSONBIN_BIN_USER, {"users": users})
         except Exception: pass
-    USER_FILE.write_text(uid, encoding="utf-8")
+    else:
+        USER_FILE.write_text(uid, encoding="utf-8")
 
-def load_recurring():
+def load_recurring(uid):
     if USE_JSONBIN and JSONBIN_BIN_RECURRING:
-        try:
-            d = _jb_get(JSONBIN_BIN_RECURRING)
-            return d.get("data", []) if isinstance(d, dict) else d or []
-        except Exception: pass
+        return _bin_get_users_map(JSONBIN_BIN_RECURRING).get(uid, [])
     return json.loads(RECURRING_FILE.read_text(encoding="utf-8")) if RECURRING_FILE.exists() else []
 
-def save_recurring(r):
+def save_recurring(uid, r):
     if USE_JSONBIN and JSONBIN_BIN_RECURRING:
-        try: _jb_put(JSONBIN_BIN_RECURRING, {"data": r}); return
+        users = _bin_get_users_map(JSONBIN_BIN_RECURRING)
+        users[uid] = r
+        try: _jb_put(JSONBIN_BIN_RECURRING, {"users": users}); return
         except Exception: pass
+        return
     RECURRING_FILE.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
 
-# ── 當前成員 load/save ────────────────────────────────────────
+# ── 每位使用者的成員選擇 load/save ──────────────────────────────
 _current_member_cache = DEFAULT_MEMBER
 
-def load_member() -> str:
+def load_member(uid=None) -> str:
     global _current_member_cache
+    if USE_JSONBIN and JSONBIN_BIN_MEMBER and uid:
+        try:
+            users = _bin_get_users_map(JSONBIN_BIN_MEMBER)
+            key = users.get(uid)
+            if key in BTS_MEMBERS:
+                return key
+        except Exception:
+            pass
+        return DEFAULT_MEMBER
+    # 沒設定 JSONBIN_BIN_MEMBER（或本地模式）→ 退回單一全域設定，僅適合單人使用
     try:
         if MEMBER_FILE.exists():
             key = MEMBER_FILE.read_text(encoding="utf-8").strip()
@@ -728,19 +775,29 @@ def load_member() -> str:
         pass
     return _current_member_cache
 
-def save_member(key: str):
+def save_member(uid, key: str):
     global _current_member_cache
+    if USE_JSONBIN and JSONBIN_BIN_MEMBER and uid:
+        users = _bin_get_users_map(JSONBIN_BIN_MEMBER)
+        users[uid] = key
+        try: _jb_put(JSONBIN_BIN_MEMBER, {"users": users}); return
+        except Exception: pass
+        return
     _current_member_cache = key
     try:
         MEMBER_FILE.write_text(key, encoding="utf-8")
     except Exception:
         pass
 
-def get_member() -> dict:
-    return BTS_MEMBERS.get(load_member(), BTS_MEMBERS[DEFAULT_MEMBER])
+def get_member(uid=None) -> dict:
+    return BTS_MEMBERS.get(load_member(uid), BTS_MEMBERS[DEFAULT_MEMBER])
 
-# ── 拍照模式（下一張照片要辨識清單還是發票）─────────────────────
-def load_image_mode() -> str:
+# ── 拍照模式（下一張照片要辨識清單還是發票，依使用者區分）───────────
+_image_mode_by_user = {}
+
+def load_image_mode(uid=None) -> str:
+    if uid:
+        return _image_mode_by_user.get(uid, "todo")
     try:
         if IMAGE_MODE_FILE.exists():
             mode = IMAGE_MODE_FILE.read_text(encoding="utf-8").strip()
@@ -750,7 +807,10 @@ def load_image_mode() -> str:
         pass
     return "todo"
 
-def save_image_mode(mode: str):
+def save_image_mode(uid, mode: str):
+    if uid:
+        _image_mode_by_user[uid] = mode
+        return
     try:
         IMAGE_MODE_FILE.write_text(mode, encoding="utf-8")
     except Exception:
@@ -769,30 +829,28 @@ def do_notify(title, msg):
         except Exception:
             pass
 
-def do_notify_task(task_title, body):
-    """提醒通知，帶有「完成」和「延後30分鐘」互動按鈕"""
-    m = get_member()
+def do_notify_task(uid, task_title, body):
+    """提醒通知，帶有「完成」和「延後30分鐘」互動按鈕（本機桌面通知，僅供操作者本人的電腦使用）"""
+    m = get_member(uid)
     if not WIN11TOAST:
         do_notify(f"{m['name']} 提醒你！", body)
         return
 
     def on_complete(action):
-        tasks = load_tasks()
+        tasks = load_tasks(uid)
         for t in tasks:
             if t.get("title") == task_title and t["status"] == "pending":
                 t["status"] = "done"
-                save_tasks(tasks)
-                uid = load_user_id()
-                if uid:
-                    line_push(uid, f"✅ 已標記完成：{task_title}\n{get_member()['name']} 為你驕傲！{get_member()['emoji']}")
+                save_tasks(uid, tasks)
+                line_push(uid, f"✅ 已標記完成：{task_title}\n{get_member(uid)['name']} 為你驕傲！{get_member(uid)['emoji']}")
                 break
 
     def on_snooze(action):
-        tasks = load_tasks()
+        tasks = load_tasks(uid)
         for t in tasks:
             if t.get("title") == task_title and t["status"] == "pending":
                 t["remind_at"] = (datetime.now() + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-                save_tasks(tasks)
+                save_tasks(uid, tasks)
                 break
 
     try:
@@ -884,9 +942,9 @@ def _build_time_refs():
     return "\n".join(lines)
 
 # ── Groq API（文字）──────────────────────────────────────────
-def call_claude(text):
+def call_claude(uid, text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt  = _task_prompt().replace("{now}", now_str).replace("{time_refs}", _build_time_refs())
+    prompt  = _task_prompt(uid).replace("{now}", now_str).replace("{time_refs}", _build_time_refs())
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user",   "content": text},
@@ -894,9 +952,9 @@ def call_claude(text):
     return _call_groq(messages)
 
 # ── Groq API（純聊天）────────────────────────────────────────
-def call_chat(text):
+def call_chat(uid, text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt  = _chat_prompt().replace("{now}", now_str).replace("{schedule_context}", _build_schedule_context())
+    prompt  = _chat_prompt(uid).replace("{now}", now_str).replace("{schedule_context}", _build_schedule_context(uid))
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user",   "content": text},
@@ -904,9 +962,9 @@ def call_chat(text):
     return _call_groq_raw(messages, max_tokens=300).strip()
 
 # ── Groq API（圖片辨識）──────────────────────────────────────
-def call_claude_image(image_bytes):
+def call_claude_image(uid, image_bytes):
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-    prompt = _image_prompt()
+    prompt = _image_prompt(uid)
     messages = [{
         "role": "user",
         "content": [
@@ -917,9 +975,9 @@ def call_claude_image(image_bytes):
     return _call_groq(messages, model="meta-llama/llama-4-scout-17b-16e-instruct")
 
 # ── Groq API（發票辨識）──────────────────────────────────────
-def call_claude_invoice(image_bytes):
+def call_claude_invoice(uid, image_bytes):
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-    prompt = _invoice_prompt()
+    prompt = _invoice_prompt(uid)
     messages = [{
         "role": "user",
         "content": [
@@ -1411,9 +1469,9 @@ def _safe_json(raw):
             return {"jin_message": raw[:200], "tasks": []}
 
 # ── 解析固定行程 ──────────────────────────────────────────────
-def call_parse_recurring(text):
+def call_parse_recurring(uid, text):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    prompt = _recurring_prompt(now_str)
+    prompt = _recurring_prompt(now_str, uid)
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": text},
@@ -1431,14 +1489,14 @@ def call_parse_recurring(text):
     return _safe_json(raw)
 
 # ── 空閒關心 / 每日關心（動態成員）─────────────────────────────
-def call_checkin():
+def call_checkin(uid):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    prompt  = _checkin_prompt().replace("{now}", now_str)
+    prompt  = _checkin_prompt(uid).replace("{now}", now_str)
     messages = [{"role": "user", "content": prompt}]
     return _call_groq(messages, max_tokens=200).strip()
 
-def add_tasks(new_tasks):
-    tasks = load_tasks()
+def add_tasks(uid, new_tasks):
+    tasks = load_tasks(uid)
     now = datetime.now()
     for t in new_tasks:
         remind_at = now + timedelta(minutes=t["remind_in_minutes"])
@@ -1447,7 +1505,7 @@ def add_tasks(new_tasks):
         # 任務本身指定的時間若剛好在週六/週日，週末也要持續提醒
         t["weekend_ok"] = remind_at.weekday() >= 5
         tasks.append(t)
-    save_tasks(tasks)
+    save_tasks(uid, tasks)
 
 # ── LINE 快速按鈕 ─────────────────────────────────────────────
 def _quick_replies(items):
@@ -1578,9 +1636,9 @@ def _task_card(title, detail, remind_at, idx=1, total=1):
         }
     }
 
-def _nav_card():
+def _nav_card(uid=None):
     """導航功能卡片"""
-    m = get_member()
+    m = get_member(uid)
     def _nav_btn(label, text):
         return {"type": "button", "style": "secondary", "height": "sm", "margin": "xs",
                 "action": {"type": "message", "label": label, "text": text}}
@@ -1609,9 +1667,9 @@ def _nav_card():
         }
     }
 
-def _tasks_flex(jin_message, tasks_data):
+def _tasks_flex(uid, jin_message, tasks_data):
     """jin_message 文字 + 任務卡片（單張或輪播）+ 導航卡片"""
-    m = get_member()
+    m = get_member(uid)
     text_msg = {"type": "text", "text": f"{m['emoji']} {m['name']}：{jin_message}"}
     if not tasks_data:
         return [text_msg]
@@ -1627,7 +1685,7 @@ def _tasks_flex(jin_message, tasks_data):
         flex_content = {"type": "carousel", "contents": bubbles[:10]}
 
     flex_msg = {"type": "flex", "altText": f"已建立 {len(tasks_data)} 個提醒", "contents": flex_content}
-    return [text_msg, flex_msg, _nav_card()]
+    return [text_msg, flex_msg, _nav_card(uid)]
 
 def _task_list_flex(pending_tasks):
     """任務列表輪播卡片"""
@@ -1778,41 +1836,41 @@ def _invoice_result_flex(jin_message, fields, validation, classification=None, b
 
 # ── 圖片處理 ──────────────────────────────────────────────────
 def process_image(user_id, reply_token, message_id):
-    if load_image_mode() == "invoice":
-        save_image_mode("todo")
+    if load_image_mode(user_id) == "invoice":
+        save_image_mode(user_id, "todo")
         process_invoice_image(user_id, reply_token, message_id)
         return
     try:
-        _im = get_member()
+        _im = get_member(user_id)
         line_reply(reply_token, f"收到照片了！{_im['name']} 正在幫你看清單，稍等一下～ 📸")
 
         image_bytes = download_line_image(message_id)
-        result = call_claude_image(image_bytes)
+        result = call_claude_image(user_id, image_bytes)
 
         urgent = result.get("urgent", [])
         later  = result.get("later", [])
         msg    = result.get("jin_message", f"加油 ARMY！{_im['emoji']}")
 
         all_tasks = [{**t, "status": "pending"} for t in urgent + later]
-        add_tasks(all_tasks)
+        add_tasks(user_id, all_tasks)
 
         flex_msg = _image_result_flex(msg, urgent, later)
         line_push_messages(user_id, [flex_msg])
         do_notify(f"{_im['name']} 幫你整理好了！", f"緊急 {len(urgent)} 件，緩一緩 {len(later)} 件")
 
     except Exception as e:
-        _im = get_member()
+        _im = get_member(user_id)
         print(f"[process_image Error] {e}")
         line_push(user_id, f"{_im['emoji']} 圖片辨識出了點問題，可以重新傳一次嗎？", quick_reply=MAIN_MENU)
         print(f"[Image Error] {e}")
 
 def process_invoice_image(user_id, reply_token, message_id):
     try:
-        _im = get_member()
+        _im = get_member(user_id)
         line_reply(reply_token, f"收到發票了！{_im['name']} 正在幫你檢查請款有沒有問題，稍等一下～ 🧾")
 
         image_bytes = download_line_image(message_id)
-        fields = call_claude_invoice(image_bytes)
+        fields = call_claude_invoice(user_id, image_bytes)
         msg = fields.get("jin_message", f"幫你檢查好了！{_im['emoji']}")
 
         validation = validate_invoice(fields)
@@ -1831,15 +1889,14 @@ def process_invoice_image(user_id, reply_token, message_id):
         do_notify(f"{_im['name']} 幫你檢查發票了！", validation["verdict"])
 
     except Exception as e:
-        _im = get_member()
+        _im = get_member(user_id)
         print(f"[process_invoice_image Error] {e}")
         line_push(user_id, f"{_im['emoji']} 發票辨識出了點問題，可以拍清楚一點再傳一次嗎？", quick_reply=MAIN_MENU)
 
 # ── 訊息處理 ──────────────────────────────────────────────────
 def handle_message(user_id, reply_token, text):
     try:
-        if not load_user_id():
-            save_user_id(user_id)
+        register_user(user_id)
     except Exception as e:
         print(f"[User ID Error] {e}")
 
@@ -1853,23 +1910,23 @@ def handle_message(user_id, reply_token, text):
     except Exception as e:
         print(f"[handle_message Error] {e}")
         try:
-            _m = get_member()
+            _m = get_member(user_id)
             line_reply(reply_token, f"{_m['name']} 出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
         except Exception:
             try:
-                _m = get_member()
+                _m = get_member(user_id)
                 line_push(user_id, f"{_m['name']} 出了點小問題：{e}\n請再試一次！", quick_reply=MAIN_MENU)
             except Exception:
                 pass
 
 def _dispatch(user_id, reply_token, text):
     """實際處理各種指令"""
-    m = get_member()
+    m = get_member(user_id)
 
     # ── 查看任務 ──
     if text in ["查看", "查看任務", "任務", "待辦"]:
         try:
-            tasks = load_tasks()
+            tasks = load_tasks(user_id)
         except Exception:
             tasks = []
         pending = [t for t in tasks if t.get("status") == "pending"]
@@ -1893,19 +1950,19 @@ def _dispatch(user_id, reply_token, text):
     # ── 刪除指定任務 ──
     elif text.startswith("刪除任務 "):
         keyword = text[5:].strip()
-        tasks = load_tasks()
+        tasks = load_tasks(user_id)
         before = len([t for t in tasks if t.get("status") == "pending"])
         tasks = [t for t in tasks if not (keyword in t.get("title","") and t.get("status") == "pending")]
         deleted = before - len([t for t in tasks if t.get("status") == "pending"])
         if deleted > 0:
-            save_tasks(tasks)
+            save_tasks(user_id, tasks)
             line_reply(reply_token, f"好的！已刪除含「{keyword}」的任務（共 {deleted} 筆）🌸", quick_reply=MAIN_MENU)
         else:
             line_reply(reply_token, f"找不到「{keyword}」這個任務欸～\n\n傳「查看任務」確認任務名稱", quick_reply=MAIN_MENU)
 
     # ── 刪除全部任務 ──
     elif text in ["刪除全部任務", "清空任務", "清空所有任務"]:
-        tasks = load_tasks()
+        tasks = load_tasks(user_id)
         count = len([t for t in tasks if t.get("status") == "pending"])
         if count == 0:
             line_reply(reply_token, "本來就沒有任務了哈哈哈！", quick_reply=MAIN_MENU)
@@ -1913,17 +1970,17 @@ def _dispatch(user_id, reply_token, text):
             for t in tasks:
                 if t.get("status") == "pending":
                     t["status"] = "deleted"
-            save_tasks(tasks)
+            save_tasks(user_id, tasks)
             line_reply(reply_token, f"全部 {count} 個任務都清掉了！{m['emoji']} 清爽～但不要偷懶喔！😤", quick_reply=MAIN_MENU)
 
     # ── 完成任務 ──
     elif text.startswith("完成 "):
         keyword = text[3:].strip()
-        tasks = load_tasks()
+        tasks = load_tasks(user_id)
         for t in tasks:
             if keyword in t.get("title","") and t.get("status") == "pending":
                 t["status"] = "done"
-                save_tasks(tasks)
+                save_tasks(user_id, tasks)
                 line_reply(reply_token,
                     f"{m['emoji']} {t['title']} 完成了！\n{m['name']} 超級驕傲！",
                     quick_reply=MAIN_MENU)
@@ -1940,11 +1997,11 @@ def _dispatch(user_id, reply_token, text):
         keyword  = parts[1].strip() if len(parts) > 1 else ""
         try:
             mins  = int(mins_str) if mins_str else 30
-            tasks = load_tasks()
+            tasks = load_tasks(user_id)
             for t in tasks:
                 if keyword in t.get("title","") and t.get("status") == "pending":
                     t["remind_at"] = (datetime.now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
-                    save_tasks(tasks)
+                    save_tasks(user_id, tasks)
                     line_reply(reply_token,
                         f"好，{t['title']} 延後 {mins} 分鐘！\n但不要一直逃避喔！😤",
                         quick_reply=_task_actions(t["title"]))
@@ -1958,7 +2015,7 @@ def _dispatch(user_id, reply_token, text):
     # ── 編輯任務 ──
     elif text.startswith("編輯 "):
         keyword = text[3:].strip()
-        tasks   = load_tasks()
+        tasks   = load_tasks(user_id)
         found   = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if found:
             line_reply(reply_token,
@@ -1977,7 +2034,7 @@ def _dispatch(user_id, reply_token, text):
         parts    = text[4:].strip().split(" ", 1)
         keyword  = parts[0].strip()
         time_expr = parts[1].strip() if len(parts) > 1 else ""
-        tasks    = load_tasks()
+        tasks    = load_tasks(user_id)
         found    = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if not found:
             line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
@@ -1990,7 +2047,7 @@ def _dispatch(user_id, reply_token, text):
                 mins = parse_time_expr(time_expr)
                 if mins <= 0: raise ValueError()
                 found["remind_at"] = (datetime.now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
-                save_tasks(tasks)
+                save_tasks(user_id, tasks)
                 line_reply(reply_token,
                     f"✅ 已更新！\n{found['title']}\n⏰ 新提醒：{found['remind_at']}",
                     quick_reply=_task_actions(found["title"]))
@@ -2004,7 +2061,7 @@ def _dispatch(user_id, reply_token, text):
         parts      = text[4:].split(" ", 1)
         keyword    = parts[0].strip()
         new_detail = parts[1].strip() if len(parts) > 1 else ""
-        tasks      = load_tasks()
+        tasks      = load_tasks(user_id)
         found      = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if not found:
             line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
@@ -2012,7 +2069,7 @@ def _dispatch(user_id, reply_token, text):
             line_reply(reply_token, f"格式：改內容 {keyword} 新說明", quick_reply=_edit_actions(keyword))
         else:
             found["detail"] = new_detail
-            save_tasks(tasks)
+            save_tasks(user_id, tasks)
             line_reply(reply_token, f"✅ 內容更新！\n{found['title']}：{new_detail}", quick_reply=_task_actions(found["title"]))
 
     # ── 改標題 ──
@@ -2020,7 +2077,7 @@ def _dispatch(user_id, reply_token, text):
         parts     = text[4:].split(" ", 1)
         keyword   = parts[0].strip()
         new_title = parts[1].strip() if len(parts) > 1 else ""
-        tasks     = load_tasks()
+        tasks     = load_tasks(user_id)
         found     = next((t for t in tasks if keyword in t.get("title","") and t.get("status")=="pending"), None)
         if not found:
             line_reply(reply_token, f"找不到「{keyword}」", quick_reply=MAIN_MENU)
@@ -2029,7 +2086,7 @@ def _dispatch(user_id, reply_token, text):
         else:
             old = found["title"]
             found["title"] = new_title
-            save_tasks(tasks)
+            save_tasks(user_id, tasks)
             line_reply(reply_token, f"✅ 標題改好！「{old}」→「{new_title}」", quick_reply=_task_actions(new_title))
 
     # ── 記住固定行程 ──
@@ -2041,7 +2098,7 @@ def _dispatch(user_id, reply_token, text):
     # ── 查看固定行程 ──
     elif text in ["查看固定", "固定行程", "查看固定行程"]:
         try:
-            items = load_recurring()
+            items = load_recurring(user_id)
         except Exception:
             items = []
         if not items:
@@ -2066,23 +2123,23 @@ def _dispatch(user_id, reply_token, text):
     # ── 刪除固定行程 ──
     elif text.startswith("刪除固定 "):
         keyword = text[5:].strip()
-        items   = load_recurring()
+        items   = load_recurring(user_id)
         before  = len(items)
         items   = [r for r in items if keyword not in r.get("title","")]
         if len(items) < before:
-            save_recurring(items)
+            save_recurring(user_id, items)
             line_reply(reply_token, f"已刪除「{keyword}」固定行程！如需再加告訴 {m['name']}～", quick_reply=MAIN_MENU)
         else:
             line_reply(reply_token, f"找不到「{keyword}」這個固定行程", quick_reply=MAIN_MENU)
 
     # ── 切換 BTS 成員 ──
     elif text in ["切換成員", "換成員", "選成員", "BTS", "防彈"]:
-        m = get_member()
+        m = get_member(user_id)
         qr = {
             "type": "quick_reply",
             "items": [
                 {"type": "action", "action": {"type": "message",
-                 "label": f"{'★' if k==load_member() else ''}{v['emoji']}{v['name']}",
+                 "label": f"{'★' if k==load_member(user_id) else ''}{v['emoji']}{v['name']}",
                  "text": f"切換 {k}"}}
                 for k, v in BTS_MEMBERS.items()
             ]
@@ -2105,7 +2162,7 @@ def _dispatch(user_id, reply_token, text):
         }
         mapped = name_map.get(key, key)
         if mapped in BTS_MEMBERS:
-            save_member(mapped)
+            save_member(user_id, mapped)
             m = BTS_MEMBERS[mapped]
             line_reply(reply_token,
                 f"{m['emoji']} 已切換到 {m['full_name']}！\n\n"
@@ -2113,7 +2170,7 @@ def _dispatch(user_id, reply_token, text):
                 f"現在開始由他陪你！",
                 quick_reply=MAIN_MENU)
             if IS_CLOUD:
-                threading.Thread(target=setup_rich_menu, daemon=True).start()
+                threading.Thread(target=setup_rich_menu, args=(user_id,), daemon=True).start()
         else:
             qr = {
                 "type": "quick_reply",
@@ -2127,7 +2184,7 @@ def _dispatch(user_id, reply_token, text):
 
     # ── 發票請款辨識 ──
     elif text in ["發票辨識", "發票請款", "請款辨識", "拍發票", "報帳辨識"]:
-        save_image_mode("invoice")
+        save_image_mode(user_id, "invoice")
         line_reply(reply_token,
             f"{m['emoji']} 好，把發票拍清楚一點傳給我，{m['name']} 幫你檢查能不能請款！",
             quick_reply={
@@ -2190,7 +2247,7 @@ def _looks_like_task(text):
 
 def process_task(user_id, text):
     try:
-        result = call_claude(text)
+        result = call_claude(user_id, text)
         tasks = result.get("tasks", [])
         msg = result.get("jin_message", "加油 ARMY！")
 
@@ -2199,14 +2256,14 @@ def process_task(user_id, text):
             if _looks_like_task(text):
                 # 有任務關鍵字但 AI 沒建立 → 再試一次，明確要求建立任務
                 retry_text = f"請幫我記住這個任務並設定提醒：{text}"
-                result2 = call_claude(retry_text)
+                result2 = call_claude(user_id, retry_text)
                 tasks2 = result2.get("tasks", [])
                 if tasks2:
                     tasks = tasks2
                     msg = result2.get("jin_message", msg)
                 else:
                     # 仍然沒有 → 詢問使用者
-                    _pm = get_member()
+                    _pm = get_member(user_id)
                     line_push(user_id,
                         f"{_pm['emoji']} {_pm['name']}：{msg}\n\n"
                         f"{_pm['name']} 看起來你有事要做耶～\n"
@@ -2219,22 +2276,22 @@ def process_task(user_id, text):
                     return
             else:
                 # 純聊天
-                chat_reply = call_chat(text)
-                _cm = get_member()
+                chat_reply = call_chat(user_id, text)
+                _cm = get_member(user_id)
                 line_push(user_id, f"{_cm['emoji']} {chat_reply}", quick_reply=MAIN_MENU)
                 return
 
-        add_tasks(tasks)
+        add_tasks(user_id, tasks)
         # 取得 remind_at（add_tasks 已計算好）
-        saved = load_tasks()
+        saved = load_tasks(user_id)
         titles = {t["title"] for t in tasks}
         enriched = [t for t in saved if t["title"] in titles][-len(tasks):]
-        messages = _tasks_flex(msg, enriched)
+        messages = _tasks_flex(user_id, msg, enriched)
         line_push_messages(user_id, messages)
-        _nm = get_member()
+        _nm = get_member(user_id)
         do_notify(f"{_nm['name']} 說！{_nm['emoji']}", msg)
     except Exception as e:
-        _em = get_member()
+        _em = get_member(user_id)
         print(f"[process_task Error] {e}")
         line_push(user_id,
             f"{_em['emoji']} {_em['name']} 剛才沒聽清楚，可以再說一次嗎？",
@@ -2253,7 +2310,7 @@ def _type_str(r):
 
 def process_recurring(user_id, text):
     try:
-        result = call_parse_recurring(text)
+        result = call_parse_recurring(user_id, text)
         import uuid
 
         # 支援單筆（舊格式）或多筆（新 items 格式）
@@ -2264,14 +2321,14 @@ def process_recurring(user_id, text):
         else:
             raise ValueError(f"無法解析回應格式：{result}")
 
-        saved = load_recurring()
+        saved = load_recurring(user_id)
         for item in new_items:
             item["id"] = str(uuid.uuid4())[:8]
             item["active"] = True
             saved.append(item)
-        save_recurring(saved)
+        save_recurring(user_id, saved)
 
-        _rm = get_member()
+        _rm = get_member(user_id)
         jin_msg = result.get("jin_message", f"{_rm['name']} 全部記住了！")
         lines = [f"{_rm['emoji']} {_rm['name']}：{jin_msg}\n", f"📅 已記住 {len(new_items)} 個固定行程：\n"]
         for item in new_items:
@@ -2289,20 +2346,25 @@ def process_recurring(user_id, text):
         line_push(user_id, "\n".join(lines), quick_reply=qr)
         do_notify(f"{_rm['name']} 記住了！📅", f"已記住 {len(new_items)} 個固定行程")
     except Exception as e:
-        _rm = get_member()
+        _rm = get_member(user_id)
         print(f"[process_recurring Error] {e}")
         line_push(user_id, f"{_rm['emoji']} 剛才沒記清楚，可以再說一次固定行程嗎？", quick_reply=MAIN_MENU)
 
 # ── 固定行程排程觸發 ──────────────────────────────────────────
 def check_recurring():
-    """每天早上檢查固定行程，在指定天數前建立提醒任務"""
+    """每天早上檢查固定行程，在指定天數前建立提醒任務（依每位使用者分別檢查）"""
+    for uid in load_users():
+        if uid:
+            try:
+                _check_recurring_for_user(uid)
+            except Exception as e:
+                print(f"[check_recurring] user {uid} error: {e}")
+
+def _check_recurring_for_user(uid):
     import uuid as _uuid
     now = datetime.now()
-    uid = load_user_id()
-    if not uid:
-        return
-    items = load_recurring()
-    tasks = load_tasks()
+    items = load_recurring(uid)
+    tasks = load_tasks(uid)
     existing_titles_today = {
         t["title"] for t in tasks
         if t.get("status") == "pending" and t.get("created_at","").startswith(now.strftime("%Y-%m-%d"))
@@ -2373,8 +2435,8 @@ def check_recurring():
                 "from_recurring": True,
             }
             tasks.append(new_task)
-            save_tasks(tasks)
-            _crm = get_member()
+            save_tasks(uid, tasks)
+            _crm = get_member(uid)
             push_msg = (
                 f"📅 固定行程提醒！\n\n"
                 f"{_crm['name']} 記得你說的！{title} 還有 {days_until} 天！\n"
@@ -2404,12 +2466,20 @@ def _next_reminder_time(now, weekend_ok):
     return now + timedelta(minutes=random.randint(30, 60))
 
 def check_reminders():
+    """依每位使用者分別檢查逾期任務並推播提醒"""
+    for uid in load_users():
+        if uid:
+            try:
+                _check_reminders_for_user(uid)
+            except Exception as e:
+                print(f"[check_reminders] user {uid} error: {e}")
+
+def _check_reminders_for_user(uid):
     import random
     try:
-        tasks = load_tasks()
+        tasks = load_tasks(uid)
         now = datetime.now()
         updated = False
-        uid = load_user_id()
 
         for t in tasks:
             try:
@@ -2417,12 +2487,11 @@ def check_reminders():
                 remind_at = t.get("remind_at")
                 if not remind_at: continue
                 if now >= datetime.strptime(remind_at, "%Y-%m-%d %H:%M:%S"):
-                    tpl_t, tpl_m = random.choice(get_remind_templates())
+                    tpl_t, tpl_m = random.choice(get_remind_templates(uid))
                     remind_msg = tpl_m.format(t=t["title"])
                     push_msg = f"{tpl_t}\n{remind_msg}\n\n📝 {t.get('detail','')}"
-                    do_notify_task(t["title"], remind_msg + f"\n{t.get('detail','')}")
-                    if uid:
-                        line_push(uid, push_msg, quick_reply=_task_actions(t["title"]))
+                    do_notify_task(uid, t["title"], remind_msg + f"\n{t.get('detail','')}")
+                    line_push(uid, push_msg, quick_reply=_task_actions(t["title"]))
                     next_at = _next_reminder_time(now, t.get("weekend_ok", False))
                     t["remind_at"] = next_at.strftime("%Y-%m-%d %H:%M:%S")
                     t["remind_count"] = t.get("remind_count", 0) + 1
@@ -2431,7 +2500,7 @@ def check_reminders():
             except Exception as e:
                 print(f"[check_reminders] task error: {e}")
         if updated:
-            save_tasks(tasks)
+            save_tasks(uid, tasks)
     except Exception as e:
         print(f"[check_reminders] error: {e}")
 
@@ -2456,26 +2525,26 @@ def _pick_today_slots():
         print(f"[每日關心] 今天選定時段：{_today_slots}")
 
 def send_daily_checkin(slot_time, slot_name, greeting):
-    """在指定時段發送每日關心訊息"""
+    """在指定時段對每位使用者發送每日關心訊息"""
     _pick_today_slots()
     if slot_time not in _today_slots:
         return  # 今天不發這個時段
-    uid = load_user_id()
-    if not uid:
-        return
-    try:
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-        prompt  = _daily_checkin_prompt(slot_name).replace("{now}", now_str)
-        messages = [{"role": "user", "content": prompt}]
-        msg = _call_groq(messages, max_tokens=200).strip()
-        m   = get_member()
-        line_push(uid, f"{m['emoji']} {greeting}\n\n{msg}", quick_reply=MAIN_MENU)
-        print(f"[每日關心/{slot_name}] 已發送")
-    except Exception as e:
-        print(f"[每日關心 Error] {e}")
+    for uid in load_users():
+        if not uid:
+            continue
+        try:
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+            prompt  = _daily_checkin_prompt(slot_name, uid).replace("{now}", now_str)
+            messages = [{"role": "user", "content": prompt}]
+            msg = _call_groq(messages, max_tokens=200).strip()
+            m   = get_member(uid)
+            line_push(uid, f"{m['emoji']} {greeting}\n\n{msg}", quick_reply=MAIN_MENU)
+            print(f"[每日關心/{slot_name}] 已發送給 {uid}")
+        except Exception as e:
+            print(f"[每日關心 Error] {e}")
 
 def check_and_checkin():
-    """空閒時隨機關心（原本保留，頻率降低避免太吵）"""
+    """空閒時對每位使用者隨機關心（原本保留，頻率降低避免太吵）"""
     import random
     # 只在奇數小時觸發，降低頻率
     if datetime.now().hour % 4 != 0:
@@ -2483,17 +2552,23 @@ def check_and_checkin():
     hour = datetime.now().hour
     if hour < 9 or hour >= 22:
         return
-    uid = load_user_id()
-    if not uid:
-        return
-    tasks = load_tasks()
+    for uid in load_users():
+        if not uid:
+            continue
+        try:
+            _check_and_checkin_for_user(uid)
+        except Exception as e:
+            print(f"[check_and_checkin] user {uid} error: {e}")
+
+def _check_and_checkin_for_user(uid):
+    tasks = load_tasks(uid)
     if any(t.get("status") == "pending" for t in tasks):
         return
     try:
-        msg = call_checkin()
-        _chm = get_member()
+        msg = call_checkin(uid)
+        _chm = get_member(uid)
         line_push(uid, f"{_chm['emoji']} {_chm['name']} 路過關心你～\n\n{msg}", quick_reply=MAIN_MENU)
-        print(f"[{_chm['name']}關心] 隨機關心訊息")
+        print(f"[{_chm['name']}關心] 隨機關心訊息給 {uid}")
     except Exception as e:
         print(f"[Checkin Error] {e}")
 
@@ -2547,16 +2622,26 @@ def _delete_all_rich_menus():
     except Exception as e:
         print(f"[RichMenu] 刪除舊選單錯誤：{e}")
 
-def setup_rich_menu():
-    """在 LINE 建立固定懸浮選單（Rich Menu）"""
-    m = get_member()
-    color_hex = m.get("color", "#C8547A").lstrip("#")
-    r, g, b = int(color_hex[0:2],16), int(color_hex[2:4],16), int(color_hex[4:6],16)
-    _delete_all_rich_menus()
+_richmenu_cache = {}  # member_key -> richMenuId（記憶體快取，每個成員只建立一份選單）
+
+def _get_or_create_richmenu(member_key):
+    """取得（或建立）指定成員的 Rich Menu，7 個成員各自共用同一份，不會重複建立"""
+    global _richmenu_cache
+    if member_key in _richmenu_cache:
+        return _richmenu_cache[member_key]
+
+    persisted = {}
+    if USE_JSONBIN and JSONBIN_BIN_RICHMENU:
+        persisted = _bin_get_users_map(JSONBIN_BIN_RICHMENU)
+        if member_key in persisted:
+            _richmenu_cache[member_key] = persisted[member_key]
+            return persisted[member_key]
+
+    m = BTS_MEMBERS[member_key]
     menu_body = json.dumps({
         "size": {"width": 2500, "height": 843},
         "selected": True,
-        "name": "Main Menu",
+        "name": f"Menu-{member_key}",
         "chatBarText": f"{m['emoji']} 點我開選單",
         "areas": [
             {"bounds": {"x":0,    "y":0, "width":500, "height":843}, "action": {"type":"message","text":"查看任務"}},
@@ -2575,19 +2660,44 @@ def setup_rich_menu():
         conn.close()
         menu_id = result.get("richMenuId", "")
         if not menu_id:
-            print(f"[RichMenu] 建立失敗：{result}"); return
-        img = _get_menu_image(load_member())
+            print(f"[RichMenu] 建立失敗：{result}"); return None
+        img = _get_menu_image(member_key)
         conn2 = http.client.HTTPSConnection("api-data.line.me", context=ctx)
         conn2.request("POST", f"/v2/bot/richmenu/{menu_id}/content", body=img, headers={
             "Authorization": f"Bearer {LINE_ACCESS_TOKEN}", "Content-Type": "image/png"})
         r2 = conn2.getresponse(); r2.read(); conn2.close()
-        conn3 = http.client.HTTPSConnection("api.line.me", context=ctx)
-        conn3.request("POST", f"/v2/bot/user/all/richmenu/{menu_id}", headers={
-            "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"})
-        conn3.getresponse().read(); conn3.close()
         print(f"[RichMenu] 建立成功：{menu_id} {m['name']}")
+
+        _richmenu_cache[member_key] = menu_id
+        if USE_JSONBIN and JSONBIN_BIN_RICHMENU:
+            persisted[member_key] = menu_id
+            try: _jb_put(JSONBIN_BIN_RICHMENU, {"users": persisted})
+            except Exception: pass
+        return menu_id
     except Exception as e:
-        print(f"[RichMenu] 錯誤：{e}")
+        print(f"[RichMenu] 建立錯誤：{e}")
+        return None
+
+def setup_rich_menu(uid=None):
+    """把使用者目前選擇的成員 Rich Menu 綁定給該使用者（不影響其他人）；
+    uid 為 None 時設定成給所有新使用者的預設選單"""
+    member_key = load_member(uid)
+    menu_id = _get_or_create_richmenu(member_key)
+    if not menu_id:
+        return
+    try:
+        ctx = ssl.create_default_context()
+        conn3 = http.client.HTTPSConnection("api.line.me", context=ctx)
+        if uid:
+            conn3.request("POST", f"/v2/bot/user/{uid}/richmenu/{menu_id}", headers={
+                "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"})
+        else:
+            conn3.request("POST", f"/v2/bot/user/all/richmenu/{menu_id}", headers={
+                "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"})
+        conn3.getresponse().read(); conn3.close()
+        print(f"[RichMenu] 綁定成功：{menu_id} → {uid or 'all(預設)'}")
+    except Exception as e:
+        print(f"[RichMenu] 綁定錯誤：{e}")
 
 def run_scheduler():
     schedule.every(1).minutes.do(check_reminders)
@@ -2639,9 +2749,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 reply_token = event["replyToken"]
                 msg_type   = event["message"]["type"]
 
-                # 儲存 User ID
-                if not load_user_id():
-                    save_user_id(user_id)
+                # 記錄使用者 User ID（每人資料各自獨立）
+                register_user(user_id)
 
                 if msg_type == "text":
                     text = event["message"]["text"]
@@ -2677,10 +2786,16 @@ def _startup_check():
     if IS_CLOUD:
         if JSONBIN_API_KEY:
             print(f"✅ JSONBin 記憶模式：已啟用（資料不會因重啟消失）")
+            if not JSONBIN_BIN_MEMBER:
+                print("   ℹ️ 未設定 JSONBIN_BIN_MEMBER：成員選擇為全域共用，多人使用會互相影響")
             # 啟動時試讀一次，確認連線
             try:
-                tasks = load_tasks()
-                print(f"   目前任務數：{len([t for t in tasks if t.get('status')=='pending'])} 筆")
+                users = load_users()
+                total_pending = 0
+                for uid in users:
+                    tasks = load_tasks(uid)
+                    total_pending += len([t for t in tasks if t.get("status") == "pending"])
+                print(f"   已知使用者：{len(users)} 人，目前總任務數：{total_pending} 筆")
             except Exception as e:
                 print(f"   ⚠️ JSONBin 讀取失敗：{e}")
         else:

@@ -685,31 +685,51 @@ export default function CompetencyAnalysis() {
     }
   }
 
-  const [reportDownloading, setReportDownloading] = useState(false);
+  const [reportDownloadingId, setReportDownloadingId] = useState<string | null>(null);
 
-  async function handleDownloadReport() {
-    if (!currentUser) return;
-    setReportDownloading(true);
+  async function handleDownloadAssessmentReport(assessment: CompetencySelfAssessment) {
+    setReportDownloadingId(assessment.userId);
     try {
-      const now = new Date();
+      const effPos = getEffectivePosition(assessment.positionName, overrides);
+      const dims = getDimensions(effPos);
+      const std = overrides[assessment.positionName]?.standards ?? buildStandardScores(effPos);
+      const date = new Date(assessment.submittedAt);
+      const hasManager = !!assessment.managerSubmittedAt && Object.keys(assessment.managerScores).length > 0;
       await downloadCompetencyReport({
         companyName: '樂聯工業股份有限公司',
-        department: currentUser.department || position.category,
-        positionName,
-        employeeName: currentUser.name,
-        employeeId: currentUser.employeeId || currentUser.id.slice(0, 8).toUpperCase(),
-        analysisYear: now.getFullYear(),
-        analysisMonth: now.getMonth() + 1,
-        dimensions,
-        selfScores,
-        standards,
-        managerScores: showManager ? managerScores : undefined,
+        department: assessment.department || effPos.category,
+        positionName: assessment.positionName,
+        employeeName: assessment.employeeName,
+        employeeId: '',
+        analysisYear: date.getFullYear(),
+        analysisMonth: date.getMonth() + 1,
+        dimensions: dims,
+        selfScores: assessment.selfScores,
+        standards: std,
+        managerScores: hasManager ? assessment.managerScores : undefined,
       });
     } catch {
-      // silent — download failure is not critical
+      // silent
     } finally {
-      setReportDownloading(false);
+      setReportDownloadingId(null);
     }
+  }
+
+  function handleDownloadOwnReport() {
+    if (!currentUser) return;
+    const now = new Date();
+    const myRecord = selfAssessments[currentUser.id];
+    const date = myRecord ? new Date(myRecord.submittedAt) : now;
+    handleDownloadAssessmentReport({
+      userId: currentUser.id,
+      employeeName: currentUser.name,
+      department: currentUser.department || position.category,
+      positionName,
+      selfScores,
+      managerScores: showManager ? managerScores : {},
+      submittedAt: date.toISOString(),
+      managerSubmittedAt: showManager ? (myRecord?.managerSubmittedAt ?? now.toISOString()) : null,
+    });
   }
 
   async function handleDocUpload(file: File) {
@@ -1032,6 +1052,12 @@ export default function CompetencyAnalysis() {
     [selfAssessments]
   );
 
+  // 已完成評估（自評 + 主管均已提交）
+  const completedAssessments = useMemo(
+    () => Object.values(selfAssessments).filter((a) => !!a.managerSubmittedAt),
+    [selfAssessments]
+  );
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* ── Page title ── */}
@@ -1111,15 +1137,17 @@ export default function CompetencyAnalysis() {
             <div className="flex-1">
               <h2 className="text-sm font-bold text-gray-900">主管職能評估</h2>
               <p className="text-xs text-gray-500">
-                {pendingManagerEvals.length > 0
-                  ? `${pendingManagerEvals.length} 位員工已提交自評，等待主管填寫評估分數`
-                  : '目前無待評估的員工自評資料'}
+                {(pendingManagerEvals.length + completedAssessments.length) > 0
+                  ? `共 ${pendingManagerEvals.length + completedAssessments.length} 筆自評（待評估 ${pendingManagerEvals.length}・已完成 ${completedAssessments.length}），可下載 Word 報表`
+                  : '目前無任何員工自評資料'}
               </p>
             </div>
           </div>
 
+          {/* 待評估清單 */}
           {pendingManagerEvals.length > 0 && !managerEvalTarget && (
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2 mb-4">
+              <p className="text-xs font-semibold text-gray-500 mb-1">待主管評估（{pendingManagerEvals.length}）</p>
               {pendingManagerEvals.map((a) => (
                 <div key={a.userId} className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                   <div className="flex-1 min-w-0">
@@ -1132,11 +1160,50 @@ export default function CompetencyAnalysis() {
                       自評提交：{new Date(a.submittedAt).toLocaleDateString('zh-TW')}
                     </p>
                   </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleDownloadAssessmentReport(a)}
+                      disabled={reportDownloadingId === a.userId}
+                      className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                    >
+                      {reportDownloadingId === a.userId ? <RefreshCw size={12} className="animate-spin" /> : <Download size={12} />}
+                      下載報表
+                    </button>
+                    <button
+                      onClick={() => handleStartManagerEval(a)}
+                      className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                    >
+                      開始評估
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 已完成評估清單 */}
+          {completedAssessments.length > 0 && !managerEvalTarget && (
+            <div className="space-y-2 mb-4">
+              <p className="text-xs font-semibold text-gray-500 mb-1">已完成評估（{completedAssessments.length}）</p>
+              {completedAssessments.map((a) => (
+                <div key={a.userId} className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-gray-900">{a.employeeName}</span>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{a.positionName}</span>
+                      {a.department && <span className="text-xs text-gray-500">{a.department}</span>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      主管：{a.managerName ?? '—'}・{a.managerSubmittedAt ? new Date(a.managerSubmittedAt).toLocaleDateString('zh-TW') : ''}
+                    </p>
+                  </div>
                   <button
-                    onClick={() => handleStartManagerEval(a)}
-                    className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex-shrink-0"
+                    onClick={() => handleDownloadAssessmentReport(a)}
+                    disabled={reportDownloadingId === a.userId}
+                    className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex-shrink-0"
                   >
-                    開始評估
+                    {reportDownloadingId === a.userId ? <RefreshCw size={12} className="animate-spin" /> : <Download size={12} />}
+                    下載報表
                   </button>
                 </div>
               ))}
@@ -1193,8 +1260,8 @@ export default function CompetencyAnalysis() {
             );
           })()}
 
-          {pendingManagerEvals.length === 0 && !managerEvalTarget && (
-            <p className="text-xs text-gray-400 text-center py-4">目前無待評估的員工自評資料</p>
+          {pendingManagerEvals.length === 0 && completedAssessments.length === 0 && !managerEvalTarget && (
+            <p className="text-xs text-gray-400 text-center py-4">目前無任何員工自評資料</p>
           )}
         </div>
       )}
@@ -1984,14 +2051,14 @@ export default function CompetencyAnalysis() {
         {submitted && (
           <div className="flex items-center gap-3 pt-1">
             <button
-              onClick={handleDownloadReport}
-              disabled={reportDownloading}
+              onClick={handleDownloadOwnReport}
+              disabled={reportDownloadingId === currentUser?.id}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
             >
-              {reportDownloading
+              {reportDownloadingId === currentUser?.id
                 ? <RefreshCw size={15} className="animate-spin" />
                 : <Download size={15} />}
-              {reportDownloading ? '產生中...' : '下載職能落差分析表（Word）'}
+              {reportDownloadingId === currentUser?.id ? '產生中...' : '下載職能落差分析表（Word）'}
             </button>
             <span className="text-xs text-gray-400">含三關簽核欄位，格式為 .docx</span>
           </div>

@@ -177,8 +177,8 @@ function buildDocument(input: CompetencyReportInput): Document {
         infoLbl('分析年月'), infoVal(`${analysisYear} 年 ${analysisMonth} 月`),
       ]}),
       new TableRow({ children: [
-        infoLbl('姓　　名'), infoVal(employeeName),
-        infoLbl('工　　號'), infoVal(employeeId || '—'),
+        infoLbl('姓　　名'), infoVal(''),
+        infoLbl('工　　號'), infoVal(''),
         infoLbl('評量依據'), infoVal('iCAP 職能基準'),
       ]}),
     ],
@@ -363,18 +363,7 @@ function buildDocument(input: CompetencyReportInput): Document {
       width: { size: SC[0], type: WidthType.DXA },
       shading: SH.signBg, borders: bdr(4), verticalAlign: VerticalAlign.BOTTOM,
       children: [
-        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 300, after: 200 },
-          children: [new TextRun({ text: '（  簽  名  ）', size: 18, color: 'BBBBBB', font: 'DFKai-SB' })],
-        }),
-        new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 40, after: 40 },
-          children: [new TextRun({ text: '  職稱：＿＿＿＿＿＿＿', size: 20, font: 'DFKai-SB' })],
-        }),
-        new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 40, after: 40 },
-          children: [new TextRun({ text: '  姓名：＿＿＿＿＿＿＿', size: 20, font: 'DFKai-SB' })],
-        }),
-        new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 40, after: 80 },
-          children: [new TextRun({ text: '  日期：＿＿年＿＿月＿＿日', size: 20, font: 'DFKai-SB' })],
-        }),
+        new Paragraph({ children: [] }),
       ],
     });
   }

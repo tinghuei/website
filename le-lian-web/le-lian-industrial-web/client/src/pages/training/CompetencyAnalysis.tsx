@@ -9,13 +9,14 @@ import {
   Legend,
   Tooltip,
 } from 'recharts';
-import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight, Users } from 'lucide-react';
+import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight, Users, Download } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCategory } from '../../data/competencyFramework';
 import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';
 import { loadOverrides, saveOverrides, type PositionCompetencyOverride } from '../../lib/competencyOverrides';
 import { loadEmployeeJDs, saveEmployeeJDs, type EmployeeJDRecord } from '../../lib/employeeJobDescriptions';
 import { loadSelfAssessments, saveSelfAssessment, saveManagerAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
+import { downloadCompetencyReport } from '../../lib/competencyReportGenerator';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 // 職能分數以「職能類別 id」為鍵（例如 cm-1, cm-2...），各職位的類別數量與名稱皆不同（約 2～6 項）
@@ -681,6 +682,33 @@ export default function CompetencyAnalysis() {
       setManagerEvalError('送出失敗，請稍後再試');
     } finally {
       setManagerEvalSubmitting(false);
+    }
+  }
+
+  const [reportDownloading, setReportDownloading] = useState(false);
+
+  async function handleDownloadReport() {
+    if (!currentUser) return;
+    setReportDownloading(true);
+    try {
+      const now = new Date();
+      await downloadCompetencyReport({
+        companyName: '樂聯工業股份有限公司',
+        department: currentUser.department || position.category,
+        positionName,
+        employeeName: currentUser.name,
+        employeeId: currentUser.employeeId || currentUser.id.slice(0, 8).toUpperCase(),
+        analysisYear: now.getFullYear(),
+        analysisMonth: now.getMonth() + 1,
+        dimensions,
+        selfScores,
+        standards,
+        managerScores: showManager ? managerScores : undefined,
+      });
+    } catch {
+      // silent — download failure is not critical
+    } finally {
+      setReportDownloading(false);
     }
   }
 
@@ -1949,6 +1977,23 @@ export default function CompetencyAnalysis() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Download Word report */}
+        {submitted && (
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              onClick={handleDownloadReport}
+              disabled={reportDownloading}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+            >
+              {reportDownloading
+                ? <RefreshCw size={15} className="animate-spin" />
+                : <Download size={15} />}
+              {reportDownloading ? '產生中...' : '下載職能落差分析表（Word）'}
+            </button>
+            <span className="text-xs text-gray-400">含三關簽核欄位，格式為 .docx</span>
           </div>
         )}
 

@@ -2365,9 +2365,11 @@ def _check_recurring_for_user(uid):
     now = datetime.now()
     items = load_recurring(uid)
     tasks = load_tasks(uid)
-    existing_titles_today = {
-        t["title"] for t in tasks
-        if t.get("status") == "pending" and t.get("created_at","").startswith(now.strftime("%Y-%m-%d"))
+    # 依「固定行程 id + 目標日期」去重，而不是「今天有沒有建過」——
+    # 這樣即使 Render 休眠導致某一天沒檢查到，之後補檢查時仍會抓到、且不會重複建立
+    already_created = {
+        (t.get("recur_id"), t.get("recur_target_date"))
+        for t in tasks if t.get("from_recurring")
     }
 
     for r in items:
@@ -2417,7 +2419,9 @@ def _check_recurring_for_user(uid):
             continue
 
         days_until = (target_date - now.date()).days
-        if days_until == remind_days and title not in existing_titles_today:
+        dedupe_key = (r.get("id"), target_date.isoformat())
+        # <= 而非 ==：即使休眠錯過了原本該提醒的那天，之後補檢查也還是抓得到
+        if 0 <= days_until <= remind_days and dedupe_key not in already_created:
             h, m = map(int, remind_time.split(":"))
             remind_at = now.replace(hour=h, minute=m, second=0, microsecond=0)
             if remind_at < now:
@@ -2433,7 +2437,10 @@ def _check_recurring_for_user(uid):
                 "weekend_ok": remind_at.weekday() >= 5,
                 "status": "pending",
                 "from_recurring": True,
+                "recur_id": r.get("id"),
+                "recur_target_date": target_date.isoformat(),
             }
+            already_created.add(dedupe_key)
             tasks.append(new_task)
             save_tasks(uid, tasks)
             _crm = get_member(uid)
@@ -2702,7 +2709,7 @@ def setup_rich_menu(uid=None):
 def run_scheduler():
     schedule.every(1).minutes.do(check_reminders)
     schedule.every(2).hours.do(check_and_checkin)
-    schedule.every().day.at("08:00").do(check_recurring)
+    schedule.every(1).hours.do(check_recurring)  # 每小時查一次，避免 Render 休眠導致錯過提醒日
     if USE_MS_MAIL:
         schedule.every(10).minutes.do(check_boss_mail)
     # 每日固定關心訊息（3 個時段各設一個）

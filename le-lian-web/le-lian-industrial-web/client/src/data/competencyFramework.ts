@@ -60,7 +60,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '製造課長': {
-    category: '製造部',
+    category: '製造課',
     level: '部門主管',
     requiredLevel: 4,
     competencies: [
@@ -85,7 +85,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '班長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 3,
     competencies: [
@@ -117,7 +117,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '技術員': {
-    category: '製造部',
+    category: '製造課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -150,7 +150,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '品檢員': {
-    category: '品質部',
+    category: '品保課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -187,7 +187,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '業務專員': {
-    category: '業務部',
+    category: '業務課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -230,32 +230,36 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'cm2-1',
-        category: '金屬製程規劃及管理',
+        category: '生産排程管理與執行',
         items: [
-          { id: 'cm2-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
-          { id: 'cm2-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
-          { id: 'cm2-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
+          { id: 'cm2-1-1', name: '確保生産進度與執行', description: '依生管課所提供生産排程，確保生産進度與執行，並如期完成交付' },
+          { id: 'cm2-1-2', name: '生産品質管理', description: '依各標準作業進行各項產品生産，確保產品符合品質規格及品質水準，達到品質目標' },
+          { id: 'cm2-1-3', name: '生産帳務與產品完整性', description: '確保所生産產品之帳務正確及確保產品完整性，執行不良品的維修與管控' },
         ]
       },
       {
         id: 'cm2-2',
-        category: '環境及設備零組件管理',
+        category: '設備維護與損耗管控',
         items: [
-          { id: 'cm2-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
-          { id: 'cm2-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
-          { id: 'cm2-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
+          { id: 'cm2-2-1', name: '生産設備維護與保養', description: '負責生産設備的維護與保養，確保設備正常運轉，預防非計畫性停機' },
+          { id: 'cm2-2-2', name: '原材料損耗管控', description: '管控原材料（產品）損耗，將損耗降低至客戶接受之適當比率' },
         ]
       },
       {
         id: 'cm2-3',
-        category: '廠務系統維運管理',
+        category: '部門目標督導',
         items: [
-          { id: 'cm2-3-1', name: '執行廠務系統巡檢維護與保養', description: '依規範督導廠務系統定期巡檢、保養及維護，確保系統正常運作' },
-          { id: 'cm2-3-2', name: '完善廠務系統評估改善與執行', description: '評估廠務系統效能，規劃並推動改善方案，提升系統可靠度與效率' },
-          { id: 'cm2-3-3', name: '落實廠務系統規劃發包監造', description: '規劃廠務工程計畫，辦理發包作業，執行施工監造管理' },
-          { id: 'cm2-3-4', name: '順暢系統運轉狀況維持', description: '確保廠務供應系統（水電空調等）穩定運轉，維持生產環境所需條件' },
-          { id: 'cm2-3-5', name: '系統異常分析及改善評估', description: '發生廠務系統異常時，執行原因分析、緊急應變及改善評估，制定預防措施' },
-          { id: 'cm2-3-6', name: '廠務工安及人員派訓管理', description: '規劃廠務相關工安事項及人員教育訓練派訓，確保合規與人員能力提升' },
+          { id: 'cm2-3-1', name: '決定部門目標與推動執行', description: '決定部門目標、方針及推動執行，以符合公司政策方針及目標，督導各課組訂定工作計劃' },
+          { id: 'cm2-3-2', name: '負責生産流程與成本效益', description: '負責產品生産流程，確保產量交期、品質、成本低減，以滿足客戶需求' },
+          { id: 'cm2-3-3', name: '績效管理與人員激勵', description: '督導廠務之績效管理、重點目標管理與生産準備工作，激發員工發揮團隊精神，提升士氣' },
+        ]
+      },
+      {
+        id: 'cm2-4',
+        category: '安全衛生督導',
+        items: [
+          { id: 'cm2-4-1', name: '督導遵守安全衛生政策', description: '督導廠務遵守安全衛生政策、工作守則及其他安全衛生規定，確保作業環境合規' },
+          { id: 'cm2-4-2', name: '跨部門協調', description: '協調課組級間之各項問題，促進工作之進行，並協調部門間問題推動工作順利進行' },
         ]
       },
     ]
@@ -299,7 +303,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '製造副課長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 3,
     competencies: [
@@ -324,135 +328,146 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '資材課長': {
-    category: '資材部',
+    category: '資材課',
     level: '部門主管',
     requiredLevel: 3,
     competencies: [
       {
         id: 'mc3-1',
-        category: '採購政策及程序擬定',
+        category: '生産計劃排程督導',
         items: [
-          { id: 'mc3-1-1', name: '判別組織採購需求', description: '分析組織採購需求，識別採購風險及機會，作為政策擬定依據' },
-          { id: 'mc3-1-2', name: '制定並推動採購政策及程序', description: '制定採購相關政策、制度及作業程序，並推動落實執行' },
+          { id: 'mc3-1-1', name: '督導生産排程與製令', description: '檢視業務訂單，督導排定生産排程與開立製令單，確保生産作業有依據可循' },
+          { id: 'mc3-1-2', name: '督導產銷平衡', description: '督導產銷平衡，主持國外進口件缺料產銷檢討會議，確保生産排程之執行' },
         ]
       },
       {
         id: 'mc3-2',
-        category: '採購策略規劃',
+        category: '交期與進度管理',
         items: [
-          { id: 'mc3-2-1', name: '發展採購策略', description: '依組織目標及市場環境發展短中長期採購策略' },
-          { id: 'mc3-2-2', name: '推動與評估採購策略', description: '推動採購策略執行，定期評估策略效果並滾動修正' },
+          { id: 'mc3-2-1', name: '督導客戶交期控制與達成', description: '督導部屬落實確認客戶交期之控制與達成，確保訂單按時出貨' },
+          { id: 'mc3-2-2', name: '召開生産進度檢討會', description: '管理並召開生産進度檢討會與執行，掌握進度落差並推動改善' },
         ]
       },
       {
         id: 'mc3-3',
-        category: '供應商管理及評估',
+        category: '物料計劃督導',
         items: [
-          { id: 'mc3-3-1', name: '建立供應商管理制度', description: '建立供應商評鑑、分級及管理制度，確保供應穩定' },
-          { id: 'mc3-3-2', name: '評鑑及開發供應商', description: '定期評鑑現有供應商績效，開發備援供應商降低風險' },
-          { id: 'mc3-3-3', name: '審核採購協議及合約', description: '審核重要採購合約條款，確保合規及維護公司利益' },
+          { id: 'mc3-3-1', name: '確認物料計劃製作', description: '確認物料計劃製作，督導國內外件請購作業及庫存水準控管，防止缺料或超儲' },
         ]
       },
       {
         id: 'mc3-4',
-        category: '採購業務督導',
+        category: '人員管理與稽核配合',
         items: [
-          { id: 'mc3-4-1', name: '監督採購業務風險', description: '監控採購過程中的供應、價格及合規風險，制定風險因應措施' },
-          { id: 'mc3-4-2', name: '管理採購績效', description: '建立採購績效指標，定期評估採購效益並提出改善方案' },
+          { id: 'mc3-4-1', name: '人員溝通與績效管理', description: '執行人員溝通與績效管理，包含出勤管理、績效考核、訓練等，及SOP的制定與維護' },
+          { id: 'mc3-4-2', name: '跨部門協調與稽核', description: '主導跨部門例行會議及專案會議，配合內外部稽核（含內控缺失改善），擬定工作目標與組織目標達成一致性' },
         ]
       },
     ]
   },
   '資材副課長': {
-    category: '資材部',
+    category: '資材課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
       {
         id: 'mc4-1',
-        category: '採購規劃與執行',
+        category: '採購進度督導',
         items: [
-          { id: 'mc4-1-1', name: '規劃採購計畫', description: '確認採購需求、蒐集市場資訊、進行詢價，建立採購計畫並取得核定' },
-          { id: 'mc4-1-2', name: '執行採購案', description: '執行詢價比價議價評選，下單並協助簽訂採購合約，建立採購紀錄' },
-          { id: 'mc4-1-3', name: '招標邀標及評選', description: '辦理招標或邀標作業，依評選標準進行供應商評選' },
+          { id: 'mc4-1-1', name: '管理外包與採購件生産進度', description: '督導管理外包與採購件之生産進度，確保公司所採購之料（産）品能適時（進貨）、適量、適質、適價' },
+          { id: 'mc4-1-2', name: '採購流程SOP制定', description: '制定採購相關作業表單與SOP，督導工作進度追蹤，確保採購流程一致可稽' },
         ]
       },
       {
         id: 'mc4-2',
-        category: '履約及請款',
+        category: '成本與供應商管理',
         items: [
-          { id: 'mc4-2-1', name: '驗收採購項目及請款', description: '驗收採購貨品或服務，核對規格數量，辦理付款請款作業' },
-          { id: 'mc4-2-2', name: '協商及解約', description: '處理採購爭議，必要時辦理合約協商變更或解約' },
+          { id: 'mc4-2-1', name: '材料成本定期督導', description: '督導材料成本的定期維護Review，確保材料成本資訊準確並維持合理水準' },
+          { id: 'mc4-2-2', name: '外包廠與供應商評比督導', description: '督導部屬對外包廠績效評比、輔導及管理，確認既有供應商評比與管理執行狀況' },
         ]
       },
       {
         id: 'mc4-3',
-        category: '採購關係維護',
+        category: '退貨與請款督導',
         items: [
-          { id: 'mc4-3-1', name: '內部溝通協調', description: '與需求單位及相關部門溝通協調採購需求與進度' },
-          { id: 'mc4-3-2', name: '外部溝通協調', description: '與供應商維護良好合作關係，追蹤交期與品質問題' },
+          { id: 'mc4-3-1', name: '退貨處理改善督導', description: '督導進料檢驗或生産線退不良品（屬供應商）的退貨處理改善，確保問題有效解決' },
+          { id: 'mc4-3-2', name: '採購請款檢視', description: '檢視採購請款作業，確認請款單據正確性及付款流程合規' },
+        ]
+      },
+      {
+        id: 'mc4-4',
+        category: '人員管理與稽核',
+        items: [
+          { id: 'mc4-4-1', name: '人員溝通與績效管理', description: '執行人員溝通與績效管理，包含出勤管理、績效考核、訓練等事宜' },
+          { id: 'mc4-4-2', name: '跨部門協調與稽核配合', description: '參與跨部門例行會議及專案會議，配合內外部稽核（含內控缺失改善）' },
         ]
       },
     ]
   },
   '採購助理': {
-    category: '資材部',
+    category: '資材課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
       {
         id: 'pa-1',
-        category: '協助採購作業',
+        category: '採購進度管制',
         items: [
-          { id: 'pa-1-1', name: '執行採購', description: '選擇適當招標方式、評鑑標案，通知供應商並協助簽訂採購合約' },
-          { id: 'pa-1-2', name: '管理承包商', description: '建立溝通策略維護供應商關係，監督履約績效，保存往來紀錄' },
-          { id: 'pa-1-3', name: '確認合約履行', description: '確認所購貨物或服務符合規格，辦理付款作業，處理合約確認與取消' },
+          { id: 'pa-1-1', name: '管制外包與採購件生産進度', description: '管制外包與採購件之生産進度，確保公司所採購之料（産）品能適時（進貨）、適量、適質、適價' },
+          { id: 'pa-1-2', name: '物料催交', description: '主動催交採購物料，掌握交期進度，協調供應商解決進度落後問題' },
         ]
       },
       {
         id: 'pa-2',
-        category: '整理採購相關資料',
+        category: '材料成本與供應商管理',
         items: [
-          { id: 'pa-2-1', name: '彙集採購資料', description: '蒐集並彙整採購相關資料，協助分析詢比價結果' },
-          { id: 'pa-2-2', name: '維護採購資料庫', description: '建立並維護採購資料庫，更新供應商及物料價格紀錄' },
+          { id: 'pa-2-1', name: '材料成本定期維護', description: '執行材料成本的定期維護Review，確保成本資料正確更新' },
+          { id: 'pa-2-2', name: '供應商評比與管理', description: '配合品管對外包廠績效評比、輔導及管理，執行既有供應商評比與管理' },
+        ]
+      },
+      {
+        id: 'pa-3',
+        category: '退貨處理與請款',
+        items: [
+          { id: 'pa-3-1', name: '退貨處理改善', description: '執行進料檢驗或生産線退不良品（屬供應商）的退貨處理改善，確保問題解決並歸責供應商' },
+          { id: 'pa-3-2', name: '採購請款作業', description: '辦理採購請款作業，核對發票與訂單資訊，確保付款流程正確合規' },
         ]
       },
     ]
   },
   '採購專員': {
-    category: '資材部',
+    category: '資材課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
       {
         id: 'pp-1',
-        category: '採購規劃與執行',
+        category: '採購進度督導',
         items: [
-          { id: 'pp-1-1', name: '規劃採購計畫', description: '確認採購需求、蒐集市場資訊、進行詢價，建立採購計畫並取得核定' },
-          { id: 'pp-1-2', name: '執行採購案', description: '執行詢價比價議價評選，下單並協助簽訂採購合約，建立採購紀錄' },
-          { id: 'pp-1-3', name: '招標邀標及評選', description: '辦理招標或邀標作業，依評選標準進行供應商評選' },
+          { id: 'pp-1-1', name: '督導外包與採購件生産進度', description: '督導外包與採購件之生産進度，督導確保公司所採購之料（産）品能適時（進貨）、適量、適質、適價' },
+          { id: 'pp-1-2', name: '物料催交督導', description: '督導物料催交作業，確保交期進度達標，協調供應商解決進度問題' },
         ]
       },
       {
         id: 'pp-2',
-        category: '履約及請款',
+        category: '材料成本與供應商督導',
         items: [
-          { id: 'pp-2-1', name: '驗收採購項目及請款', description: '驗收採購貨品或服務，核對規格數量，辦理付款請款作業' },
-          { id: 'pp-2-2', name: '協商及解約', description: '處理採購爭議，必要時辦理合約協商變更或解約' },
+          { id: 'pp-2-1', name: '材料成本督導維護', description: '督導材料成本的定期維護Review，確保成本資料準確並維持合理水準' },
+          { id: 'pp-2-2', name: '供應商評比督導', description: '配合品管對外包廠績效評比、輔導及管理，督導既有供應商評比與管理執行' },
         ]
       },
       {
         id: 'pp-3',
-        category: '採購關係維護',
+        category: '退貨處理與請款檢視',
         items: [
-          { id: 'pp-3-1', name: '內部溝通協調', description: '與需求單位及相關部門溝通協調採購需求與進度' },
-          { id: 'pp-3-2', name: '外部溝通協調', description: '與供應商維護良好合作關係，追蹤交期與品質問題' },
+          { id: 'pp-3-1', name: '退貨處理改善督導', description: '督導進料檢驗或生産線退不良品（屬供應商）的退貨處理改善，確保問題追蹤解決' },
+          { id: 'pp-3-2', name: '採購請款檢視', description: '檢視採購請款作業，確認請款單據正確性及付款流程合規' },
         ]
       },
     ]
   },
   '生管': {
-    category: '資材部',
+    category: '資材課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -483,73 +498,69 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '物管': {
-    category: '資材部',
+    category: '資材課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
       {
         id: 'im-1',
-        category: '依規範確認產品及庫存',
+        category: '收料與入庫',
         items: [
-          { id: 'im-1-1', name: '確認與分類產品', description: '依規範核對並分類進出庫產品，確認產品品項、數量及狀態' },
-          { id: 'im-1-2', name: '依指示放置產品位置', description: '依倉儲規範及指示，正確放置及儲存產品' },
-          { id: 'im-1-3', name: '協助相關人員解決存貨識別與位置問題', description: '協助相關人員識別存貨位置，解決庫存識別與調撥問題' },
-          { id: 'im-1-4', name: '確認存貨轉移的適當性', description: '審核並確認存貨轉移作業符合規範' },
+          { id: 'im-1-1', name: '執行收料作業', description: '執行收料作業，包含原物料、半成品、不良品、呆滯品（廢料）之收料與呆滯品處理，提高料帳精準度避免呆料' },
+          { id: 'im-1-2', name: '執行合格品入庫作業', description: '執行合格品入庫作業，進行倉儲架位控制，確保儲位正確，提高儲運效率' },
         ]
       },
       {
         id: 'im-2',
-        category: '管理資產與設施設備的安全',
+        category: '備料與發料',
         items: [
-          { id: 'im-2-1', name: '規劃與評估安全需求', description: '評估倉儲設施安全需求，規劃安全管理措施' },
-          { id: 'im-2-2', name: '監控並評估安全計畫', description: '監控倉儲安全計畫執行狀況，定期評估安全績效' },
+          { id: 'im-2-1', name: '依製令單備料', description: '依製令單於三天前查詢庫存與儲位（QR CODE掃描），準備齊現場所需的物料，確保生産線不缺料' },
+          { id: 'im-2-2', name: '執行發料作業', description: '執行發料作業，協助生産線上下料，確保物料準時供應至各生産站點' },
         ]
       },
       {
         id: 'im-3',
-        category: '維護倉儲紀錄的文件',
+        category: '料架維護與盤點',
         items: [
-          { id: 'im-3-1', name: '確認使用者要求的資訊', description: '確認倉儲相關人員對資訊的需求，提供正確資料' },
-          { id: 'im-3-2', name: '完成倉儲紀錄', description: '正確完成並維護倉儲進出庫、盤點等相關紀錄' },
+          { id: 'im-3-1', name: '料架維護', description: '維護料架整潔與結構安全，確保儲位標識清楚，符合5S管理要求' },
+          { id: 'im-3-2', name: '執行盤點作業', description: '執行定期及年度物料盤點，核對實物與系統帳務，及時回報異常差異' },
         ]
       },
     ]
   },
   '成倉': {
-    category: '資材部',
+    category: '資材課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
       {
         id: 'sw-1',
-        category: '依規範確認產品及庫存',
+        category: '收料與入庫管理',
         items: [
-          { id: 'sw-1-1', name: '確認與分類產品', description: '依規範核對並分類進出庫產品，確認產品品項、數量及狀態' },
-          { id: 'sw-1-2', name: '依指示放置產品位置', description: '依倉儲規範及指示，正確放置及儲存產品' },
-          { id: 'sw-1-3', name: '協助相關人員解決存貨識別與位置問題', description: '協助相關人員識別存貨位置，解決庫存識別與調撥問題' },
-          { id: 'sw-1-4', name: '確認存貨轉移的適當性', description: '審核並確認存貨轉移作業符合規範' },
+          { id: 'sw-1-1', name: '成品收料管理', description: '執行成品收料管理，核對成品品項、數量及狀態，確保收料正確無誤' },
+          { id: 'sw-1-2', name: '入庫管理', description: '執行入庫管理，進行成品整理及5S管理，定期盤點確認帳物相符' },
         ]
       },
       {
         id: 'sw-2',
-        category: '管理資產與設施設備的安全',
+        category: '出貨管理',
         items: [
-          { id: 'sw-2-1', name: '規劃與評估安全需求', description: '評估倉儲設施安全需求，規劃安全管理措施' },
-          { id: 'sw-2-2', name: '監控並評估安全計畫', description: '監控倉儲安全計畫執行狀況，定期評估安全績效' },
+          { id: 'sw-2-1', name: '排定出貨順序與通知', description: '排定貨櫃出貨順序表格予生産部，通知貨櫃進出順序，彙整每貨櫃出貨成品及貼麥頭' },
+          { id: 'sw-2-2', name: '防恐作業與拍照上傳', description: '執行貨櫃八大項目檢查（防恐作業），成品裝卸後拍照上傳群組，確保出貨合規' },
         ]
       },
       {
         id: 'sw-3',
-        category: '維護倉儲紀錄的文件',
+        category: '拆櫃與設備操作',
         items: [
-          { id: 'sw-3-1', name: '確認使用者要求的資訊', description: '確認倉儲相關人員對資訊的需求，提供正確資料' },
-          { id: 'sw-3-2', name: '完成倉儲紀錄', description: '正確完成並維護倉儲進出庫、盤點等相關紀錄' },
+          { id: 'sw-3-1', name: '進口原物料拆櫃與拍照', description: '執行進口原物料拆櫃作業，拍照上傳留存紀錄，確認品項與數量正確' },
+          { id: 'sw-3-2', name: '堆高機操作與環境清潔', description: '操作堆高機進行物料搬運，維持倉儲環境清潔，配合年度物料盤點作業' },
         ]
       },
     ]
   },
   '副組長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -589,7 +600,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '組長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -614,7 +625,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '加工組組長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -657,7 +668,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '沖床組組長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -703,7 +714,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '塗裝組組長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -728,7 +739,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '組立組組長': {
-    category: '製造部',
+    category: '製造課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -753,7 +764,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '品保課課長': {
-    category: '品質部',
+    category: '品保課',
     level: '部門主管',
     requiredLevel: 3,
     competencies: [
@@ -803,7 +814,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '品保課副課長': {
-    category: '品質部',
+    category: '品保課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -853,7 +864,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '總務課課長': {
-    category: '總務部',
+    category: '總務課',
     level: '部門主管',
     requiredLevel: 3,
     competencies: [
@@ -894,7 +905,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '總務課副課長': {
-    category: '總務部',
+    category: '總務課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -917,7 +928,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '總務專員': {
-    category: '總務部',
+    category: '總務課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -940,7 +951,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '總務助理': {
-    category: '總務部',
+    category: '總務課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -963,7 +974,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '人資助理': {
-    category: '總務部',
+    category: '總務課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -997,7 +1008,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '人資專員': {
-    category: '總務部',
+    category: '總務課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -1031,7 +1042,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '庶務組長': {
-    category: '總務部',
+    category: '總務課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -1054,7 +1065,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '庶務員': {
-    category: '總務部',
+    category: '總務課',
     level: '基層執行',
     requiredLevel: 1,
     competencies: [
@@ -1077,7 +1088,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '清潔員': {
-    category: '總務部',
+    category: '總務課',
     level: '基層執行',
     requiredLevel: 1,
     competencies: [
@@ -1100,7 +1111,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '業務課組長': {
-    category: '業務部',
+    category: '業務課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -1144,7 +1155,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '業務助理': {
-    category: '業務部',
+    category: '業務課',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
@@ -1178,7 +1189,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '研發課課長': {
-    category: '研發部',
+    category: '研發課',
     level: '部門主管',
     requiredLevel: 3,
     competencies: [
@@ -1226,7 +1237,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '研發課副課長': {
-    category: '研發部',
+    category: '研發課',
     level: '基層主管',
     requiredLevel: 2,
     competencies: [
@@ -1267,7 +1278,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '研發工程師': {
-    category: '研發部',
+    category: '研發課',
     level: '專業人員',
     requiredLevel: 3,
     competencies: [
@@ -1461,6 +1472,114 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
           { id: 'ceo-dm-5-1', name: '外部接待與拜訪', description: '代表公司接待重要外賓或進行外部拜訪' },
           { id: 'ceo-dm-5-2', name: '合作關係維護', description: '維護與政府機關、合作夥伴等重要關係' },
           { id: 'ceo-dm-5-3', name: '公司形象維護', description: '於對外場合維護公司形象與信譽' },
+        ]
+      },
+    ]
+  },
+  '財務出納': {
+    category: '財務部',
+    level: '基層執行',
+    requiredLevel: 2,
+    competencies: [
+      {
+        id: 'fo-1',
+        category: '憑證與帳務處理',
+        items: [
+          { id: 'fo-1-1', name: '收發憑證與製作傳票', description: '收發、記錄及彙整交易產生之原始憑證，登錄至會計系統製作傳票，負責總分類帳及帳冊記錄、登載、核算及保管' },
+          { id: 'fo-1-2', name: '應付應收帳務處理', description: '處理廠商貨款或費用等應付款項帳務，處理客戶應收款項帳務及其他一般會計帳務' },
+        ]
+      },
+      {
+        id: 'fo-2',
+        category: '現金與銀行作業',
+        items: [
+          { id: 'fo-2-1', name: '銀行現金作業', description: '協助辦理銀行現金存、提款、匯款轉帳，執行一般現金收付作業，核對儲存現金與記錄是否相符' },
+          { id: 'fo-2-2', name: '零用金管理', description: '管理零用金異動及撥補作業，確保零用金帳務正確' },
+        ]
+      },
+      {
+        id: 'fo-3',
+        category: '開票與報表製作',
+        items: [
+          { id: 'fo-3-1', name: '開票與電子支付', description: '完成例行付款開票及電子支付作業，估算L/C、長短期借款、CP等應付利息，辦理簡易出納會計及銀行往來事務' },
+          { id: 'fo-3-2', name: '出納報表製作', description: '製作出納科目餘額表、收款日報表、利息收入調節表、銀行存款收支日報表、銀行往來授信明細表等' },
+        ]
+      },
+    ]
+  },
+  '財務組組長': {
+    category: '財務部',
+    level: '基層主管',
+    requiredLevel: 2,
+    competencies: [
+      {
+        id: 'fm-1',
+        category: '成本會計管理',
+        items: [
+          { id: 'fm-1-1', name: '成本結轉流程建立', description: '規劃、建立與維護成本結轉流程，審核料品進耗存流程及相關單據，確保成本流程正確合規' },
+          { id: 'fm-1-2', name: '成本差異分析', description: '應用各種方法比較各種成本，進行差異分析（實際成本、標準成本、預估成本），找出差異原因並提出改善建議' },
+        ]
+      },
+      {
+        id: 'fm-2',
+        category: '成本核算與報表',
+        items: [
+          { id: 'fm-2-1', name: '成本表編製', description: '分攤材料、人工、製造費用等，完成相關成本表，完成例行成本結算與各項成本分析報表編製' },
+          { id: 'fm-2-2', name: '單位成本核算', description: '核算及分析產品單位成本，管理公司資產保障資產安全，妥善保存帳冊以備稽核查核' },
+        ]
+      },
+      {
+        id: 'fm-3',
+        category: '帳務複核',
+        items: [
+          { id: 'fm-3-1', name: '費用帳務複核', description: '複核有關各項費用支付之發票、單據及帳務處理，確保帳務正確性' },
+          { id: 'fm-3-2', name: '應付帳款複核', description: '複核廠商貨款等應付款項帳務，協助各項作業流程改善及內控流程規劃及掌握' },
+        ]
+      },
+      {
+        id: 'fm-4',
+        category: '存貨與稽核配合',
+        items: [
+          { id: 'fm-4-1', name: '存貨庫齡分析與盤點', description: '分析存貨庫齡與盤點，識別滯料風險，提供管理決策依據' },
+          { id: 'fm-4-2', name: '配合稽核查核', description: '配合會計師、稅捐機關等查核，協助提供相關資料，確保合規無虞' },
+        ]
+      },
+    ]
+  },
+  '研發助理': {
+    category: '研發課',
+    level: '基層執行',
+    requiredLevel: 2,
+    competencies: [
+      {
+        id: 'rda-1',
+        category: 'BOM與材料規格管理',
+        items: [
+          { id: 'rda-1-1', name: 'BOM表編列與管理', description: '完成材料表、BOM表編列，對材料規格進行認定及承認，維護BOM的正確性與完整性' },
+          { id: 'rda-1-2', name: '客戶圖面資料轉換', description: '執行客戶圖面資料轉換，協助訂定產品研發計畫並協調開發進度，協助新產品樣品試作及客戶初期試驗' },
+        ]
+      },
+      {
+        id: 'rda-2',
+        category: '文件發行與歸檔',
+        items: [
+          { id: 'rda-2-1', name: '研發圖面發行與設計變更', description: '執行研發圖面發行及設計變更處理，管理文件保存，確保版本控管正確，執行文件分發與歸檔' },
+          { id: 'rda-2-2', name: '產品說明書繪製與修訂', description: '協助產品圖面、說明書之繪製與修訂，確保圖面正確性，蒐集各項研發技術資訊' },
+        ]
+      },
+      {
+        id: 'rda-3',
+        category: 'ISO內控文件管理',
+        items: [
+          { id: 'rda-3-1', name: '公司ISO及內控文件管理', description: '執行公司ISO及內控文件管理，確保研發相關文件符合管理系統規範，定期更新並維護文件系統' },
+        ]
+      },
+      {
+        id: 'rda-4',
+        category: '請款與ERP操作',
+        items: [
+          { id: 'rda-4-1', name: '供應商請款作業', description: '執行新產品供應商報價議價及模具開模請款作業，確保請款流程合規正確' },
+          { id: 'rda-4-2', name: 'ERP系統操作', description: '熟練操作鼎新ERP系統研發作業模組，完成各項資料登錄、查詢及相關作業' },
         ]
       },
     ]

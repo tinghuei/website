@@ -600,20 +600,38 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-mg-1',
-        category: '金屬製程規劃及管理',
+        category: '模具製造',
         items: [
-          { id: 'mfg-mg-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
-          { id: 'mfg-mg-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
-          { id: 'mfg-mg-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
+          { id: 'mfg-mg-1-1', name: '規劃製造程序', description: '依模具圖面規劃各零件製造程序，確認加工順序、所需機具及工時' },
+          { id: 'mfg-mg-1-2', name: '確認模具材料', description: '依圖面確認模具材料規格與材質，進行備料確認與管控' },
+          { id: 'mfg-mg-1-3', name: '選擇及安排各類加工機具', description: '依製程需求選擇適切加工機具，安排機台使用並設定加工參數' },
+          { id: 'mfg-mg-1-4', name: '進行加工', description: '操作各類機具設備執行模具零件加工，確認加工品質符合圖面規格' },
+          { id: 'mfg-mg-1-5', name: '工件量測', description: '使用量具量測工件尺寸，確認加工精度符合設計要求，識別並處理超差件' },
         ]
       },
       {
         id: 'mfg-mg-2',
-        category: '環境及設備零組件管理',
+        category: '模具裝配組立',
         items: [
-          { id: 'mfg-mg-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
-          { id: 'mfg-mg-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
-          { id: 'mfg-mg-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
+          { id: 'mfg-mg-2-1', name: '模具組裝與檢測', description: '依組立圖完成模具各零件組裝，進行功能確認及精度檢測，確認模具可正常使用' },
+        ]
+      },
+      {
+        id: 'mfg-mg-3',
+        category: '銲接作業',
+        items: [
+          { id: 'mfg-mg-3-1', name: '準備銲接器機具及材料', description: '依作業需求準備銲接設備、銲接材料及防護具，確認設備功能正常' },
+          { id: 'mfg-mg-3-2', name: '銲接前處理作業', description: '對銲接件進行清潔、去除氧化層及定位固定等前處理作業，確保銲接品質' },
+          { id: 'mfg-mg-3-3', name: '執行銲接施工', description: '依施工規範執行銲接作業，控制銲接參數確保銲道品質符合規格' },
+          { id: 'mfg-mg-3-4', name: '清潔銲道及檢驗', description: '完成銲接後清潔銲道，目視及量測檢查銲道外觀，確認無裂縫、氣孔等缺陷' },
+        ]
+      },
+      {
+        id: 'mfg-mg-4',
+        category: '保養及簡易故障排除',
+        items: [
+          { id: 'mfg-mg-4-1', name: '日常基本保養', description: '依保養規範執行機具設備及模具日常清潔保養，完成保養紀錄' },
+          { id: 'mfg-mg-4-2', name: '簡易故障排除', description: '識別機具設備及銲接器具常見故障，執行簡易故障排除，無法排除時回報並請求支援' },
         ]
       },
     ]
@@ -625,20 +643,41 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'mfg-press-1',
-        category: '金屬製程規劃及管理',
+        category: '成品及模具圖面的識別與判讀',
         items: [
-          { id: 'mfg-press-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
-          { id: 'mfg-press-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
-          { id: 'mfg-press-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
+          { id: 'mfg-press-1-1', name: '成品圖識別', description: '依成品圖識別成品外形、尺寸、公差及表面織構符號，確認成品加工需求' },
+          { id: 'mfg-press-1-2', name: '模具組立圖判讀', description: '判讀沖壓模具組立圖，了解模具各零件組成關係與功能' },
+          { id: 'mfg-press-1-3', name: '確認材料規格', description: '依圖面確認所需材料規格、材質及數量，作為備料與加工依據' },
         ]
       },
       {
         id: 'mfg-press-2',
-        category: '環境及設備零組件管理',
+        category: '模具加工、組裝及檢測',
         items: [
-          { id: 'mfg-press-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
-          { id: 'mfg-press-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
-          { id: 'mfg-press-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
+          { id: 'mfg-press-2-1', name: '加工程序規劃', description: '依模具圖面規劃各零件加工程序，確認加工順序與機具設備需求' },
+          { id: 'mfg-press-2-2', name: '模板及相關零件製作', description: '操作機具設備製作模板及各類模具零件，確保尺寸精度符合圖面規格' },
+          { id: 'mfg-press-2-3', name: '模具零件尺度量測', description: '使用量具量測模具零件尺度，確認加工精度符合設計要求' },
+          { id: 'mfg-press-2-4', name: '模具組裝', description: '依組立圖完成模具各零件組裝，確認各機構動作正確、間隙符合規格' },
+          { id: 'mfg-press-2-5', name: '功能檢測', description: '完成模具組裝後進行功能確認，檢查沖切動作、間隙及模具各機構是否正常運作' },
+        ]
+      },
+      {
+        id: 'mfg-press-3',
+        category: '雷射切割作業',
+        items: [
+          { id: 'mfg-press-3-1', name: '雷射切割圖樣及材料表檢查', description: '核對雷射切割工作圖及材料表，確認加工尺寸、材質及數量正確' },
+          { id: 'mfg-press-3-2', name: '切割機台模擬測試與定位', description: '操作雷射切割機台進行切割路徑模擬測試及機台定位，確認程式無誤後方可正式切割' },
+          { id: 'mfg-press-3-3', name: '雷射切割製程操作', description: '依作業規範操作雷射切割機台執行打樣及正式切割製程，監控切割品質並完成生產紀錄' },
+        ]
+      },
+      {
+        id: 'mfg-press-4',
+        category: '試模及機具與模具保養',
+        items: [
+          { id: 'mfg-press-4-1', name: '沖床使用及試模', description: '操作沖床設備進行模具試模，確認沖壓成品外觀及尺寸符合規格，排除試模異常' },
+          { id: 'mfg-press-4-2', name: '模具維護', description: '依維護規範拆解、清潔、研磨及潤滑模具，確保模具精度與使用壽命' },
+          { id: 'mfg-press-4-3', name: '機具設備及量具維護', description: '依保養規範執行機具設備及量具日常清潔保養，完成保養紀錄並回報異常' },
+          { id: 'mfg-press-4-4', name: '切割機台保養與異常維修', description: '依保養計畫執行雷射切割機台定期保養，識別異常狀況並執行簡易維修或回報' },
         ]
       },
     ]
@@ -1209,29 +1248,44 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 're-1',
-        category: '技術知識',
+        category: '判讀及評估成品圖',
         items: [
-          { id: 're-1-1', name: '機械設計', description: '執行機械設計與製圖' },
-          { id: 're-1-2', name: '電氣設計', description: '執行電氣設計與配線規劃' },
-          { id: 're-1-3', name: '試驗驗證', description: '規劃並進行產品試驗驗證' },
-          { id: 're-1-4', name: '技術文件編寫', description: '編寫設計規格書與技術報告' },
+          { id: 're-1-1', name: '判讀成品圖', description: '依成品圖進行成品開發的判讀及規劃，正確理解成品公差、配合及表面織構符號，依樣品或成品圖評估成品開發可行性' },
+          { id: 're-1-2', name: '成品開發評估', description: '依據成品規格、材質及數量評估模具壽命，進行成品開發或專案的成本評估，提出設計變更建議方案並撰寫可行性評估報告' },
         ]
       },
       {
         id: 're-2',
-        category: '專案管理與執行',
+        category: '規劃模具工序',
         items: [
-          { id: 're-2-1', name: '項目計畫執行', description: '依研發計畫如期完成個人負責項目' },
-          { id: 're-2-2', name: '問題分析與解決', description: '識別研發問題並提出技術解決方案' },
-          { id: 're-2-3', name: '進度管理', description: '自主管理工作進度，準時回報執行狀況' },
+          { id: 're-2-1', name: '開模檢討', description: '依成品特性分析規劃模具工程順序，依模具種類及成品大小選擇鍛造設備種類及機型，評估需求之模具及零件型式，進行開模檢討' },
+          { id: 're-2-2', name: '規劃量測', description: '確認成品機械性質及金相組織的內容項目，依成品鍛造品質及機械性能要求列出量測儀器清單' },
         ]
       },
       {
         id: 're-3',
-        category: '協調與溝通',
+        category: '設計及繪製模具結構',
         items: [
-          { id: 're-3-1', name: '跨部門協調', description: '與製造、品保等部門協調技術需求' },
-          { id: 're-3-2', name: '技術支持', description: '提供現場生產技術支持與異常排除' },
+          { id: 're-3-1', name: '設計及規劃模具配置', description: '確定成品模穴置放在模具中的位置，進行分模面、排溢系統細部分析和設計，計算成品之材積及模擬，確認填料、溢料、排氣及頂出位置的配置' },
+          { id: 're-3-2', name: '選用模座及零配件', description: '依模具需求選擇適切模座及頂出機構，選擇導向零配件及固定用零配件，選用模具加熱裝置，進行夾治具的規劃與設計' },
+          { id: 're-3-3', name: '設計模具及繪製工程圖', description: '進行設備行程和力學設計，確認模具加熱設計，核對模具和鍛造機座的相關尺寸，繪製3D模具工程圖，進行模具機構模擬及塑性分析' },
+        ]
+      },
+      {
+        id: 're-4',
+        category: '繪製模具零件加工圖及出圖',
+        items: [
+          { id: 're-4-1', name: '製作模具BOM表', description: '依模具結構設計及熱處理要求標示零件材質、規格數量及編號，製作模具BOM表，統計自製零件與外購零件規格及數量' },
+          { id: 're-4-2', name: '繪製模具零件加工圖及出圖', description: '完成零件加工圖繪製及出圖，繪製成品工序圖、模具組立結構圖及出圖，進行鍛造成型模擬操作' },
+        ]
+      },
+      {
+        id: 're-5',
+        category: '協助試模及量產作業',
+        items: [
+          { id: 're-5-1', name: '試模結果及問題分析', description: '依試模成品外觀尺寸的變化判斷模具穩定成形狀況，識別試模問題並提出模具製造、設計及工程規劃之改善對策，撰寫試模報告書' },
+          { id: 're-5-2', name: '取樣及量測分析', description: '與模具製造及生產單位進行鍛造缺陷溝通協調並修正改善，配合品保部門進行取樣及機械性能量測' },
+          { id: 're-5-3', name: '協助量產作業', description: '建立標準作業程序書提供生產單位執行，協助生產單位進行模具故障排除，協助進行模具成型可靠度分析' },
         ]
       },
     ]

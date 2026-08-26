@@ -149,31 +149,32 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'qi-1',
-        category: '實施品質管理計畫',
+        category: '協助品質管理人員建立檢驗文件',
         items: [
-          { id: 'qi-1-1', name: '品質監控與執行', description: '依品質計畫及作業SOP執行品質監控，確保製程與產品符合規格' },
-          { id: 'qi-1-2', name: '製程品質巡檢', description: '執行製程中品質巡檢，識別並記錄異常，即時通報相關人員' },
-          { id: 'qi-1-3', name: '品質檢驗與判定', description: '執行進料、製程、成品及包裝完整性等各階段品質檢驗與合格判定' },
-          { id: 'qi-1-4', name: '品質異常處理', description: '於現場確認異常、隔離不良品、追查原因，跨部門協調並撰寫異常處理報告' },
-          { id: 'qi-1-5', name: '協助供應商品質管理', description: '協助追蹤供應商品質問題，提供改善建議' },
+          { id: 'qi-1-1', name: '製作一般待檢驗項目的相關文件', description: '依品質管理人員指示，製作進料、製程、成品等待檢驗項目之相關表單及檢驗紀錄文件' },
         ]
       },
       {
         id: 'qi-2',
-        category: '彙整品質文件',
+        category: '協助檢查測試或測量材料及產品',
         items: [
-          { id: 'qi-2-1', name: '紀錄與分析品質資料', description: '正確記錄並分析各項品質檢驗數據，提出品質趨勢報告' },
-          { id: 'qi-2-2', name: '品質文件建立與更新', description: '協助建立並維護品質相關SOP、作業標準等文件' },
-          { id: 'qi-2-3', name: '協助維護品質資料庫及文件', description: '協助維護品質資料庫，確保資料完整性與可查性' },
-          { id: 'qi-2-4', name: '品質資料查詢與提供', description: '提供各部門品質資料查詢服務' },
+          { id: 'qi-2-1', name: '判讀檢驗程序文件與標準化作業文件', description: '閱讀並理解檢驗程序書及標準化作業文件，依文件規定執行檢驗作業' },
+          { id: 'qi-2-2', name: '製程檢驗與量測', description: '依作業標準對製程中在製品進行尺寸、外觀等項目之檢驗與量測，識別並記錄異常' },
+          { id: 'qi-2-3', name: '一般項目檢驗與量測', description: '使用量具及檢驗設備對進料材料及成品進行一般項目之檢驗與量測，判定合格與否' },
         ]
       },
       {
         id: 'qi-3',
-        category: '協助推廣品質觀念與教育訓練',
+        category: '協助整理資料',
         items: [
-          { id: 'qi-3-1', name: '協助推廣品質觀念', description: '協助推廣品質第一的工作理念，促進品質意識提升' },
-          { id: 'qi-3-2', name: '協助教育訓練', description: '協助辦理品質相關教育訓練課程' },
+          { id: 'qi-3-1', name: '協助整理資料', description: '協助彙整各類檢驗紀錄與品質數據，提供給品質管理人員進行分析與管理' },
+        ]
+      },
+      {
+        id: 'qi-4',
+        category: '文件與資料管理',
+        items: [
+          { id: 'qi-4-1', name: '管理品管部門所需文件', description: '維護並管理品管部門相關文件，確保文件版本正確、存取有序且易於查閱' },
         ]
       },
     ]
@@ -709,8 +710,8 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         category: '檢驗程序規劃及執行',
         items: [
           { id: 'qm-2-1', name: '檢驗程序規劃與程序文件製作', description: '規劃品質技術流程，制定各項SOP文件，確保檢驗程序完整且可執行' },
-          { id: 'qm-2-2', name: '製程品質控管（IPQC）', description: '執行製程中品質管控，確保在製品符合品質標準，識別並處理製程異常' },
-          { id: 'qm-2-3', name: '確保成品品質（QC）', description: '執行成品品質檢驗與測試，確認出貨品質符合客戶規範與內部標準' },
+          { id: 'qm-2-2', name: '製程品質控管', description: '執行製程中品質管控，確保在製品符合品質標準，識別並處理製程異常' },
+          { id: 'qm-2-3', name: '確保成品品質', description: '執行成品品質檢驗與測試，確認出貨品質符合客戶規範與內部標準' },
         ]
       },
       {
@@ -729,6 +730,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
           { id: 'qm-4-2', name: 'NG品異常狀況檢討', description: '進行NG品異常現況調查，執行外觀、尺寸及功能的檢驗測試' },
           { id: 'qm-4-3', name: 'NG品異常狀況判定及原因分析', description: '運用8D、5Why等工具執行根因分析，確認品質異常真因' },
           { id: 'qm-4-4', name: 'NG品異常狀況對策擬定', description: '擬定暫定及永久改善對策，追蹤對策落實效果並驗證改善成效' },
+          { id: 'qm-4-5', name: '執行成品品質趨勢分析及管理改善', description: '定期分析成品品質趨勢，針對反覆發生的異常制定管理改善計畫並追蹤執行' },
         ]
       },
       {
@@ -758,8 +760,8 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         category: '檢驗程序規劃及執行',
         items: [
           { id: 'qm3-2-1', name: '檢驗程序規劃與程序文件製作', description: '規劃品質技術流程，制定各項SOP文件，確保檢驗程序完整且可執行' },
-          { id: 'qm3-2-2', name: '製程品質控管（IPQC）', description: '執行製程中品質管控，確保在製品符合品質標準，識別並處理製程異常' },
-          { id: 'qm3-2-3', name: '確保成品品質（QC）', description: '執行成品品質檢驗與測試，確認出貨品質符合客戶規範與內部標準' },
+          { id: 'qm3-2-2', name: '製程品質控管', description: '執行製程中品質管控，確保在製品符合品質標準，識別並處理製程異常' },
+          { id: 'qm3-2-3', name: '確保成品品質', description: '執行成品品質檢驗與測試，確認出貨品質符合客戶規範與內部標準' },
         ]
       },
       {
@@ -778,6 +780,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
           { id: 'qm3-4-2', name: 'NG品異常狀況檢討', description: '進行NG品異常現況調查，執行外觀、尺寸及功能的檢驗測試' },
           { id: 'qm3-4-3', name: 'NG品異常狀況判定及原因分析', description: '運用8D、5Why等工具執行根因分析，確認品質異常真因' },
           { id: 'qm3-4-4', name: 'NG品異常狀況對策擬定', description: '擬定暫定及永久改善對策，追蹤對策落實效果並驗證改善成效' },
+          { id: 'qm3-4-5', name: '執行成品品質趨勢分析及管理改善', description: '定期分析成品品質趨勢，針對反覆發生的異常制定管理改善計畫並追蹤執行' },
         ]
       },
       {

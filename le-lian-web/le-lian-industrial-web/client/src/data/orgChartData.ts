@@ -55,7 +55,6 @@ export const ORG_UNITS: OrgUnit[] = [
     parentId: null,
     members: [
       { name: '曾夷璋', title: '工程師' },
-      { name: '陳家祥', title: '工程師' },
     ],
   },
 
@@ -150,7 +149,10 @@ export const ORG_UNITS: OrgUnit[] = [
     id: 'facility-dept',
     name: '廠務部',
     parentId: null,
-    members: [{ name: '蔡政博', title: '經理' }],
+    members: [
+      { name: '蔡政博', title: '經理' },
+      { name: '陳家祥', title: '製程工程師' },
+    ],
   },
   {
     id: 'materials-section',

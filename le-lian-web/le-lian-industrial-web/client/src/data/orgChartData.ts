@@ -71,7 +71,7 @@ export const ORG_UNITS: OrgUnit[] = [
     name: '業務課',
     parentId: 'sales-dept',
     members: [
-      { name: '伍珈妏', title: '組長' },
+      { name: '伍珈彣', title: '組長' },
       { name: '鄭淑鐘', title: '助理專員' },
       { name: '陳玉慧', title: '助理' },
     ],

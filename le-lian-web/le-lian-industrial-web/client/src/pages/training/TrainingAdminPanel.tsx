@@ -611,6 +611,7 @@ export default function TrainingAdminPanel() {
                           >
                             <option value="employee">員工</option>
                             <option value="manager">部門主管</option>
+                            <option value="hr">人資</option>
                             <option value="admin">系統管理員</option>
                           </select>
                           <button
@@ -784,11 +785,12 @@ export default function TrainingAdminPanel() {
                     <label className="block text-xs font-medium text-gray-700 mb-1">初始角色</label>
                     <select
                       value={addUserForm.role}
-                      onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value as 'employee' | 'manager' | 'admin' }))}
+                      onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value as 'employee' | 'manager' | 'hr' | 'admin' }))}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
                       <option value="employee">員工</option>
                       <option value="manager">部門主管</option>
+                      <option value="hr">人資</option>
                       <option value="admin">系統管理員</option>
                     </select>
                   </div>

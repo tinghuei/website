@@ -77,7 +77,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'mc-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'mc-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mc-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'mc-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'mc-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -102,7 +102,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'bl-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'bl-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'bl-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'bl-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'bl-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -116,20 +116,28 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'te-1',
-        category: '金屬製程規劃及管理',
+        category: '金屬製造設備機具整備',
         items: [
-          { id: 'te-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
-          { id: 'te-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
-          { id: 'te-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
+          { id: 'te-1-1', name: '啟動設備及檢查安全狀況', description: '依設備操作規範啟動機具設備，確認安全裝置功能正常，完成啟動前安全檢查紀錄' },
+          { id: 'te-1-2', name: '機具準備與設定', description: '依生產指令完成機具夾具更換、參數設定及試作確認，確保設備備妥可投產' },
         ]
       },
       {
         id: 'te-2',
-        category: '環境及設備零組件管理',
+        category: '金屬製造生產',
         items: [
-          { id: 'te-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
-          { id: 'te-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
-          { id: 'te-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
+          { id: 'te-2-1', name: '製程監控與紀錄', description: '依作業標準執行製程操作，監控生產進度與機台運作狀況，完成生產紀錄' },
+          { id: 'te-2-2', name: '製程品質管制', description: '依品質標準執行自主檢查，識別異常並通報，確保製程品質符合規格' },
+        ]
+      },
+      {
+        id: 'te-3',
+        category: '環境清潔及設備維護',
+        items: [
+          { id: 'te-3-1', name: '環境清理與維護', description: '依5S規範清理工作區域，維持整潔有序的生產環境' },
+          { id: 'te-3-2', name: '盤點零組件、半成品及成品', description: '依作業規範盤點材料、半成品及成品數量，確認庫存正確並完成紀錄' },
+          { id: 'te-3-3', name: '機具設備保養', description: '依保養計畫執行機具設備日常清潔與定期保養，完成保養紀錄' },
+          { id: 'te-3-4', name: '機具設備簡易故障排除', description: '識別機具設備常見故障現象，執行簡易故障排除，並回報無法自行排除之問題' },
         ]
       },
     ]
@@ -300,7 +308,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'mc2-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'mc2-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mc2-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'mc2-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'mc2-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -552,7 +560,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'sg-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'sg-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'sg-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'sg-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'sg-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -577,7 +585,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'gl-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'gl-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'gl-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'gl-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'gl-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -602,7 +610,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'mfg-mg-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-mg-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-mg-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'mfg-mg-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'mfg-mg-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -627,7 +635,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'mfg-press-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-press-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-press-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'mfg-press-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'mfg-press-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -652,7 +660,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'mfg-paint-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-paint-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-paint-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'mfg-paint-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'mfg-paint-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]
@@ -677,7 +685,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'mfg-asm-2',
         category: '環境及設備零組件管理',
         items: [
-          { id: 'mfg-asm-2-1', name: '生產環境管理', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理' },
+          { id: 'mfg-asm-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
           { id: 'mfg-asm-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
           { id: 'mfg-asm-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
         ]

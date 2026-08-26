@@ -91,20 +91,27 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'bl-1',
-        category: '金屬製程規劃及管理',
+        category: '人員管理與出勤管控',
         items: [
-          { id: 'bl-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
-          { id: 'bl-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
-          { id: 'bl-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
+          { id: 'bl-1-1', name: '出勤管理與人員點名', description: '開線前完成人員點名，掌握人員動向，說明當日工作重點與產量目標，確保班內人員到位' },
+          { id: 'bl-1-2', name: '離崗管制', description: '嚴格要求班內成員離開工作機台必須報告，確實填寫離崗登記簿，防止無故離崗影響生産' },
         ]
       },
       {
         id: 'bl-2',
-        category: '環境及設備零組件管理',
+        category: '生産報工管理',
         items: [
-          { id: 'bl-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
-          { id: 'bl-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
-          { id: 'bl-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
+          { id: 'bl-2-1', name: '生産報工統計', description: '每兩小時確實統計產出數量並更新白板資訊，確保生産數據真實不虛報，提供管理參考' },
+          { id: 'bl-2-2', name: '首件檢查執行', description: '開線或換線時執行首件檢查，確認首件樣品正確且擺放於指定檢驗區，確保製程品質' },
+        ]
+      },
+      {
+        id: 'bl-3',
+        category: 'SOP落實與設備環境管理',
+        items: [
+          { id: 'bl-3-1', name: 'SOP落實確認', description: '確保組員清楚相關作業標準與權益，落實按SOP執行作業，識別並糾正不合規行為' },
+          { id: 'bl-3-2', name: '設備保養與環境清潔', description: '依保養計畫負責班內機台日常保養與5S清潔，維護消防栓周邊淨空，確保作業環境安全整潔' },
+          { id: 'bl-3-3', name: '異常通報', description: '發現品質、設備或人員異常時，立即回報組長或副組長，協助排除異常恢復正常生産' },
         ]
       },
     ]
@@ -445,34 +452,32 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     ]
   },
   '生管': {
-    category: '製造部',
+    category: '資材部',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
       {
         id: 'pm-1',
-        category: '依規範確認產品及庫存',
+        category: '生産排程規劃',
         items: [
-          { id: 'pm-1-1', name: '確認與分類產品', description: '依規範核對並分類進出庫產品，確認產品品項、數量及狀態' },
-          { id: 'pm-1-2', name: '依指示放置產品位置', description: '依倉儲規範及指示，正確放置及儲存產品' },
-          { id: 'pm-1-3', name: '協助相關人員解決存貨識別與位置問題', description: '協助相關人員識別存貨位置，解決庫存識別與調撥問題' },
-          { id: 'pm-1-4', name: '確認存貨轉移的適當性', description: '審核並確認存貨轉移作業符合規範' },
+          { id: 'pm-1-1', name: '依訂單排定生産排程', description: '根據業務訂單分析生産需求，排定各產品生産排程，確保排程符合交期要求' },
+          { id: 'pm-1-2', name: '開立製令單', description: '依生産排程開立製令單，確認各生産工令資訊正確，提供製造部門執行依據' },
         ]
       },
       {
         id: 'pm-2',
-        category: '管理資產與設施設備的安全',
+        category: '物料計畫管制',
         items: [
-          { id: 'pm-2-1', name: '規劃與評估安全需求', description: '評估倉儲設施安全需求，規劃安全管理措施' },
-          { id: 'pm-2-2', name: '監控並評估安全計畫', description: '監控倉儲安全計畫執行狀況，定期評估安全績效' },
+          { id: 'pm-2-1', name: '物料計畫製作', description: '製作物料需求計畫，執行國內外件請購作業，管控庫存水準，防止缺料或超儲' },
+          { id: 'pm-2-2', name: '確保生産排程執行', description: '掌握產銷平衡，參與缺料產銷檢討會議，協調解決物料短缺問題，確保生産排程如期執行' },
         ]
       },
       {
         id: 'pm-3',
-        category: '維護倉儲紀錄的文件',
+        category: '交期管理',
         items: [
-          { id: 'pm-3-1', name: '確認使用者要求的資訊', description: '確認倉儲相關人員對資訊的需求，提供正確資料' },
-          { id: 'pm-3-2', name: '完成倉儲紀錄', description: '正確完成並維護倉儲進出庫、盤點等相關紀錄' },
+          { id: 'pm-3-1', name: '客戶交期控制與達成', description: '追蹤並管控各訂單客戶交期，協調製造、品保等部門確保交期如期達成' },
+          { id: 'pm-3-2', name: '生産進度檢討', description: '召開或參與生産進度檢討會，收集並分析生産進度資訊，提出改善行動方案' },
         ]
       },
     ]
@@ -550,20 +555,35 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'sg-1',
-        category: '金屬製程規劃及管理',
+        category: '生産作業監督',
         items: [
-          { id: 'sg-1-1', name: '產能的設計與控制', description: '依生產計畫與職安規範，指導協調現場生產作業，監管生產過程並排除異常，追蹤排程進度並完成產能報告' },
-          { id: 'sg-1-2', name: '安排生產計畫', description: '依訂單需求盤點組織內外部人員及機器設備，分析人力效能與成本，規劃排定生產計畫' },
-          { id: 'sg-1-3', name: '生產檢驗及品質控管', description: '依品管標準執行原材料及成品取樣檢驗，配合品保部門進行品質管控，提出品質及生產成本改善計畫' },
+          { id: 'sg-1-1', name: '協助組長指揮執行', description: '協助組長指揮班長及組員落實每日產量目標，在組長不在位時代理其職務，確保生産不中斷' },
+          { id: 'sg-1-2', name: '生産數據核實', description: '每兩小時抽查各組白板填寫之數據與實際產出是否相符，確保管理數據真實性，防止虛報' },
         ]
       },
       {
         id: 'sg-2',
-        category: '環境及設備零組件管理',
+        category: 'SOP稽核與技術指導',
         items: [
-          { id: 'sg-2-1', name: '生產環境管理及安全維護', description: '依組織規範督導現場人員清理並維護工作區域，進行廢棄物分類與回收管理，並執行工安相關規範確保生產環境安全' },
-          { id: 'sg-2-2', name: '管理零組件', description: '依生產計畫及組織規範設定零組件安全庫存量，督導盤點庫存數量及領料作業' },
-          { id: 'sg-2-3', name: '管理機具設備及維護', description: '依設備操作手冊及保養手冊，執行或督導機具設備日常清潔保養與定期維護，確認故障原因並排除，完成相關紀錄' },
+          { id: 'sg-2-1', name: '走動式管理執行', description: '落實走動式管理，針對各站點執行標準作業書及首件檢查進行抽查，確認SOP落實' },
+          { id: 'sg-2-2', name: '技術指導', description: '即時給予操作人員技術指導，協助解決製程技術問題，提升班組操作能力' },
+        ]
+      },
+      {
+        id: 'sg-3',
+        category: '現場紀律與品質管理',
+        items: [
+          { id: 'sg-3-1', name: '現場紀律監控', description: '稽核員工及班長離崗是否確實填寫離崗登記簿，針對累犯者彙整名單交予組長報請懲處' },
+          { id: 'sg-3-2', name: '品質自主檢查督導', description: '督導班員落實品質自主檢查，確保首件樣品與檢驗紀錄正確擺放於指定區域，維護品質水準' },
+          { id: 'sg-3-3', name: '5S與安全環境維護', description: '監督現場整理整頓，特別針對消防栓、滅火器、配電盤前之淨空進行每日巡視，確保作業安全' },
+        ]
+      },
+      {
+        id: 'sg-4',
+        category: '物料損耗管控與人員培訓',
+        items: [
+          { id: 'sg-4-1', name: '物料損耗管控', description: '監督領料與機台操作，防止因作業疏失導致的材料浪費或設備損壞，控制物料損耗率' },
+          { id: 'sg-4-2', name: '人員教育訓練協助', description: '協助組長對新進員工進行技術培訓，記錄SOP答詢狀況，確保新進人員達到作業標準' },
         ]
       },
     ]
@@ -1164,38 +1184,43 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'rd-1',
-        category: '領導與管理能力',
+        category: '研發計畫管理',
         items: [
-          { id: 'rd-1-1', name: '部門目標設定', description: '設定研發部門年度目標與工作計畫' },
-          { id: 'rd-1-2', name: '人員培育與指導', description: '培育研發人才，提供技術指導與績效管理' },
-          { id: 'rd-1-3', name: '資源調配', description: '合理分配研發資源與項目人力' },
+          { id: 'rd-1-1', name: '研擬及執行產品研發計畫', description: '研擬及執行產品研發計畫，協調開發進度與技術，確保產品開發按時完成並符合品質目標' },
+          { id: 'rd-1-2', name: '推動新產品樣品試作', description: '研擬及執行推動新產品之樣品試作，督導客戶產品初期試驗，並追蹤試作結果與問題改善' },
         ]
       },
       {
         id: 'rd-2',
-        category: '研發管理',
+        category: '技術督導與設計管理',
         items: [
-          { id: 'rd-2-1', name: '研發計畫制定', description: '制定研發計畫與里程碑' },
-          { id: 'rd-2-2', name: '技術方案評估', description: '評估技術可行性與方案選擇' },
-          { id: 'rd-2-3', name: '項目進度管理', description: '追蹤項目進度，排除執行障礙' },
+          { id: 'rd-2-1', name: '產品圖面與說明書督導', description: '督導產品圖面、說明書之繪製與修訂，確保圖面正確性及製作可行性' },
+          { id: 'rd-2-2', name: '研發技術蒐集與掌握', description: '執行各項研發技術之蒐集及掌握，督導客戶圖面資料轉換，確保技術能力與時俱進' },
+          { id: 'rd-2-3', name: 'BOM製作與材料管理督導', description: '督導材料規格之認定與承認及BOM之製作與管理，確保物料清單正確完整' },
         ]
       },
       {
         id: 'rd-3',
-        category: '技術創新',
+        category: '供應商與成本管理',
         items: [
-          { id: 'rd-3-1', name: '新產品開發', description: '主導新產品研發與設計' },
-          { id: 'rd-3-2', name: '技術改進與優化', description: '推動現有技術改進與製程優化' },
-          { id: 'rd-3-3', name: '知識產權管理', description: '管理專利申請與技術保護' },
+          { id: 'rd-3-1', name: '新產品供應商議價督導', description: '督導新產品供應商報價議價及模具開模事項，執行請款作業督導，控管開發成本' },
+          { id: 'rd-3-2', name: '預算管理', description: '執行模具及材料成本加工製作費用分析，管理研發部門預算，確保開發成本合理' },
         ]
       },
       {
         id: 'rd-4',
-        category: '跨部門協調溝通',
+        category: '研發文件與稽核管理',
         items: [
-          { id: 'rd-4-1', name: '跨部門協調', description: '與製造、品保等部門協調，確保研發成果順利移轉' },
-          { id: 'rd-4-2', name: '客戶技術溝通', description: '與客戶進行技術需求確認與溝通' },
-          { id: 'rd-4-3', name: '成本意識', description: '在研發過程中考量成本效益，避免資源浪費' },
+          { id: 'rd-4-1', name: '研發圖面發行與設計變更管理', description: '督導研發圖面發行及設計變更處理，確保文件保存完整，工作SOP的制定與維護' },
+          { id: 'rd-4-2', name: '配合稽核', description: '配合內外部稽核（含內控缺失改善），擬定工作目標與組織目標達成具一致性' },
+        ]
+      },
+      {
+        id: 'rd-5',
+        category: '人員管理與跨部門協調',
+        items: [
+          { id: 'rd-5-1', name: '人員績效管理', description: '執行人員溝通與績效管理，包含出勤管理、績效考核、訓練等，培育研發人才' },
+          { id: 'rd-5-2', name: '跨部門會議協調', description: '主導或參與跨部門例行會議及專案會議，協調製造、品保等部門確保研發成果順利移轉' },
         ]
       },
     ]
@@ -1207,36 +1232,36 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'rd3-1',
-        category: '領導與管理能力',
+        category: '產品開發技術執行',
         items: [
-          { id: 'rd3-1-1', name: '工作分配與督導', description: '協助課長分配研發人員工作，督導執行進度' },
-          { id: 'rd3-1-2', name: '成員技術指導', description: '指導研發成員解決技術問題' },
-          { id: 'rd3-1-3', name: '進度追蹤與回報', description: '追蹤項目進度並定期向課長回報' },
+          { id: 'rd3-1-1', name: '訂定並執行產品研發計畫', description: '訂定產品研發計畫，協調開發進度與技術，執行完成產品開發，確保開發如期完成' },
+          { id: 'rd3-1-2', name: '產品圖面繪製與修訂', description: '執行產品圖面與說明書之繪製與修訂，確認圖面正確性及未來產品製作可行性' },
+          { id: 'rd3-1-3', name: '各項研發技術蒐集', description: '主動蒐集並掌握最新研發技術，執行客戶圖面資料轉換' },
         ]
       },
       {
         id: 'rd3-2',
-        category: '研發技術管理',
+        category: '圖面與文件管理',
         items: [
-          { id: 'rd3-2-1', name: '技術文檔管理', description: '審核並維護研發技術文件' },
-          { id: 'rd3-2-2', name: '技術方案協助評估', description: '協助評估技術方案可行性' },
-          { id: 'rd3-2-3', name: '測試驗證管理', description: '規劃並監督產品測試驗證流程' },
+          { id: 'rd3-2-1', name: '材料規格認定與BOM管理', description: '執行對材料規格的認定與承認，負責BOM的製作與管理，確保物料清單正確完整' },
+          { id: 'rd3-2-2', name: '研發圖面發行與設計變更處理', description: '執行研發圖面發行及設計變更處理，負責文件保存，確保版本管控正確' },
+          { id: 'rd3-2-3', name: 'ISO及內控文件管理', description: '配合公司ISO及內控文件管理要求，確保研發相關文件符合管理系統規範' },
         ]
       },
       {
         id: 'rd3-3',
-        category: '跨部門協調溝通',
+        category: '新產品試驗',
         items: [
-          { id: 'rd3-3-1', name: '跨部門聯繫', description: '協調研發與製造、品保等部門的技術對接' },
-          { id: 'rd3-3-2', name: '資訊傳達', description: '傳達課長指示，確保研發人員理解執行方向' },
+          { id: 'rd3-3-1', name: '推動新產品樣品試作', description: '執行推動新產品之樣品試作，記錄試作結果，提出改善建議' },
+          { id: 'rd3-3-2', name: '客戶產品初期試驗', description: '執行客戶產品初期試驗，確認產品符合客戶規格，提供試驗結果報告' },
         ]
       },
       {
         id: 'rd3-4',
-        category: '改善與創新',
+        category: '電腦輔助設計',
         items: [
-          { id: 'rd3-4-1', name: '研發流程優化', description: '識別研發作業流程瓶頸，提出改善方案' },
-          { id: 'rd3-4-2', name: '技術應用推廣', description: '引進新技術或工具，提升研發效率' },
+          { id: 'rd3-4-1', name: 'CAD繪圖', description: '熟練使用Inventor、Solid Edge、AutoCad等繪圖軟體完成工程圖繪製，確保圖面符合製造需求' },
+          { id: 'rd3-4-2', name: '機構設計能力', description: '具備機構設計能力，能進行結構設計分析與可行性評估，解決設計問題' },
         ]
       },
     ]

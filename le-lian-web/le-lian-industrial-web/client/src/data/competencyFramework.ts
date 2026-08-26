@@ -934,18 +934,35 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'gs-1',
-        category: '管理行政庶務',
+        category: '辦公事務與採購',
         items: [
-          { id: 'gs-1-1', name: '日常庶務管理', description: '規劃指導總務人員工作SOP，管理公文行政文書，安排賓客接待，管理水電環境清潔，執行員工服務' },
-          { id: 'gs-1-2', name: '特殊庶務管理', description: '管理公務車輛，辦理特殊節慶活動，安排員工出差行程' },
+          { id: 'gs-1-1', name: '辦公耗材採購申請', description: '協助採購文具、A4影印紙等辦公消耗品，依標準流程打請購單、採購單、進貨單及應付憑單，確保備品不斷貨' },
+          { id: 'gs-1-2', name: '固定資產管理', description: '執行固定資產建立流程，於ERP新增資產資料，製作財產單並拍照存檔，請保管人簽收，正本留存總務課' },
         ]
       },
       {
         id: 'gs-2',
-        category: '管理總務採購及其他事宜',
+        category: '費用請款作業',
         items: [
-          { id: 'gs-2-1', name: '管理與督導總務事宜', description: '依ESG策略執行管理督導，洽談合作廠商，與廠商議價執行採購，盤點管理財產目錄，管理各項保險合約' },
-          { id: 'gs-2-2', name: '管理組織相關事務', description: '統籌管理服務事項，管理宿舍，維護建築物公共安全，制定規範，執行績效考核' },
+          { id: 'gs-2-1', name: '水電費請款', description: '辦理台電、自來水費等水電費請款作業，依總公司與製造課人數比例分攤費用，附上通知單及統計表' },
+          { id: 'gs-2-2', name: '油料與電信費請款', description: '管理中油捷利卡柴油申請（定期申請暫付款）、各電信帳單（台灣大哥大、中華電信）及瓦斯費請款，確保帳務正確沖銷' },
+          { id: 'gs-2-3', name: '廠商費用請款', description: '辦理廢粉、廢棧板、保全、清潔、醫療等定期廠商費用之應付請款，附上相關單據確保帳務合規' },
+        ]
+      },
+      {
+        id: 'gs-3',
+        category: '環境安全衛生巡檢',
+        items: [
+          { id: 'gs-3-1', name: '設備環境每日巡檢', description: '每日執行堆高機電瓶、油漆爐、員工飲水機等設備巡檢，確認操作狀況正常並記錄異常' },
+          { id: 'gs-3-2', name: '移工環境與安全管理', description: '每日巡檢移工生活環境（廚房、宿舍等），確保環境整潔及瓦斯安全，每月執行集塵灰網路申報' },
+        ]
+      },
+      {
+        id: 'gs-4',
+        category: '人員管理與接待',
+        items: [
+          { id: 'gs-4-1', name: '新人報到作業', description: '辦理新人報到，製作識別證，介紹環境規定，進行反恐保安教育訓練，協調現場組長完成職前訓練流程' },
+          { id: 'gs-4-2', name: '人員車輛進出管理', description: '每月提供守衛室人員及車輛進出記錄單，維護公司財產、人員與物品進出安全管理' },
         ]
       },
     ]
@@ -1117,39 +1134,35 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'bl2-1',
-        category: '領導與管理能力',
+        category: '訂單管理督導',
         items: [
-          { id: 'bl2-1-1', name: '業務團隊指導', description: '指導業務組員銷售技巧與客戶服務方法' },
-          { id: 'bl2-1-2', name: '工作分配', description: '合理分配組員客戶拜訪與業務任務' },
-          { id: 'bl2-1-3', name: '績效監控與回饋', description: '追蹤組員業績達成並提供改善建議' },
+          { id: 'bl2-1-1', name: '督導訂單接收、審查與廠內訂單製作', description: '督導業務訂單之接收、審查與管理，確認依客戶訂單及需求正確製作廠內訂單，作為廠內安排生産之依據' },
+          { id: 'bl2-1-2', name: '督導新訂單報價與追蹤', description: '督導新訂單報價作業與追蹤管理，確保報價資訊正確、報價時效符合客戶需求' },
+          { id: 'bl2-1-3', name: '訂單出貨狀況管控與彙報', description: '掌握並管控各訂單出貨狀況，每週彙整出貨進度提供予高階主管，確保出貨如期達成' },
         ]
       },
       {
         id: 'bl2-2',
-        category: '業務規劃',
+        category: '客戶關係與信用管理',
         items: [
-          { id: 'bl2-2-1', name: '業務目標設定', description: '協助制定組別業務目標與行動計畫' },
-          { id: 'bl2-2-2', name: '銷售進度追蹤', description: '追蹤訂單進度，確保業績目標達成' },
-          { id: 'bl2-2-3', name: '市場資訊蒐集', description: '蒐集市場動態與競爭情報，提供策略參考' },
-          { id: 'bl2-2-4', name: '業績報告', description: '定期彙整並向主管報告業績狀況' },
+          { id: 'bl2-2-1', name: '新舊客戶關係管理', description: '維護新舊客戶關係，擔任公司業務對外統一窗口（含進出口報關作業督導），確保客戶滿意度' },
+          { id: 'bl2-2-2', name: '客戶信用額度審查', description: '審查及管理客戶信用額度，評估交易風險，防範應收帳款呆帳風險' },
         ]
       },
       {
         id: 'bl2-3',
-        category: '客戶管理',
+        category: '客戶抱怨與帳款管理',
         items: [
-          { id: 'bl2-3-1', name: '重要客戶維護', description: '維護並深化重要客戶關係' },
-          { id: 'bl2-3-2', name: '客戶問題協調解決', description: '協調跨部門解決客戶問題與抱怨' },
-          { id: 'bl2-3-3', name: '客戶滿意度提升', description: '推動客戶滿意度調查並追蹤改善' },
+          { id: 'bl2-3-1', name: '客戶抱怨受理與督導回應', description: '督導客戶抱怨之受理，協調製造、品保等相關部門進行原因分析及改善，確保客訴正式回應且問題解決' },
+          { id: 'bl2-3-2', name: '客戶帳款催收與追蹤', description: '督導客戶應收帳款之催收及追蹤，確保帳款如期回收，降低逾期應收帳款風險' },
         ]
       },
       {
         id: 'bl2-4',
-        category: '溝通與客戶協調',
+        category: '品質交期與跨部門協調',
         items: [
-          { id: 'bl2-4-1', name: '對客溝通', description: '代表公司與客戶溝通重要業務事項' },
-          { id: 'bl2-4-2', name: '跨部門協調', description: '協調製造、品保、資材等部門支援業務需求' },
-          { id: 'bl2-4-3', name: '向上匯報', description: '向主管彙報組別業務進展與市場動態' },
+          { id: 'bl2-4-1', name: '品質與交期掌握', description: '有效掌握各訂單產品品質（驗貨）與交期，協調製造、品保、資材等部門確保如期如質交付，滿足客戶需求' },
+          { id: 'bl2-4-2', name: '人員管理與向上匯報', description: '管理業務組員工作分配與績效，定期向主管彙報組別業務進展及異常狀況' },
         ]
       },
     ]
@@ -1161,29 +1174,28 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'ba-1',
-        category: '業務協助',
+        category: '訂單管理',
         items: [
-          { id: 'ba-1-1', name: '訂單接收與處理', description: '接收客戶訂單，確認規格、數量與交期' },
-          { id: 'ba-1-2', name: '客戶資料管理', description: '建立並維護客戶基本資料與往來記錄' },
-          { id: 'ba-1-3', name: '報價協助', description: '依業務指示準備報價資料' },
-          { id: 'ba-1-4', name: '業務文件管理', description: '管理訂單、合約及出貨相關業務文件' },
+          { id: 'ba-1-1', name: '業務訂單接收、審查與管理', description: '接收並審查業務訂單，確認規格、數量與交期，依客戶訂單及需求製作廠內訂單，作為廠內安排生産之依據' },
+          { id: 'ba-1-2', name: '新訂單報價與追蹤', description: '辦理新訂單報價作業並持續追蹤管理，確保報價資訊正確且客戶及時收到' },
+          { id: 'ba-1-3', name: '訂單出貨狀況彙報', description: '每週彙整訂單出貨狀況並提供予高階主管，確保管理層掌握出貨進度' },
         ]
       },
       {
         id: 'ba-2',
-        category: '協調與溝通',
+        category: '客戶服務',
         items: [
-          { id: 'ba-2-1', name: '內部協調', description: '協調製造、資材等部門確認交期與庫存' },
-          { id: 'ba-2-2', name: '客戶聯繫', description: '協助業務與客戶溝通日常事務' },
+          { id: 'ba-2-1', name: '新舊客戶關係管理', description: '維護新舊客戶關係，作為公司業務對外統一窗口（含進出口報關作業）' },
+          { id: 'ba-2-2', name: '客戶信用額度審查', description: '審查客戶信用額度，評估交易風險，確保應收帳款安全' },
+          { id: 'ba-2-3', name: '客戶抱怨受理與回應', description: '受理客戶抱怨，協調相關部門進行原因分析及改善，並對客戶進行正式回應' },
+          { id: 'ba-2-4', name: '客戶帳款催收', description: '定期催收及追蹤客戶應收帳款，確保帳款如期回收' },
         ]
       },
       {
         id: 'ba-3',
-        category: '業務知識應用',
+        category: '品質交期協調',
         items: [
-          { id: 'ba-3-1', name: '產品基礎知識', description: '了解公司產品規格與特性' },
-          { id: 'ba-3-2', name: '出貨作業知識', description: '了解出貨流程及物流相關作業' },
-          { id: 'ba-3-3', name: '系統操作', description: '熟悉業務相關 ERP 或訂單管理系統操作' },
+          { id: 'ba-3-1', name: '品質與交期掌握', description: '有效掌握產品的品質（驗貨）與交期，協調製造、品保等部門，以滿足客戶需求' },
         ]
       },
     ]

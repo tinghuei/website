@@ -214,7 +214,7 @@ export default function TrainingAdminPanel() {
   const [deleteUserStep, setDeleteUserStep] = useState<{ id: string; step: 1 | 2 } | null>(null);
   const [confirmStatusUser, setConfirmStatusUser] = useState<string | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
-  const [addUserForm, setAddUserForm] = useState({ name: '', email: '', department: '', role: 'employee' as 'employee' | 'manager' | 'admin' });
+  const [addUserForm, setAddUserForm] = useState({ name: '', email: '', department: '', role: 'employee' as 'employee' | 'manager' | 'hr' | 'admin' });
   const [addUserSuccess, setAddUserSuccess] = useState(false);
   const [uploadDragging, setUploadDragging] = useState(false);
   const uploadFileRef = useRef<HTMLInputElement>(null);

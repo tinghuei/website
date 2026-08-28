@@ -146,7 +146,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport } = useTrainingAuth();
+  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, setUserManager, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport } = useTrainingAuth();
   const isHrOnly = currentUser?.role === 'hr';
   const visibleTabs = ADMIN_TABS.filter(t => !currentUser || t.roles.includes(currentUser.role));
   const [activeTab, setActiveTab] = useState(isHrOnly ? 'jobtitles' : 'courses');
@@ -211,6 +211,7 @@ export default function TrainingAdminPanel() {
   const [editingCourse, setEditingCourse] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingUserRole, setEditingUserRole] = useState<string | null>(null);
+  const [editingUserManager, setEditingUserManager] = useState<string | null>(null);
   const [deleteUserStep, setDeleteUserStep] = useState<{ id: string; step: 1 | 2 } | null>(null);
   const [confirmStatusUser, setConfirmStatusUser] = useState<string | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -571,6 +572,7 @@ export default function TrainingAdminPanel() {
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">電子郵件</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">部門</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">入職日期</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">直屬主管</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">角色設定</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">帳號狀態</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">操作</th>
@@ -600,6 +602,34 @@ export default function TrainingAdminPanel() {
                     <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{user.department || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{user.joinDate || '-'}</td>
+                    <td className="px-4 py-3">
+                      {editingUserManager === user.id ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            defaultValue={user.managerId || ''}
+                            onChange={(e) => {
+                              setUserManager(user.id, e.target.value || null);
+                              setEditingUserManager(null);
+                            }}
+                            className="text-sm border border-blue-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            autoFocus
+                          >
+                            <option value="">（無）</option>
+                            {users.filter(u => u.id !== user.id && (u.role === 'manager' || u.role === 'admin' || u.role === 'hr')).map(u => (
+                              <option key={u.id} value={u.id}>{u.name}（{roleLabel[u.role]}）</option>
+                            ))}
+                          </select>
+                          <button onClick={() => setEditingUserManager(null)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">取消</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">
+                            {user.managerId ? (users.find(u => u.id === user.managerId)?.name || '-') : '-'}
+                          </span>
+                          <button onClick={() => setEditingUserManager(user.id)} className="text-xs text-gray-400 hover:text-blue-600 underline transition-colors">變更</button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {editingUserRole === user.id ? (
                         <div className="flex items-center gap-2">

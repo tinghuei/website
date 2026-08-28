@@ -233,6 +233,7 @@ interface TrainingAuthContextValue {
   getUserNotifications: (userId: string) => Notification[];
   getCourseDiscussions: (courseId: string) => Discussion[];
   setUserRole: (userId: string, role: User['role']) => Promise<void>;
+  setUserManager: (userId: string, managerId: string | null) => Promise<void>;
   addUser: (userData: { name: string; email: string; department: string; role: User['role'] }) => Promise<void>;
   setUserStatus: (userId: string, status: 'active' | 'resigned') => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
@@ -790,6 +791,14 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     await addAuditLog(currentUser?.id || '', '新增使用者邀請', userData.name, `Email: ${userData.email}`);
   };
 
+  const setUserManager = async (userId: string, managerId: string | null) => {
+    const user = users.find((u) => u.id === userId);
+    const manager = managerId ? users.find((u) => u.id === managerId) : null;
+    await supabase.from('profiles').update({ manager_id: managerId }).eq('id', userId);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, managerId: managerId || undefined } : u)));
+    await addAuditLog(currentUser?.id || '', '設定直屬主管', user?.name || userId, manager ? `直屬主管：${manager.name}` : '清除直屬主管');
+  };
+
   const setUserStatus = async (userId: string, status: 'active' | 'resigned') => {
     const user = users.find((u) => u.id === userId);
     await supabase.from('profiles').update({ status }).eq('id', userId);
@@ -981,6 +990,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         getUserNotifications,
         getCourseDiscussions,
         setUserRole,
+        setUserManager,
         addUser,
         setUserStatus,
         deleteUser,

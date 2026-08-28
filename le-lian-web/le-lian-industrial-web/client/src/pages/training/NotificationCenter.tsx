@@ -15,13 +15,7 @@ import {
   saveNotifications,
 } from '../../lib/notifCenterStorage';
 
-const UPCOMING_DEADLINES = [
-  { date: '06/01', course: '職業安全衛生法規研習', daysLeft: 3, urgent: true },
-  { date: '06/15', course: 'ISO 9001 品質管理', daysLeft: 17, urgent: false },
-  { date: '06/30', course: '5S推行與現場管理（複訓）', daysLeft: 32, urgent: false },
-  { date: '07/31', course: '智慧製造導入實務', daysLeft: 63, urgent: false },
-  { date: '08/31', course: 'iCAP職能評估實務', daysLeft: 94, urgent: false },
-];
+const UPCOMING_DEADLINES: { date: string; course: string; daysLeft: number; urgent: boolean }[] = [];
 
 type DeadlineItem = typeof UPCOMING_DEADLINES[number];
 

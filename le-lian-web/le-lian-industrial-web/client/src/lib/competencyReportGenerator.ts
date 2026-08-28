@@ -1,5 +1,4 @@
 // 職能落差盤點分析表 Word 報表產生器
-// 依使用者修正版格式：三關簽核欄位由左至右為「核准 / 覆核 / 承辦人」
 
 import {
   Document,
@@ -38,8 +37,8 @@ export interface CompetencyReportInput {
   managerScores?: Record<string, number>;
 }
 
-// ── 頁面寬度（A4 12240 DXA − 左右各 1440 邊距）──────────────────────────────
-const PW = 9360;
+// ── 頁面寬度（A4 12240 DXA − 左右各 720 邊距）───────────────────────────────
+const PW = 10800;
 
 // ── 色彩底色 ──────────────────────────────────────────────────────────────────
 const SH = {
@@ -63,7 +62,7 @@ function bdr(size = 4, color = '000000') {
   return { top: s, bottom: s, left: s, right: s };
 }
 
-// ── 通用格（儲存格）工廠 ──────────────────────────────────────────────────────
+// ── 通用格工廠 ────────────────────────────────────────────────────────────────
 interface CellOpts {
   w?: number;
   bg?: ShadingEntry;
@@ -144,8 +143,8 @@ function buildDocument(input: CompetencyReportInput): Document {
   const hasManager = managerScores && Object.keys(managerScores).length > 0;
 
   // ── 1. 表頭資訊表 ─────────────────────────────────────────────────────────
-  // 欄寬: 1200+1360+1200+1360+1200+3040 = 9360
-  const IC = [1200, 1360, 1200, 1360, 1200, 3040];
+  // 欄寬: 1400+1560+1400+1560+1400+3480 = 10800
+  const IC = [1400, 1560, 1400, 1560, 1400, 3480];
   function infoLbl(t: string, span = 1) { return mkCell(t, { bg: SH.lblBlue, bold: true, sz: 20, span }); }
   function infoVal(t: string, span = 1) { return mkCell(t, { bg: SH.white, sz: 20, span }); }
 
@@ -177,22 +176,19 @@ function buildDocument(input: CompetencyReportInput): Document {
         infoLbl('分析年月'), infoVal(`${analysisYear} 年 ${analysisMonth} 月`),
       ]}),
       new TableRow({ children: [
-        infoLbl('姓　　名'), infoVal(''),
-        infoLbl('工　　號'), infoVal(''),
+        infoLbl('姓　　名'), infoVal(employeeName || ''),
+        infoLbl('工　　號'), infoVal(employeeId || ''),
         infoLbl('評量依據'), infoVal('iCAP 職能基準'),
       ]}),
     ],
   });
 
   // ── 2. 職能向度落差分析表 ──────────────────────────────────────────────────
-  // 欄位依是否有主管評估而增減一欄
-  // 有主管評估: 序號+向度+自評+主管+標準+落差+達標+建議課程+優先 (9欄)
-  // 無主管評估: 序號+向度+自評+標準+落差+達標+建議課程+優先 (8欄)
   const gapRows: TableRow[] = [];
 
   if (hasManager) {
-    // 9 欄: 520+1600+640+640+640+640+640+2400+1040 = 8760 → 調整到 9360
-    const GC = [480, 1640, 680, 680, 680, 640, 680, 2400, 1480];
+    // 9 欄: 560+1900+800+800+800+720+800+2720+1700 = 10800
+    const GC = [560, 1900, 800, 800, 800, 720, 800, 2720, 1700];
     const spanCount = GC.length;
 
     gapRows.push(sectionRow('一、職能向度落差分析', spanCount));
@@ -229,9 +225,7 @@ function buildDocument(input: CompetencyReportInput): Document {
 
     gapRows.push(new TableRow({ children: [
       new TableCell({
-        columnSpan: spanCount,
-        shading: SH.gray,
-        borders: bdr(2, 'BBBBBB'),
+        columnSpan: spanCount, shading: SH.gray, borders: bdr(2, 'BBBBBB'),
         children: [new Paragraph({
           spacing: { before: 60, after: 60 }, alignment: AlignmentType.LEFT,
           children: [new TextRun({
@@ -242,8 +236,8 @@ function buildDocument(input: CompetencyReportInput): Document {
       }),
     ]}));
   } else {
-    // 8 欄: 520+2000+760+760+680+800+2600+1240 = 9360
-    const GC = [520, 2000, 760, 760, 680, 800, 2600, 1240];
+    // 8 欄: 600+2280+880+880+780+920+3000+1460 = 10800
+    const GC = [600, 2280, 880, 880, 780, 920, 3000, 1460];
     const spanCount = GC.length;
 
     gapRows.push(sectionRow('一、職能向度落差分析', spanCount));
@@ -277,9 +271,7 @@ function buildDocument(input: CompetencyReportInput): Document {
 
     gapRows.push(new TableRow({ children: [
       new TableCell({
-        columnSpan: spanCount,
-        shading: SH.gray,
-        borders: bdr(2, 'BBBBBB'),
+        columnSpan: spanCount, shading: SH.gray, borders: bdr(2, 'BBBBBB'),
         children: [new Paragraph({
           spacing: { before: 60, after: 60 }, alignment: AlignmentType.LEFT,
           children: [new TextRun({
@@ -294,8 +286,8 @@ function buildDocument(input: CompetencyReportInput): Document {
   const gapTable = new Table({ width: { size: PW, type: WidthType.DXA }, rows: gapRows });
 
   // ── 3. 訓練需求課程彙整表 ──────────────────────────────────────────────────
-  // 欄寬: 520+2400+1040+4160+1240 = 9360
-  const TC = [520, 2400, 1040, 4160, 1240];
+  // 欄寬: 600+2770+1200+4800+1430 = 10800
+  const TC = [600, 2770, 1200, 4800, 1430];
   const needed = dimensions.filter((d) => (selfScores[d.id] ?? 0) - (standards[d.id] ?? 0) < 0);
 
   const trainingDataRows: TableRow[] = needed.length > 0
@@ -313,8 +305,7 @@ function buildDocument(input: CompetencyReportInput): Document {
         new TableCell({
           columnSpan: 5, borders: bdr(4),
           children: [new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 160, after: 160 },
+            alignment: AlignmentType.CENTER, spacing: { before: 160, after: 160 },
             children: [new TextRun({ text: '各職能向度均已達標，暫無訓練需求', size: 20, color: '375623', font: 'DFKai-SB' })],
           })],
         }),
@@ -336,35 +327,65 @@ function buildDocument(input: CompetencyReportInput): Document {
     ],
   });
 
-  // ── 4. 綜合說明表 ─────────────────────────────────────────────────────────
+  // ── 4. 綜合說明表（含核取方塊 + 單位主管說明欄）──────────────────────────
+  const remarkLblW = 1400;
+  const checkColW  = 4200;
+  const mgrLblW    = 1400;
+  const mgrAreaW   = PW - remarkLblW - checkColW - mgrLblW; // 3800
+
   const remarkTable = new Table({
     width: { size: PW, type: WidthType.DXA },
-    columnWidths: [1200, PW - 1200],
+    columnWidths: [remarkLblW, checkColW, mgrLblW, mgrAreaW],
     rows: [
-      new TableRow({ height: { value: 1000, rule: 'atLeast' }, children: [
-        mkCell('綜合說明', { w: 1200, bg: SH.lblBlue, bold: true }),
+      new TableRow({ height: { value: 1200, rule: 'atLeast' }, children: [
+        // 「綜合說明」標籤
+        mkCell('綜合說明', { w: remarkLblW, bg: SH.lblBlue, bold: true }),
+        // 核取方塊欄
         new TableCell({
-          width: { size: PW - 1200, type: WidthType.DXA },
-          shading: SH.white, borders: bdr(4),
+          width: { size: checkColW, type: WidthType.DXA },
+          shading: SH.white, borders: bdr(4), verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              spacing: { before: 60, after: 40 }, alignment: AlignmentType.LEFT,
+              children: [new TextRun({ text: '□ 結果符合', size: 20, font: 'DFKai-SB' })],
+            }),
+            new Paragraph({
+              spacing: { before: 40, after: 40 }, alignment: AlignmentType.LEFT,
+              children: [new TextRun({ text: '□ 部分符合', size: 20, font: 'DFKai-SB' })],
+            }),
+            new Paragraph({
+              spacing: { before: 40, after: 40 }, alignment: AlignmentType.LEFT,
+              children: [new TextRun({ text: '□ 結果不符合', size: 20, font: 'DFKai-SB' })],
+            }),
+            new Paragraph({
+              spacing: { before: 40, after: 60 }, alignment: AlignmentType.LEFT,
+              children: [new TextRun({ text: '□ 需增加新職能面向', size: 20, font: 'DFKai-SB' })],
+            }),
+          ],
+        }),
+        // 「單位主管」標籤
+        mkCell('單位主管', { w: mgrLblW, bg: SH.lblBlue, bold: true }),
+        // 主管說明填寫區
+        new TableCell({
+          width: { size: mgrAreaW, type: WidthType.DXA },
+          shading: SH.white, borders: bdr(4), verticalAlign: VerticalAlign.TOP,
           children: [new Paragraph({
             spacing: { before: 60, after: 60 }, alignment: AlignmentType.LEFT,
-            children: [new TextRun({ text: '　', size: 20, font: 'DFKai-SB' })],
+            children: [new TextRun({ text: '根據勾選結果在此欄位說明：', size: 18, color: '888888', font: 'DFKai-SB' })],
           })],
         }),
       ]}),
     ],
   });
 
-  // ── 5. 三關簽核表（核准 / 覆核 / 承辦人，由左至右） ───────────────────────
-  const SC = [3120, 3120, 3120];
+  // ── 5. 四欄簽核表（核准 / 覆核 / 單位主管 / 單位填表人）────────────────────
+  const SC = [2700, 2700, 2700, 2700];
 
   function sigCell(): TableCell {
     return new TableCell({
       width: { size: SC[0], type: WidthType.DXA },
       shading: SH.signBg, borders: bdr(4), verticalAlign: VerticalAlign.BOTTOM,
-      children: [
-        new Paragraph({ children: [] }),
-      ],
+      children: [new Paragraph({ children: [] })],
     });
   }
 
@@ -372,13 +393,14 @@ function buildDocument(input: CompetencyReportInput): Document {
     width: { size: PW, type: WidthType.DXA },
     columnWidths: SC,
     rows: [
-      sectionRow('三、核決權限', 3),
+      sectionRow('三、核決權限', 4),
       new TableRow({ children: [
         mkCell('核　　　准', { w: SC[0], bg: SH.lblBlue, bold: true, sz: 22 }),
         mkCell('覆　　　核', { w: SC[1], bg: SH.lblBlue, bold: true, sz: 22 }),
-        mkCell('承　辦　人', { w: SC[2], bg: SH.lblBlue, bold: true, sz: 22 }),
+        mkCell('單位主管',   { w: SC[2], bg: SH.lblBlue, bold: true, sz: 22 }),
+        mkCell('單位填表人', { w: SC[3], bg: SH.lblBlue, bold: true, sz: 22 }),
       ]}),
-      new TableRow({ height: { value: 2000, rule: 'atLeast' }, children: [sigCell(), sigCell(), sigCell()] }),
+      new TableRow({ height: { value: 2000, rule: 'atLeast' }, children: [sigCell(), sigCell(), sigCell(), sigCell()] }),
     ],
   });
 
@@ -386,20 +408,20 @@ function buildDocument(input: CompetencyReportInput): Document {
   return new Document({
     sections: [{
       properties: {
-        page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } },
+        page: { margin: { top: 720, bottom: 720, left: 720, right: 720 } },
       },
       children: [
         infoTable,
-        new Paragraph({ spacing: { before: 240, after: 0 }, children: [] }),
+        new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }),
         gapTable,
-        new Paragraph({ spacing: { before: 240, after: 0 }, children: [] }),
+        new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }),
         trainingTable,
-        new Paragraph({ spacing: { before: 240, after: 0 }, children: [] }),
+        new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }),
         remarkTable,
-        new Paragraph({ spacing: { before: 240, after: 0 }, children: [] }),
+        new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }),
         sigTable,
         new Paragraph({
-          spacing: { before: 160, after: 0 }, alignment: AlignmentType.RIGHT,
+          spacing: { before: 120, after: 0 }, alignment: AlignmentType.RIGHT,
           children: [new TextRun({ text: '表單版本：v1.0　本表由人資部存檔', size: 16, color: '888888', font: 'DFKai-SB' })],
         }),
       ],

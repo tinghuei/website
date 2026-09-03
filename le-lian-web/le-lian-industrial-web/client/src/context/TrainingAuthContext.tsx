@@ -238,6 +238,7 @@ interface TrainingAuthContextValue {
   setUserStatus: (userId: string, status: 'active' | 'resigned') => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   updateMyProfile: (updates: { employeeId?: string; name?: string; department?: string; title?: string }) => Promise<void>;
+  updateUserProfile: (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string }) => Promise<void>;
   addAuditLog: (userId: string, action: string, target: string, details: string) => Promise<void>;
   clearAuditLogsByActions: (actions: string[]) => Promise<void>;
   assignCourse: (userId: string, courseId: string, dueDate?: string, note?: string) => Promise<CourseAssignment>;
@@ -834,6 +835,30 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? { ...u, ...updates } : u)));
   };
 
+  // 人資/管理員修改員工基本資料
+  const updateUserProfile = async (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string }) => {
+    const user = users.find((u) => u.id === userId);
+    await supabase
+      .from('profiles')
+      .update({
+        name: updates.name,
+        employee_id: updates.employeeId,
+        department: updates.department,
+        title: updates.title,
+      })
+      .eq('id', userId);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...updates } : u)));
+    if (currentUser?.id === userId) {
+      setCurrentUser((prev) => (prev ? { ...prev, ...updates } : prev));
+    }
+    const changed: string[] = [];
+    if (updates.name && updates.name !== user?.name) changed.push(`姓名：${updates.name}`);
+    if (updates.employeeId && updates.employeeId !== user?.employeeId) changed.push(`工號：${updates.employeeId}`);
+    if (updates.department && updates.department !== user?.department) changed.push(`部門：${updates.department}`);
+    if (updates.title && updates.title !== user?.title) changed.push(`職稱：${updates.title}`);
+    await addAuditLog(currentUser?.id || '', '修改員工基本資料', user?.name || userId, changed.join('、') || '無變更');
+  };
+
   const assignCourse = async (
     userId: string,
     courseId: string,
@@ -995,6 +1020,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         setUserStatus,
         deleteUser,
         updateMyProfile,
+        updateUserProfile,
         addAuditLog,
         clearAuditLogsByActions,
         assignCourse,

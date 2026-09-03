@@ -146,7 +146,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, setUserManager, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport } = useTrainingAuth();
+  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, setUserManager, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport, updateUserProfile } = useTrainingAuth();
   const isHrOnly = currentUser?.role === 'hr';
   const visibleTabs = ADMIN_TABS.filter(t => !currentUser || t.roles.includes(currentUser.role));
   const [activeTab, setActiveTab] = useState(isHrOnly ? 'jobtitles' : 'courses');
@@ -212,6 +212,7 @@ export default function TrainingAdminPanel() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingUserRole, setEditingUserRole] = useState<string | null>(null);
   const [editingUserManager, setEditingUserManager] = useState<string | null>(null);
+  const [editProfileUser, setEditProfileUser] = useState<{ id: string; name: string; employeeId: string; department: string; title: string } | null>(null);
   const [deleteUserStep, setDeleteUserStep] = useState<{ id: string; step: 1 | 2 } | null>(null);
   const [confirmStatusUser, setConfirmStatusUser] = useState<string | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -675,6 +676,15 @@ export default function TrainingAdminPanel() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+                          <button
+                            onClick={() => setEditProfileUser({ id: user.id, name: user.name, employeeId: user.employeeId || '', department: user.department || '', title: user.title || '' })}
+                            title="編輯基本資料"
+                            className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-gray-400 hover:text-blue-500"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        )}
                         <button
                           onClick={() => setConfirmStatusUser(user.id)}
                           disabled={isSelf}
@@ -699,6 +709,78 @@ export default function TrainingAdminPanel() {
               </tbody>
             </table>
           </div>
+
+          {/* 編輯員工基本資料 modal（人資/管理員） */}
+          {editProfileUser && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900">編輯員工基本資料</h3>
+                  <button onClick={() => setEditProfileUser(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">姓名</label>
+                    <input
+                      type="text"
+                      value={editProfileUser.name}
+                      onChange={(e) => setEditProfileUser((p) => p ? { ...p, name: e.target.value } : p)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">工號</label>
+                    <input
+                      type="text"
+                      value={editProfileUser.employeeId}
+                      onChange={(e) => setEditProfileUser((p) => p ? { ...p, employeeId: e.target.value } : p)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">部門</label>
+                    <select
+                      value={editProfileUser.department}
+                      onChange={(e) => setEditProfileUser((p) => p ? { ...p, department: e.target.value } : p)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="">（未設定）</option>
+                      {['總經理室','品保課','管理部','總務課','營業部','業務課','研發課','廠務部','廠務室','製造課','組一組','組二組','組三組','沖床組','塗裝組','加工組','財務部','庶務組','人資安全組'].map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">職稱</label>
+                    <input
+                      type="text"
+                      value={editProfileUser.title}
+                      onChange={(e) => setEditProfileUser((p) => p ? { ...p, title: e.target.value } : p)}
+                      placeholder="請輸入職稱"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5">
+                  <button onClick={() => setEditProfileUser(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                  <button
+                    onClick={async () => {
+                      await updateUserProfile(editProfileUser.id, {
+                        name: editProfileUser.name,
+                        employeeId: editProfileUser.employeeId,
+                        department: editProfileUser.department,
+                        title: editProfileUser.title,
+                      });
+                      setEditProfileUser(null);
+                    }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium"
+                  >
+                    儲存
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Status toggle confirmation（標記已離職 / 恢復在職） */}
           {confirmStatusUser && (() => {

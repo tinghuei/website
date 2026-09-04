@@ -238,7 +238,8 @@ interface TrainingAuthContextValue {
   setUserStatus: (userId: string, status: 'active' | 'resigned') => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   updateMyProfile: (updates: { employeeId?: string; name?: string; department?: string; title?: string }) => Promise<void>;
-  updateUserProfile: (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string }) => Promise<void>;
+  updateUserProfile: (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string; joinDate?: string }) => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
   addAuditLog: (userId: string, action: string, target: string, details: string) => Promise<void>;
   clearAuditLogsByActions: (actions: string[]) => Promise<void>;
   assignCourse: (userId: string, courseId: string, dueDate?: string, note?: string) => Promise<CourseAssignment>;
@@ -836,7 +837,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   };
 
   // 人資/管理員修改員工基本資料
-  const updateUserProfile = async (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string }) => {
+  const updateUserProfile = async (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string; joinDate?: string }) => {
     const user = users.find((u) => u.id === userId);
     await supabase
       .from('profiles')
@@ -845,6 +846,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         employee_id: updates.employeeId,
         department: updates.department,
         title: updates.title,
+        join_date: updates.joinDate,
       })
       .eq('id', userId);
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...updates } : u)));
@@ -856,7 +858,15 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
     if (updates.employeeId && updates.employeeId !== user?.employeeId) changed.push(`工號：${updates.employeeId}`);
     if (updates.department && updates.department !== user?.department) changed.push(`部門：${updates.department}`);
     if (updates.title && updates.title !== user?.title) changed.push(`職稱：${updates.title}`);
+    if (updates.joinDate && updates.joinDate !== user?.joinDate) changed.push(`入職日期：${updates.joinDate}`);
     await addAuditLog(currentUser?.id || '', '修改員工基本資料', user?.name || userId, changed.join('、') || '無變更');
+  };
+
+  const sendPasswordResetEmail = async (email: string) => {
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/website/training/login`,
+    });
+    await addAuditLog(currentUser?.id || '', '發送重設密碼信', email, '由人資/管理員觸發');
   };
 
   const assignCourse = async (
@@ -1021,6 +1031,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         deleteUser,
         updateMyProfile,
         updateUserProfile,
+        sendPasswordResetEmail,
         addAuditLog,
         clearAuditLogsByActions,
         assignCourse,

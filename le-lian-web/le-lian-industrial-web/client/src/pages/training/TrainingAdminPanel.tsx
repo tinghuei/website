@@ -146,7 +146,7 @@ const roleColor: Record<string, string> = {
 };
 
 export default function TrainingAdminPanel() {
-  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, setUserManager, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport, updateUserProfile } = useTrainingAuth();
+  const { courses, users, auditLogs, enrollments, assignments, questionReports, toggleCourseStatus, deleteCourse, addCourse, currentUser, setUserRole, setUserManager, addUser, setUserStatus, deleteUser, assignCourse, revokeAssignment, approveAsManager, approveAsHR, resolveQuestionReport, updateUserProfile, sendPasswordResetEmail } = useTrainingAuth();
   const isHrOnly = currentUser?.role === 'hr';
   const visibleTabs = ADMIN_TABS.filter(t => !currentUser || t.roles.includes(currentUser.role));
   const [activeTab, setActiveTab] = useState(isHrOnly ? 'jobtitles' : 'courses');
@@ -212,7 +212,7 @@ export default function TrainingAdminPanel() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingUserRole, setEditingUserRole] = useState<string | null>(null);
   const [editingUserManager, setEditingUserManager] = useState<string | null>(null);
-  const [editProfileUser, setEditProfileUser] = useState<{ id: string; name: string; employeeId: string; department: string; title: string } | null>(null);
+  const [editProfileUser, setEditProfileUser] = useState<{ id: string; name: string; employeeId: string; department: string; title: string; joinDate: string; email: string; resetMsg: string } | null>(null);
   const [deleteUserStep, setDeleteUserStep] = useState<{ id: string; step: 1 | 2 } | null>(null);
   const [confirmStatusUser, setConfirmStatusUser] = useState<string | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -678,7 +678,7 @@ export default function TrainingAdminPanel() {
                       <div className="flex items-center gap-2">
                         {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
                           <button
-                            onClick={() => setEditProfileUser({ id: user.id, name: user.name, employeeId: user.employeeId || '', department: user.department || '', title: user.title || '' })}
+                            onClick={() => setEditProfileUser({ id: user.id, name: user.name, employeeId: user.employeeId || '', department: user.department || '', title: user.title || '', joinDate: user.joinDate || '', email: user.email || '', resetMsg: '' })}
                             title="編輯基本資料"
                             className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-gray-400 hover:text-blue-500"
                           >
@@ -738,6 +738,15 @@ export default function TrainingAdminPanel() {
                     />
                   </div>
                   <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">入職日期</label>
+                    <input
+                      type="date"
+                      value={editProfileUser.joinDate}
+                      onChange={(e) => setEditProfileUser((p) => p ? { ...p, joinDate: e.target.value } : p)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">部門</label>
                     <select
                       value={editProfileUser.department}
@@ -760,6 +769,33 @@ export default function TrainingAdminPanel() {
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+                  <div className="pt-1 border-t border-gray-100">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">帳號（登入信箱）</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editProfileUser.email}
+                        readOnly
+                        className="flex-1 border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">信箱變更請至 Supabase Dashboard → Authentication 操作</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">密碼</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          await sendPasswordResetEmail(editProfileUser.email);
+                          setEditProfileUser((p) => p ? { ...p, resetMsg: `已寄出重設密碼信至 ${editProfileUser.email}` } : p);
+                        }}
+                        className="text-sm border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        發送重設密碼信
+                      </button>
+                      {editProfileUser.resetMsg && <span className="text-xs text-emerald-600">{editProfileUser.resetMsg}</span>}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex gap-3 mt-5">
                   <button onClick={() => setEditProfileUser(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
@@ -770,6 +806,7 @@ export default function TrainingAdminPanel() {
                         employeeId: editProfileUser.employeeId,
                         department: editProfileUser.department,
                         title: editProfileUser.title,
+                        joinDate: editProfileUser.joinDate,
                       });
                       setEditProfileUser(null);
                     }}

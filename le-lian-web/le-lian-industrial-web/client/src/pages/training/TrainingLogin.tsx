@@ -54,17 +54,17 @@ export default function TrainingLogin() {
       setError('此帳號已停用，如有任何問題請洽人資。');
       return;
     }
-    if (existing) {
-      setSubmitting(true);
-      const user = await login(trimmed, password);
-      setSubmitting(false);
-      if (user) {
-        navigate('/training/dashboard');
-      } else {
-        setError('登入失敗，請確認電子郵件與密碼是否正確。');
-      }
-    } else {
+    // 先嘗試登入（users 登出後可能為空，不能單靠本地清單判斷是否已有帳號）
+    setSubmitting(true);
+    const user = await login(trimmed, password);
+    setSubmitting(false);
+    if (user) {
+      navigate('/training/dashboard');
+    } else if (!existing) {
+      // 本地清單找不到且登入也失敗 → 新使用者，進入註冊流程
       setStep('register');
+    } else {
+      setError('登入失敗，請確認電子郵件與密碼是否正確。');
     }
   }
 

@@ -9,13 +9,13 @@ import {
   Legend,
   Tooltip,
 } from 'recharts';
-import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight, Users, Download } from 'lucide-react';
+import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight, Users, Download, Trash2 } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCategory } from '../../data/competencyFramework';
 import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';
 import { loadOverrides, saveOverrides, type PositionCompetencyOverride } from '../../lib/competencyOverrides';
 import { loadEmployeeJDs, saveEmployeeJDs, type EmployeeJDRecord } from '../../lib/employeeJobDescriptions';
-import { loadSelfAssessments, saveSelfAssessment, saveManagerAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
+import { loadSelfAssessments, saveSelfAssessment, saveManagerAssessment, deleteSelfAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
 import { downloadCompetencyReport } from '../../lib/competencyReportGenerator';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -535,6 +535,8 @@ export default function CompetencyAnalysis() {
   const [managerEvalScores, setManagerEvalScores] = useState<CompetencyScores>({});
   const [managerEvalSubmitting, setManagerEvalSubmitting] = useState(false);
   const [managerEvalError, setManagerEvalError] = useState<string | null>(null);
+  const [deleteEvalStep, setDeleteEvalStep] = useState<{ userId: string; name: string; step: 1 | 2 } | null>(null);
+  const [deleteEvalLoading, setDeleteEvalLoading] = useState(false);
   const [evalFilterMonth, setEvalFilterMonth] = useState<string>('');
   const [evalFilterStatus, setEvalFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
   const [evalSearch, setEvalSearch] = useState('');
@@ -1278,6 +1280,13 @@ export default function CompetencyAnalysis() {
                                     開始評估
                                   </button>
                                 )}
+                                <button
+                                  onClick={() => setDeleteEvalStep({ userId: a.userId, name: a.employeeName, step: 1 })}
+                                  className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-500"
+                                  title="刪除評估紀錄"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -1343,6 +1352,65 @@ export default function CompetencyAnalysis() {
           {pendingManagerEvals.length === 0 && completedAssessments.length === 0 && !managerEvalTarget && (
             <p className="text-xs text-gray-400 text-center py-4">目前無任何員工自評資料</p>
           )}
+        </div>
+      )}
+
+      {/* 刪除評估紀錄：兩段式確認 */}
+      {deleteEvalStep && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            {deleteEvalStep.step === 1 ? (
+              <>
+                <h3 className="font-bold text-gray-900 mb-2">刪除職能評估紀錄</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  確定要刪除「{deleteEvalStep.name}」的職能評估紀錄嗎？此操作將同時移除自評與主管評估分數。
+                </p>
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+                  若員工需重新評估，刪除後請通知其重新提交自評。
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteEvalStep(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                  <button
+                    onClick={() => setDeleteEvalStep((p) => p ? { ...p, step: 2 } : null)}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-medium"
+                  >
+                    繼續
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-bold text-red-600 mb-2">二次確認：無法復原</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  「{deleteEvalStep.name}」的所有評估分數將被永久刪除，確定嗎？
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteEvalStep(null)} className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+                  <button
+                    disabled={deleteEvalLoading}
+                    onClick={async () => {
+                      setDeleteEvalLoading(true);
+                      try {
+                        await deleteSelfAssessment(deleteEvalStep.userId);
+                        setSelfAssessments((prev) => {
+                          const next = { ...prev };
+                          delete next[deleteEvalStep.userId];
+                          return next;
+                        });
+                      } finally {
+                        setDeleteEvalLoading(false);
+                        setDeleteEvalStep(null);
+                      }
+                    }}
+                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    {deleteEvalLoading && <RefreshCw size={13} className="animate-spin" />}
+                    確定刪除
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

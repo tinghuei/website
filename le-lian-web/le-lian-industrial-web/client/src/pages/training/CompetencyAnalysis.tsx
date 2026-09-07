@@ -466,7 +466,7 @@ function generateGapQuiz(position: PositionData, selfScores: CompetencyScores, s
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function CompetencyAnalysis() {
-  const { currentUser } = useTrainingAuth();
+  const { currentUser, users } = useTrainingAuth();
 
   const [positionName, setPositionName] = useState<string>(POSITION_NAMES[0]);
 
@@ -1053,19 +1053,32 @@ export default function CompetencyAnalysis() {
     [positionGapSummaries]
   );
 
+  // 部門主管只看自己的部屬（managerId 指向自己）；人資/管理員看全部
+  const isManagerOnly = currentUser?.role === 'manager';
+  const mySubordinateIds = useMemo(() => {
+    if (!isManagerOnly || !currentUser) return null;
+    return new Set(users.filter((u) => u.managerId === currentUser.id).map((u) => u.id));
+  }, [isManagerOnly, currentUser, users]);
+
+  const scopedAssessments = useMemo(() => {
+    const all = Object.values(selfAssessments);
+    if (!mySubordinateIds) return all;
+    return all.filter((a) => mySubordinateIds.has(a.userId));
+  }, [selfAssessments, mySubordinateIds]);
+
   // 待完成主管評估：已提交自評但尚無主管評估紀錄的員工
   const pendingManagerEvals = useMemo(
-    () => Object.values(selfAssessments).filter((a) => !a.managerSubmittedAt),
-    [selfAssessments]
+    () => scopedAssessments.filter((a) => !a.managerSubmittedAt),
+    [scopedAssessments]
   );
 
   // 已完成評估（自評 + 主管均已提交）
   const completedAssessments = useMemo(
-    () => Object.values(selfAssessments).filter((a) => !!a.managerSubmittedAt),
-    [selfAssessments]
+    () => scopedAssessments.filter((a) => !!a.managerSubmittedAt),
+    [scopedAssessments]
   );
 
-  const allAssessments = useMemo(() => Object.values(selfAssessments), [selfAssessments]);
+  const allAssessments = useMemo(() => scopedAssessments, [scopedAssessments]);
 
   const evalAvailableMonths = useMemo(() => {
     const months = new Set<string>();
@@ -1112,8 +1125,8 @@ export default function CompetencyAnalysis() {
         )}
       </div>
 
-      {/* ── 全職位職能缺口總覽（管理員／人資／主管可見）── */}
-      {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+      {/* ── 全職位職能缺口總覽（管理員／人資可見）── */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
           <button
             onClick={() => setGapSummaryCollapsed((v) => !v)}
@@ -1444,8 +1457,8 @@ export default function CompetencyAnalysis() {
         </div>
       )}
 
-      {/* ── 員工職能說明書檔案庫（管理員／人資／主管可見）── */}
-      {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+      {/* ── 員工職能說明書檔案庫（管理員／人資可見）── */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
           <button
             onClick={() => setJdLibraryCollapsed((v) => !v)}

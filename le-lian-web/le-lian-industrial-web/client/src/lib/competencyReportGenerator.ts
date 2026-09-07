@@ -208,7 +208,7 @@ function buildDocument(input: CompetencyReportInput): Document {
       const self = selfScores[d.id] ?? 0;
       const mgr  = managerScores![d.id] ?? 0;
       const std  = standards[d.id] ?? 0;
-      const gap  = self - std;
+      const gap  = mgr - std;
       const rowBg = i % 2 ? SH.oddRow : SH.white;
       gapRows.push(new TableRow({ children: [
         mkCell(i + 1,             { w: GC[0], bg: rowBg }),
@@ -229,7 +229,7 @@ function buildDocument(input: CompetencyReportInput): Document {
         children: [new Paragraph({
           spacing: { before: 60, after: 60 }, alignment: AlignmentType.LEFT,
           children: [new TextRun({
-            text: '【評分說明】分數範圍 0–100 分；職能標準依 iCAP 要求等級換算（等級×20）。落差 = 員工自評 − 職能標準；正數（綠）= 達標，負數（黃）= 輕微不足，深負（紅）= 明顯不足',
+            text: '【評分說明】分數範圍 0–100 分；職能標準依 iCAP 要求等級換算（等級×20）。落差 = 主管評估 − 職能標準；正數（綠）= 達標，負數（黃）= 輕微不足，深負（紅）= 明顯不足',
             size: 16, color: '555555', font: 'DFKai-SB',
           })],
         })],
@@ -288,11 +288,16 @@ function buildDocument(input: CompetencyReportInput): Document {
   // ── 3. 訓練需求課程彙整表 ──────────────────────────────────────────────────
   // 欄寬: 600+2770+1200+4800+1430 = 10800
   const TC = [600, 2770, 1200, 4800, 1430];
-  const needed = dimensions.filter((d) => (selfScores[d.id] ?? 0) - (standards[d.id] ?? 0) < 0);
+  // 若有主管評估則以主管分數判斷訓練需求，否則用自評
+  const scoreForTraining = (id: string) =>
+    (hasManager && managerScores && managerScores[id] != null)
+      ? managerScores[id]
+      : (selfScores[id] ?? 0);
+  const needed = dimensions.filter((d) => scoreForTraining(d.id) - (standards[d.id] ?? 0) < 0);
 
   const trainingDataRows: TableRow[] = needed.length > 0
     ? needed.map((d, i) => {
-        const gap = (selfScores[d.id] ?? 0) - (standards[d.id] ?? 0);
+        const gap = scoreForTraining(d.id) - (standards[d.id] ?? 0);
         return new TableRow({ height: { value: 480, rule: 'atLeast' }, children: [
           mkCell(i + 1,        { w: TC[0], bg: i % 2 ? SH.oddRow : SH.white }),
           mkCell(d.label,      { w: TC[1], bg: i % 2 ? SH.oddRow : SH.white, align: AlignmentType.LEFT }),

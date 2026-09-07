@@ -537,6 +537,8 @@ export default function CompetencyAnalysis() {
   const [managerEvalError, setManagerEvalError] = useState<string | null>(null);
   const [deleteEvalStep, setDeleteEvalStep] = useState<{ userId: string; name: string; step: 1 | 2 } | null>(null);
   const [deleteEvalLoading, setDeleteEvalLoading] = useState(false);
+  const [gapSummaryCollapsed, setGapSummaryCollapsed] = useState(false);
+  const [jdLibraryCollapsed, setJdLibraryCollapsed] = useState(false);
   const [evalFilterMonth, setEvalFilterMonth] = useState<string>('');
   const [evalFilterStatus, setEvalFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
   const [evalSearch, setEvalSearch] = useState('');
@@ -1112,49 +1114,77 @@ export default function CompetencyAnalysis() {
 
       {/* ── 全職位職能缺口總覽（管理員／人資／主管可見）── */}
       {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-rose-600 rounded-xl flex items-center justify-center">
-              <Target size={18} className="text-white" />
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+          <button
+            onClick={() => setGapSummaryCollapsed((v) => !v)}
+            className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors rounded-2xl text-left"
+          >
+            <div className="w-7 h-7 bg-rose-600 rounded-lg flex items-center justify-center shrink-0">
+              <Target size={14} className="text-white" />
             </div>
-            <div className="flex-1">
-              <h2 className="text-sm font-bold text-gray-900">全職位職能缺口總覽</h2>
-              <p className="text-xs text-gray-500">
-                {positionGapSummaries.length > 0
-                  ? `已有 ${positionGapSummaries.length} 個職位累積員工自評資料，依落差由大到小排序（負數＝低於標準）`
-                  : '尚無員工自評紀錄；員工於下方完成「提交自評」後，將自動彙整至此總覽'}
-              </p>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-bold text-gray-900">全職位職能缺口總覽</span>
+              <span className="ml-2 text-xs text-gray-400">
+                {positionGapSummaries.length > 0 ? `${positionGapSummaries.length} 個職位有資料` : '尚無自評資料'}
+              </span>
             </div>
-          </div>
+            <ChevronDown size={16} className={`text-gray-400 transition-transform ${gapSummaryCollapsed ? '-rotate-90' : ''}`} />
+          </button>
 
-          {positionGapSummaries.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-              {positionGapSummaries.map((s) => (
-                <div key={s.positionName} className={`rounded-xl border p-3 space-y-1.5 ${getGapColor(s.avgGap)}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold truncate">{s.positionName}</span>
-                    {getGapIcon(s.avgGap)}
-                  </div>
-                  <p className="text-xs opacity-75">{s.department}・{s.assessmentCount} 筆自評</p>
-                  <div className="text-lg font-bold tabular-nums">{s.avgGap >= 0 ? `+${s.avgGap}` : s.avgGap}</div>
-                  <p className="text-xs opacity-75">{s.avgGap >= 0 ? '已達或超過標準' : `平均落差 ${Math.abs(s.avgGap)} 分`}</p>
-                  {s.worstDimension && s.avgGap < 0 && (
-                    <p className="text-xs opacity-75">最大落差向度：{s.worstDimension}</p>
-                  )}
-                  {s.avgGap < -15 && (
-                    <span className="inline-block text-xs px-1.5 py-0.5 bg-white bg-opacity-60 rounded-md border border-current border-opacity-30 leading-tight font-medium">
-                      建議優先訓練
-                    </span>
-                  )}
+          {!gapSummaryCollapsed && (
+            <div className="px-5 pb-4">
+              {positionGapSummaries.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl border border-gray-200 mb-3">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">職位</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">部門</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500 text-center">人數</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500 text-center">平均落差</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">最大落差向度</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">狀態</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {positionGapSummaries.map((s) => (
+                        <tr key={s.positionName} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-2 font-medium text-gray-900 text-sm">{s.positionName}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">{s.department}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500 text-center">{s.assessmentCount}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`text-sm font-bold tabular-nums ${s.avgGap >= 0 ? 'text-emerald-600' : s.avgGap >= -15 ? 'text-amber-600' : 'text-red-600'}`}>
+                              {s.avgGap >= 0 ? `+${s.avgGap}` : s.avgGap}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-xs text-gray-400">{(s.avgGap < 0 && s.worstDimension) ? s.worstDimension : '—'}</td>
+                          <td className="px-4 py-2">
+                            {s.avgGap >= 0 ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><CheckCircle size={11} />達標</span>
+                            ) : s.avgGap >= -15 ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-amber-600"><AlertCircle size={11} />待改善</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium"><XCircle size={11} />優先訓練</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
-          )}
+              ) : (
+                <p className="text-xs text-gray-400 py-2">尚無員工自評紀錄；員工完成「提交自評」後將自動彙整至此。</p>
+              )}
 
-          {unassessedPositions.length > 0 && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-              <p className="text-xs font-semibold text-gray-600 mb-1.5">尚無自評資料的職位（{unassessedPositions.length}）</p>
-              <p className="text-xs text-gray-500 leading-relaxed">{unassessedPositions.join('、')}</p>
+              {unassessedPositions.length > 0 && (
+                <details className="group">
+                  <summary className="text-xs text-gray-400 cursor-pointer list-none flex items-center gap-1 hover:text-gray-600">
+                    <ChevronRight size={12} className="group-open:rotate-90 transition-transform" />
+                    尚無自評資料的職位（{unassessedPositions.length}）
+                  </summary>
+                  <p className="text-xs text-gray-400 mt-1.5 leading-relaxed pl-4">{unassessedPositions.join('、')}</p>
+                </details>
+              )}
             </div>
           )}
         </div>
@@ -1416,99 +1446,90 @@ export default function CompetencyAnalysis() {
 
       {/* ── 員工職能說明書檔案庫（管理員／人資／主管可見）── */}
       {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
-              <Users size={18} className="text-white" />
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+          <button
+            onClick={() => setJdLibraryCollapsed((v) => !v)}
+            className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors rounded-2xl text-left"
+          >
+            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+              <FileText size={14} className="text-white" />
             </div>
-            <div className="flex-1">
-              <h2 className="text-sm font-bold text-gray-900">工作職能說明書檔案庫</h2>
-              <p className="text-xs text-gray-500">
-                {(Object.keys(employeeJDs).length + Object.keys(overrides).length) > 0
-                  ? `共 ${Object.keys(employeeJDs).length} 位員工個人上傳、${Object.keys(overrides).length} 個職位官方建檔`
-                  : '尚無說明書記錄；員工上傳後或人資建檔後，記錄將自動顯示於此'}
-              </p>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-bold text-gray-900">工作職能說明書檔案庫</span>
+              <span className="ml-2 text-xs text-gray-400">
+                官方建檔 {Object.keys(overrides).length} 個・員工上傳 {Object.keys(employeeJDs).length} 位
+              </span>
             </div>
-          </div>
+            <ChevronDown size={16} className={`text-gray-400 transition-transform ${jdLibraryCollapsed ? '-rotate-90' : ''}`} />
+          </button>
 
-          {/* 人資官方職位說明書 */}
-          {Object.keys(overrides).length > 0 && (
-            <div className="mb-4">
-              <p className="text-xs font-semibold text-gray-600 mb-2">人資官方建檔（{Object.keys(overrides).length} 個職位）</p>
-              <div className="space-y-2">
-                {Object.entries(overrides).map(([posName, ov]) => (
-                  <div
-                    key={posName}
-                    className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-gray-900">{posName}</span>
-                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">官方職位說明書</span>
-                        {ov.department && <span className="text-xs text-gray-500">{ov.department}</span>}
-                        {ov.competencies.length > 0 && (
-                          <span className="text-xs text-purple-600">{ov.competencies.length} 個職能向度</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">
-                        {ov.sourceFileName}・{new Date(ov.updatedAt).toLocaleDateString('zh-TW')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {!jdLibraryCollapsed && (
+            <div className="px-5 pb-4">
+              {(Object.keys(overrides).length + Object.keys(employeeJDs).length) === 0 ? (
+                <p className="text-xs text-gray-400 py-2">尚無說明書記錄；員工上傳或人資建檔後將顯示於此。</p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">類型</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">職位／員工</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">部門</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500 text-center">向度</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">檔案</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500">日期</th>
+                        <th className="px-4 py-2 text-xs font-semibold text-gray-500 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {Object.entries(overrides).map(([posName, ov]) => (
+                        <tr key={`official-${posName}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-2">
+                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">官方建檔</span>
+                          </td>
+                          <td className="px-4 py-2 font-medium text-gray-900">{posName}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">{ov.department || '—'}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500 text-center">{ov.competencies.length}</td>
+                          <td className="px-4 py-2 text-xs text-gray-400 truncate max-w-40" title={ov.sourceFileName}>{ov.sourceFileName}</td>
+                          <td className="px-4 py-2 text-xs text-gray-400 whitespace-nowrap">{new Date(ov.updatedAt).toLocaleDateString('zh-TW')}</td>
+                          <td className="px-4 py-2 text-right">
+                            <span className="text-xs text-gray-300">—</span>
+                          </td>
+                        </tr>
+                      ))}
+                      {Object.values(employeeJDs).map((rec) => (
+                        <tr key={`emp-${rec.employeeName}`} className={`hover:bg-gray-50 transition-colors ${viewingEmployeeName === rec.employeeName ? 'bg-indigo-50' : ''}`}>
+                          <td className="px-4 py-2">
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">員工上傳</span>
+                          </td>
+                          <td className="px-4 py-2 font-medium text-gray-900">{rec.employeeName}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">{rec.department || '—'}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500 text-center">{rec.professionalSkills.length}</td>
+                          <td className="px-4 py-2 text-xs text-gray-400 truncate max-w-40" title={rec.sourceFileName}>{rec.sourceFileName}</td>
+                          <td className="px-4 py-2 text-xs text-gray-400 whitespace-nowrap">{new Date(rec.uploadedAt).toLocaleDateString('zh-TW')}</td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <button
+                                onClick={() => handleLoadEmployee(rec.employeeName)}
+                                className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-medium transition-colors"
+                              >
+                                查看
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEmployeeJD(rec.employeeName)}
+                                className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors"
+                              >
+                                刪除
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* 員工個人上傳 */}
-          {Object.keys(employeeJDs).length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-600 mb-2">員工個人上傳（{Object.keys(employeeJDs).length} 位）</p>
-              <div className="space-y-2">
-                {Object.values(employeeJDs).map((rec) => (
-                  <div
-                    key={rec.employeeName}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-                      viewingEmployeeName === rec.employeeName
-                        ? 'border-indigo-400 bg-indigo-50'
-                        : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-gray-900">{rec.employeeName}</span>
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{rec.positionName}</span>
-                        {rec.department && <span className="text-xs text-gray-500">{rec.department}</span>}
-                        {rec.professionalSkills.length > 0 && (
-                          <span className="text-xs text-purple-600">{rec.professionalSkills.length} 項專業能力</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">
-                        {rec.sourceFileName}・{new Date(rec.uploadedAt).toLocaleDateString('zh-TW')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => handleLoadEmployee(rec.employeeName)}
-                        className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
-                      >
-                        查看
-                      </button>
-                      <button
-                        onClick={() => handleDeleteEmployeeJD(rec.employeeName)}
-                        className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(employeeJDs).length === 0 && Object.keys(overrides).length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-4">尚無任何說明書記錄</p>
           )}
         </div>
       )}

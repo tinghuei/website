@@ -133,11 +133,23 @@ export default function NotificationCenter() {
 
   const isHRAdmin = currentUser && ['manager', 'admin', 'hr'].includes(currentUser.role);
 
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.isRead).length, [notifications]);
+  // 非管理員只顯示入職日期（joinDate）之後推送的通知
+  const joinDateFilteredNotifs = useMemo(() => {
+    if (!currentUser || currentUser.role === 'admin') return notifications;
+    const joinDate = currentUser.joinDate;
+    if (!joinDate) return notifications;
+    const joinTs = new Date(joinDate).getTime();
+    return notifications.filter((n) => {
+      if (!n.time) return true;
+      return new Date(n.time).getTime() >= joinTs;
+    });
+  }, [notifications, currentUser]);
+
+  const unreadCount = useMemo(() => joinDateFilteredNotifs.filter((n) => !n.isRead).length, [joinDateFilteredNotifs]);
 
   const filtered = useMemo(
-    () => (activeTab === 'all' ? notifications : notifications.filter((n) => n.type === activeTab)),
-    [notifications, activeTab]
+    () => (activeTab === 'all' ? joinDateFilteredNotifs : joinDateFilteredNotifs.filter((n) => n.type === activeTab)),
+    [joinDateFilteredNotifs, activeTab]
   );
 
   const visibleAnnouncements = useMemo(() => {

@@ -535,6 +535,9 @@ export default function CompetencyAnalysis() {
   const [managerEvalScores, setManagerEvalScores] = useState<CompetencyScores>({});
   const [managerEvalSubmitting, setManagerEvalSubmitting] = useState(false);
   const [managerEvalError, setManagerEvalError] = useState<string | null>(null);
+  const [evalFilterMonth, setEvalFilterMonth] = useState<string>('');
+  const [evalFilterStatus, setEvalFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
+  const [evalSearch, setEvalSearch] = useState('');
 
   const standards = (empOverride ?? overrides[positionName])?.standards ?? buildStandardScores(position);
 
@@ -1058,6 +1061,34 @@ export default function CompetencyAnalysis() {
     [selfAssessments]
   );
 
+  const allAssessments = useMemo(() => Object.values(selfAssessments), [selfAssessments]);
+
+  const evalAvailableMonths = useMemo(() => {
+    const months = new Set<string>();
+    allAssessments.forEach((a) => {
+      const d = new Date(a.submittedAt);
+      months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    });
+    return Array.from(months).sort().reverse();
+  }, [allAssessments]);
+
+  const filteredEvals = useMemo(() => {
+    return allAssessments.filter((a) => {
+      if (evalFilterMonth) {
+        const d = new Date(a.submittedAt);
+        const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (m !== evalFilterMonth) return false;
+      }
+      if (evalFilterStatus === 'pending' && a.managerSubmittedAt) return false;
+      if (evalFilterStatus === 'completed' && !a.managerSubmittedAt) return false;
+      if (evalSearch) {
+        const q = evalSearch.toLowerCase();
+        if (!a.employeeName.toLowerCase().includes(q) && !(a.department ?? '').toLowerCase().includes(q) && !a.positionName.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [allAssessments, evalFilterMonth, evalFilterStatus, evalSearch]);
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* ── Page title ── */}
@@ -1144,69 +1175,118 @@ export default function CompetencyAnalysis() {
             </div>
           </div>
 
-          {/* 待評估清單 */}
-          {pendingManagerEvals.length > 0 && !managerEvalTarget && (
-            <div className="space-y-2 mb-4">
-              <p className="text-xs font-semibold text-gray-500 mb-1">待主管評估（{pendingManagerEvals.length}）</p>
-              {pendingManagerEvals.map((a) => (
-                <div key={a.userId} className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-gray-900">{a.employeeName}</span>
-                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{a.positionName}</span>
-                      {a.department && <span className="text-xs text-gray-500">{a.department}</span>}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      自評提交：{new Date(a.submittedAt).toLocaleDateString('zh-TW')}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+          {/* 篩選列 + 評估清單（表格式） */}
+          {allAssessments.length > 0 && !managerEvalTarget && (
+            <div className="mb-4">
+              {/* 篩選工具列 */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {/* 月份選擇 */}
+                <select
+                  value={evalFilterMonth}
+                  onChange={(e) => setEvalFilterMonth(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  <option value="">所有月份</option>
+                  {evalAvailableMonths.map((m) => (
+                    <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
+                  ))}
+                </select>
+                {/* 狀態 tabs */}
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                  {(['all', 'pending', 'completed'] as const).map((s) => (
                     <button
-                      onClick={() => handleDownloadAssessmentReport(a)}
-                      disabled={reportDownloadingId === a.userId}
-                      className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                      key={s}
+                      onClick={() => setEvalFilterStatus(s)}
+                      className={`px-3 py-1.5 font-medium transition-colors ${evalFilterStatus === s ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                     >
-                      {reportDownloadingId === a.userId ? <RefreshCw size={12} className="animate-spin" /> : <Download size={12} />}
-                      下載報表
+                      {s === 'all' ? `全部（${allAssessments.length}）` : s === 'pending' ? `待評估（${pendingManagerEvals.length}）` : `已完成（${completedAssessments.length}）`}
                     </button>
-                    <button
-                      onClick={() => handleStartManagerEval(a)}
-                      className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
-                    >
-                      開始評估
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* 已完成評估清單 */}
-          {completedAssessments.length > 0 && !managerEvalTarget && (
-            <div className="space-y-2 mb-4">
-              <p className="text-xs font-semibold text-gray-500 mb-1">已完成評估（{completedAssessments.length}）</p>
-              {completedAssessments.map((a) => (
-                <div key={a.userId} className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-gray-900">{a.employeeName}</span>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{a.positionName}</span>
-                      {a.department && <span className="text-xs text-gray-500">{a.department}</span>}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      主管：{a.managerName ?? '—'}・{a.managerSubmittedAt ? new Date(a.managerSubmittedAt).toLocaleDateString('zh-TW') : ''}
-                    </p>
-                  </div>
+                {/* 搜尋框 */}
+                <input
+                  type="text"
+                  value={evalSearch}
+                  onChange={(e) => setEvalSearch(e.target.value)}
+                  placeholder="搜尋姓名 / 職位 / 部門"
+                  className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400 w-44"
+                />
+                {(evalFilterMonth || evalFilterStatus !== 'all' || evalSearch) && (
                   <button
-                    onClick={() => handleDownloadAssessmentReport(a)}
-                    disabled={reportDownloadingId === a.userId}
-                    className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex-shrink-0"
+                    onClick={() => { setEvalFilterMonth(''); setEvalFilterStatus('all'); setEvalSearch(''); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline"
                   >
-                    {reportDownloadingId === a.userId ? <RefreshCw size={12} className="animate-spin" /> : <Download size={12} />}
-                    下載報表
+                    清除篩選
                   </button>
+                )}
+              </div>
+
+              {filteredEvals.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">無符合條件的資料</p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                        <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">員工</th>
+                        <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">職位</th>
+                        <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">部門</th>
+                        <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">自評日期</th>
+                        <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">狀態</th>
+                        <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredEvals.map((a) => {
+                        const isDone = !!a.managerSubmittedAt;
+                        return (
+                          <tr key={a.userId} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-gray-900">{a.employeeName}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {a.positionName}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-gray-500">{a.department || '—'}</td>
+                            <td className="px-4 py-2.5 text-xs text-gray-500">{new Date(a.submittedAt).toLocaleDateString('zh-TW')}</td>
+                            <td className="px-4 py-2.5">
+                              {isDone ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-700 font-medium">
+                                  <CheckCircle size={12} /> 已完成
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium">
+                                  <AlertCircle size={12} /> 待評估
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2 justify-end">
+                                <button
+                                  onClick={() => handleDownloadAssessmentReport(a)}
+                                  disabled={reportDownloadingId === a.userId}
+                                  className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+                                >
+                                  {reportDownloadingId === a.userId ? <RefreshCw size={11} className="animate-spin" /> : <Download size={11} />}
+                                  下載
+                                </button>
+                                {!isDone && (
+                                  <button
+                                    onClick={() => handleStartManagerEval(a)}
+                                    className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+                                  >
+                                    開始評估
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
+              )}
             </div>
           )}
 

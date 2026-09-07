@@ -9,7 +9,7 @@ import {
   Legend,
   Tooltip,
 } from 'recharts';
-import { Target, ChevronDown, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight, Users, Download, Trash2 } from 'lucide-react';
+import { Target, ChevronDown, ChevronRight, CheckCircle, AlertCircle, XCircle, RefreshCw, Upload, FileText, Sparkles, X, ArrowRight, Users, Download, Trash2 } from 'lucide-react';
 import { useTrainingAuth } from '../../context/TrainingAuthContext';
 import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCategory } from '../../data/competencyFramework';
 import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';

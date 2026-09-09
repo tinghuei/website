@@ -1485,6 +1485,10 @@ def call_parse_recurring(uid, text):
     r = conn.getresponse()
     body = json.loads(r.read().decode("utf-8"))
     conn.close()
+    if "error" in body:
+        raise Exception(f"Groq API 錯誤：{body['error'].get('message', str(body))}")
+    if "choices" not in body:
+        raise Exception(f"Groq 回應格式異常：{str(body)[:200]}")
     raw = body["choices"][0]["message"]["content"]
     return _safe_json(raw)
 
@@ -2319,7 +2323,16 @@ def process_recurring(user_id, text):
         elif "title" in result:
             new_items = [result]
         else:
-            raise ValueError(f"無法解析回應格式：{result}")
+            # AI 第一次沒回對格式（例如混雜了說明文字）→ 明確要求重來一次再放棄
+            print(f"[process_recurring] 格式不符，重試一次。原始回應：{str(result)[:300]}")
+            retry_text = f"請用 JSON 格式回覆（items 陣列），記住這個固定行程：{text}"
+            result = call_parse_recurring(user_id, retry_text)
+            if "items" in result:
+                new_items = result["items"]
+            elif "title" in result:
+                new_items = [result]
+            else:
+                raise ValueError(f"無法解析回應格式：{str(result)[:300]}")
 
         saved = load_recurring(user_id)
         for item in new_items:

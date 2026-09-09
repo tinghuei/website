@@ -1469,14 +1469,14 @@ def _safe_json(raw):
             return {"jin_message": raw[:200], "tasks": []}
 
 # ── 解析固定行程 ──────────────────────────────────────────────
-def call_parse_recurring(uid, text):
+def call_parse_recurring(uid, text, max_tokens=6000):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     prompt = _recurring_prompt(now_str, uid)
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": text},
     ]
-    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 2000},
+    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": max_tokens},
                       ensure_ascii=False).encode("utf-8")
     ctx = ssl.create_default_context()
     conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
@@ -1489,7 +1489,10 @@ def call_parse_recurring(uid, text):
         raise Exception(f"Groq API 錯誤：{body['error'].get('message', str(body))}")
     if "choices" not in body:
         raise Exception(f"Groq 回應格式異常：{str(body)[:200]}")
-    raw = body["choices"][0]["message"]["content"]
+    choice = body["choices"][0]
+    raw = choice["message"]["content"]
+    if choice.get("finish_reason") == "length":
+        print(f"[call_parse_recurring] 回應被截斷（finish_reason=length），內容可能不完整。原始長度：{len(raw)}")
     return _safe_json(raw)
 
 # ── 空閒關心 / 每日關心（動態成員）─────────────────────────────

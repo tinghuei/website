@@ -466,7 +466,7 @@ function generateGapQuiz(position: PositionData, selfScores: CompetencyScores, s
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function CompetencyAnalysis() {
-  const { currentUser, users } = useTrainingAuth();
+  const { currentUser, users, updateUserProfile } = useTrainingAuth();
 
   const [positionName, setPositionName] = useState<string>(POSITION_NAMES[0]);
 
@@ -550,9 +550,9 @@ export default function CompetencyAnalysis() {
   const [hrProxyDept, setHrProxyDept] = useState<string>(DEPARTMENTS[0] ?? '');
   const [hrProxyPosition, setHrProxyPosition] = useState<string>('');
   const [hrProxyScores, setHrProxyScores] = useState<Record<string, number>>({});
+  const [hrProxyManagerId, setHrProxyManagerId] = useState<string>('');
   const [hrProxySubmitting, setHrProxySubmitting] = useState(false);
   const [hrProxyError, setHrProxyError] = useState<string | null>(null);
-  const [hrProxyConflict, setHrProxyConflict] = useState<CompetencySelfAssessment | null>(null);
 
   const standards = (empOverride ?? overrides[positionName])?.standards ?? buildStandardScores(position);
 
@@ -707,24 +707,7 @@ export default function CompetencyAnalysis() {
   }
 
   // ── HR 代填自評 handlers ─────────────────────────────────────────────────────
-  function openHrProxy() {
-    const firstUser = users.find((u) => !['admin', 'hr'].includes(u.role) && u.status !== 'resigned');
-    const uid = firstUser?.id ?? '';
-    const dept = firstUser?.department ? (POSITIONS_BY_DEPT[firstUser.department] ? firstUser.department : DEPARTMENTS[0]) : DEPARTMENTS[0];
-    const pos = firstUser?.title && POSITIONS_BY_DEPT[dept]?.includes(firstUser.title)
-      ? firstUser.title
-      : (POSITIONS_BY_DEPT[dept]?.[0] ?? '');
-    setHrProxyUserId(uid);
-    setHrProxyDept(dept);
-    setHrProxyPosition(pos);
-    setHrProxyScores(pos ? buildStandardScores(getEffectivePosition(pos, overrides)) : {});
-    setHrProxyError(null);
-    setHrProxyConflict(null);
-    setHrProxyOpen(true);
-  }
-
-  function handleHrProxyUserChange(uid: string) {
-    setHrProxyUserId(uid);
+  function initHrProxyForUser(uid: string) {
     const u = users.find((x) => x.id === uid);
     const dept = u?.department && POSITIONS_BY_DEPT[u.department] ? u.department : DEPARTMENTS[0];
     const pos = u?.title && POSITIONS_BY_DEPT[dept]?.includes(u.title)
@@ -733,7 +716,22 @@ export default function CompetencyAnalysis() {
     setHrProxyDept(dept);
     setHrProxyPosition(pos);
     setHrProxyScores(pos ? buildStandardScores(getEffectivePosition(pos, overrides)) : {});
-    setHrProxyConflict(null);
+    setHrProxyManagerId(u?.managerId ?? '');
+  }
+
+  function openHrProxy() {
+    const firstUser = users.find((u) => !['admin', 'hr'].includes(u.role) && u.status !== 'resigned');
+    const uid = firstUser?.id ?? '';
+    setHrProxyUserId(uid);
+    initHrProxyForUser(uid);
+    setHrProxyError(null);
+    setHrProxyOpen(true);
+  }
+
+  function handleHrProxyUserChange(uid: string) {
+    setHrProxyUserId(uid);
+    initHrProxyForUser(uid);
+    setHrProxyError(null);
   }
 
   function handleHrProxyDeptChange(dept: string) {
@@ -741,13 +739,11 @@ export default function CompetencyAnalysis() {
     const pos = POSITIONS_BY_DEPT[dept]?.[0] ?? '';
     setHrProxyPosition(pos);
     setHrProxyScores(pos ? buildStandardScores(getEffectivePosition(pos, overrides)) : {});
-    setHrProxyConflict(null);
   }
 
   function handleHrProxyPositionChange(pos: string) {
     setHrProxyPosition(pos);
     setHrProxyScores(buildStandardScores(getEffectivePosition(pos, overrides)));
-    setHrProxyConflict(null);
   }
 
   function buildHrProxyAssessment(): CompetencySelfAssessment | null {
@@ -770,7 +766,8 @@ export default function CompetencyAnalysis() {
     setHrProxyError(null);
     const existing = selfAssessments[record.userId];
     if (existing && existing.positionName !== record.positionName) {
-      setHrProxyConflict(existing);
+      // 職位不同：自動產出報表，不覆蓋現有紀錄
+      await handleHrProxyDownloadOnly(record);
       return;
     }
     await commitHrProxy(record);
@@ -782,8 +779,12 @@ export default function CompetencyAnalysis() {
     try {
       await saveSelfAssessment(record);
       setSelfAssessments((prev) => ({ ...prev, [record.userId]: record }));
+      // 若指定評估主管與現有不同，同步更新員工的 managerId
+      const currentMgr = users.find((u) => u.id === record.userId)?.managerId ?? '';
+      if (hrProxyManagerId !== currentMgr) {
+        await updateUserProfile(record.userId, { managerId: hrProxyManagerId });
+      }
       setHrProxyOpen(false);
-      setHrProxyConflict(null);
     } catch {
       setHrProxyError('儲存失敗，請稍後再試');
     } finally {
@@ -791,28 +792,27 @@ export default function CompetencyAnalysis() {
     }
   }
 
-  async function handleHrProxyDownloadOnly() {
-    const record = buildHrProxyAssessment();
-    if (!record) return;
+  async function handleHrProxyDownloadOnly(record?: CompetencySelfAssessment) {
+    const r = record ?? buildHrProxyAssessment();
+    if (!r) return;
     setHrProxySubmitting(true);
     try {
-      const effPos = getEffectivePosition(record.positionName, overrides);
+      const effPos = getEffectivePosition(r.positionName, overrides);
       const dims = getDimensions(effPos);
-      const std = overrides[record.positionName]?.standards ?? buildStandardScores(effPos);
+      const std = overrides[r.positionName]?.standards ?? buildStandardScores(effPos);
       const now = new Date();
       await downloadCompetencyReport({
         companyName: '樂聯工業股份有限公司',
-        department: record.department || effPos.category,
-        positionName: record.positionName,
-        employeeName: record.employeeName,
+        department: r.department || effPos.category,
+        positionName: r.positionName,
+        employeeName: r.employeeName,
         employeeId: '',
         analysisYear: now.getFullYear(),
         analysisMonth: now.getMonth() + 1,
         dimensions: dims,
-        selfScores: record.selfScores,
+        selfScores: r.selfScores,
         standards: std,
       });
-      setHrProxyConflict(null);
     } catch {
       setHrProxyError('下載失敗，請稍後再試');
     } finally {
@@ -1387,8 +1387,8 @@ export default function CompetencyAnalysis() {
                   </button>
                 </div>
 
-                {/* 員工 / 部門 / 職位 選擇 */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* 員工 / 部門 / 職位 / 評估主管 選擇 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">員工</label>
                     <select
@@ -1397,6 +1397,19 @@ export default function CompetencyAnalysis() {
                       className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       {eligibleUsers.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}（{u.department}）</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">指定評估主管</label>
+                    <select
+                      value={hrProxyManagerId}
+                      onChange={(e) => setHrProxyManagerId(e.target.value)}
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="">(未指定)</option>
+                      {users.filter((u) => ['manager', 'admin', 'hr', 'vp'].includes(u.role) && u.status !== 'resigned').map((u) => (
                         <option key={u.id} value={u.id}>{u.name}（{u.department}）</option>
                       ))}
                     </select>
@@ -1412,7 +1425,7 @@ export default function CompetencyAnalysis() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">職位</label>
+                    <label className="block text-xs text-gray-500 mb-1">評估職位</label>
                     <select
                       value={hrProxyPosition}
                       onChange={(e) => handleHrProxyPositionChange(e.target.value)}
@@ -1423,39 +1436,21 @@ export default function CompetencyAnalysis() {
                   </div>
                 </div>
 
-                {/* 職位不同的衝突警告 */}
-                {hrProxyConflict && (
-                  <div className="border border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2">
-                    <p className="text-xs font-semibold text-amber-800">
-                      ⚠ 此員工已有「{hrProxyConflict.positionName}」的自評紀錄，您選擇的職位為「{hrProxyPosition}」。
-                    </p>
-                    <p className="text-xs text-amber-700">
-                      請選擇：只下載此次報表（不修改現有紀錄），或覆蓋並儲存新職位的資料。
-                    </p>
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        onClick={handleHrProxyDownloadOnly}
-                        disabled={hrProxySubmitting}
-                        className="text-xs bg-white border border-amber-400 text-amber-800 hover:bg-amber-100 disabled:opacity-60 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1"
-                      >
-                        <Download size={11} /> 只下載報表（不覆蓋）
-                      </button>
-                      <button
-                        onClick={() => commitHrProxy(buildHrProxyAssessment()!)}
-                        disabled={hrProxySubmitting}
-                        className="text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg font-medium"
-                      >
-                        覆蓋並儲存
-                      </button>
-                      <button
-                        onClick={() => setHrProxyConflict(null)}
-                        className="text-xs text-gray-500 hover:text-gray-700 underline"
-                      >
-                        取消
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* 職位與現有紀錄不同時的提示（唯讀，自動處理） */}
+                {(() => {
+                  const existing = selfAssessments[hrProxyUserId];
+                  if (existing && hrProxyPosition && existing.positionName !== hrProxyPosition) {
+                    return (
+                      <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                        <span>
+                          此員工已有「{existing.positionName}」的自評紀錄。送出時將<strong>自動產出此職位報表</strong>但<strong>不覆蓋</strong>現有紀錄。
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* 評分滑桿 */}
                 {proxyDims.map(({ id, label }) => (
@@ -1478,17 +1473,34 @@ export default function CompetencyAnalysis() {
                   </div>
                 ))}
 
-                {proxyUser && hrProxyPosition && !hrProxyConflict && (
+                {proxyUser && hrProxyPosition && (
                   <div className="pt-2 border-t border-blue-200 space-y-2">
-                    <p className="text-xs text-gray-500">
-                      送出後紀錄儲存至系統，主管可接著進行評估，或直接由人資填完後下載報表。
-                    </p>
+                    {(() => {
+                      const existing = selfAssessments[hrProxyUserId];
+                      const isDiffPos = !!(existing && existing.positionName !== hrProxyPosition);
+                      return (
+                        <p className="text-xs text-gray-500">
+                          {isDiffPos
+                            ? '職位與現有紀錄不同，送出後將直接下載此職位報表（現有紀錄保留不動）。'
+                            : `送出後儲存至系統${hrProxyManagerId ? `，並指定由「${users.find(u => u.id === hrProxyManagerId)?.name}」進行主管評估` : ''}。`}
+                        </p>
+                      );
+                    })()}
                     <button
                       onClick={handleHrProxySubmit}
                       disabled={hrProxySubmitting}
                       className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
                     >
-                      {hrProxySubmitting ? <><RefreshCw size={14} className="animate-spin" /> 儲存中...</> : `送出 ${proxyUser.name} 的代填自評`}
+                      {hrProxySubmitting
+                        ? <><RefreshCw size={14} className="animate-spin" /> 處理中...</>
+                        : (() => {
+                            const existing = selfAssessments[hrProxyUserId];
+                            const isDiffPos = !!(existing && existing.positionName !== hrProxyPosition);
+                            return isDiffPos
+                              ? <><Download size={14} /> 產出 {proxyUser.name} 的報表（不覆蓋）</>
+                              : <><CheckCircle size={14} /> 送出 {proxyUser.name} 的代填自評</>;
+                          })()
+                      }
                     </button>
                     {hrProxyError && <p className="text-xs text-red-600">{hrProxyError}</p>}
                   </div>

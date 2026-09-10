@@ -238,7 +238,7 @@ interface TrainingAuthContextValue {
   setUserStatus: (userId: string, status: 'active' | 'resigned') => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   updateMyProfile: (updates: { employeeId?: string; name?: string; department?: string; title?: string }) => Promise<void>;
-  updateUserProfile: (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string; joinDate?: string }) => Promise<void>;
+  updateUserProfile: (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string; joinDate?: string; managerId?: string }) => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   addAuditLog: (userId: string, action: string, target: string, details: string) => Promise<void>;
   clearAuditLogsByActions: (actions: string[]) => Promise<void>;
@@ -837,7 +837,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
   };
 
   // 人資/管理員修改員工基本資料
-  const updateUserProfile = async (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string; joinDate?: string }) => {
+  const updateUserProfile = async (userId: string, updates: { name?: string; employeeId?: string; department?: string; title?: string; joinDate?: string; managerId?: string }) => {
     const user = users.find((u) => u.id === userId);
     await supabase
       .from('profiles')
@@ -847,6 +847,7 @@ export function TrainingAuthProvider({ children }: { children: ReactNode }) {
         department: updates.department,
         title: updates.title,
         join_date: updates.joinDate,
+        manager_id: updates.managerId,
       })
       .eq('id', userId);
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...updates } : u)));

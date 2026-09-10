@@ -535,6 +535,7 @@ export default function CompetencyAnalysis() {
   const [managerEvalScores, setManagerEvalScores] = useState<CompetencyScores>({});
   const [managerEvalSubmitting, setManagerEvalSubmitting] = useState(false);
   const [managerEvalError, setManagerEvalError] = useState<string | null>(null);
+  const [managerEvalSuccessName, setManagerEvalSuccessName] = useState<string | null>(null);
   const [deleteEvalStep, setDeleteEvalStep] = useState<{ userId: string; name: string; step: 1 | 2 } | null>(null);
   const [deleteEvalLoading, setDeleteEvalLoading] = useState(false);
   const [gapSummaryCollapsed, setGapSummaryCollapsed] = useState(false);
@@ -665,6 +666,7 @@ export default function CompetencyAnalysis() {
     if (!managerEvalTarget || !currentUser) return;
     setManagerEvalSubmitting(true);
     setManagerEvalError(null);
+    const targetName = managerEvalTarget.employeeName;
     try {
       await saveManagerAssessment(
         managerEvalTarget.userId,
@@ -685,6 +687,8 @@ export default function CompetencyAnalysis() {
       }));
       setManagerEvalTarget(null);
       setManagerEvalScores({});
+      setManagerEvalSuccessName(targetName);
+      setTimeout(() => setManagerEvalSuccessName(null), 5000);
     } catch {
       setManagerEvalError('送出失敗，請稍後再試');
     } finally {
@@ -1214,11 +1218,19 @@ export default function CompetencyAnalysis() {
               <h2 className="text-sm font-bold text-gray-900">主管職能評估</h2>
               <p className="text-xs text-gray-500">
                 {(pendingManagerEvals.length + completedAssessments.length) > 0
-                  ? `共 ${pendingManagerEvals.length + completedAssessments.length} 筆自評（待評估 ${pendingManagerEvals.length}・已完成 ${completedAssessments.length}），可下載 Word 報表`
+                  ? `共 ${pendingManagerEvals.length + completedAssessments.length} 筆自評（待評估 ${pendingManagerEvals.length}・主管已送出 ${completedAssessments.length}），主管送出後可下載報表`
                   : '目前無任何員工自評資料'}
               </p>
             </div>
           </div>
+
+          {/* 主管評估送出成功提示 */}
+          {managerEvalSuccessName && (
+            <div className="mb-3 flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <CheckCircle size={14} className="shrink-0" />
+              已成功送出對「{managerEvalSuccessName}」的職能評估，人資 / 管理員現在可以下載報表。
+            </div>
+          )}
 
           {/* 篩選列 + 評估清單（表格式） */}
           {allAssessments.length > 0 && !managerEvalTarget && (
@@ -1296,26 +1308,33 @@ export default function CompetencyAnalysis() {
                             <td className="px-4 py-2.5 text-xs text-gray-500">{new Date(a.submittedAt).toLocaleDateString('zh-TW')}</td>
                             <td className="px-4 py-2.5">
                               {isDone ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-green-700 font-medium">
-                                  <CheckCircle size={12} /> 已完成
-                                </span>
+                                <div>
+                                  <span className="inline-flex items-center gap-1 text-xs text-green-700 font-medium">
+                                    <CheckCircle size={12} /> 主管已送出
+                                  </span>
+                                  <div className="text-xs text-gray-400 mt-0.5">
+                                    {new Date(a.managerSubmittedAt!).toLocaleDateString('zh-TW')}
+                                    {a.managerName && <span className="ml-1">· {a.managerName}</span>}
+                                  </div>
+                                </div>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium">
-                                  <AlertCircle size={12} /> 待評估
+                                  <AlertCircle size={12} /> 等候主管評估
                                 </span>
                               )}
                             </td>
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2 justify-end">
-                                <button
-                                  onClick={() => handleDownloadAssessmentReport(a)}
-                                  disabled={reportDownloadingId === a.userId}
-                                  className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
-                                >
-                                  {reportDownloadingId === a.userId ? <RefreshCw size={11} className="animate-spin" /> : <Download size={11} />}
-                                  下載
-                                </button>
-                                {!isDone && (
+                                {isDone ? (
+                                  <button
+                                    onClick={() => handleDownloadAssessmentReport(a)}
+                                    disabled={reportDownloadingId === a.userId}
+                                    className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+                                  >
+                                    {reportDownloadingId === a.userId ? <RefreshCw size={11} className="animate-spin" /> : <Download size={11} />}
+                                    下載報表
+                                  </button>
+                                ) : (
                                   <button
                                     onClick={() => handleStartManagerEval(a)}
                                     className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
@@ -1380,14 +1399,23 @@ export default function CompetencyAnalysis() {
                     </div>
                   </div>
                 ))}
-                <button
-                  onClick={handleSubmitManagerEval}
-                  disabled={managerEvalSubmitting}
-                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
-                >
-                  {managerEvalSubmitting ? '送出中...' : `提交對 ${managerEvalTarget.employeeName} 的主管評估`}
-                </button>
-                {managerEvalError && <p className="text-xs text-red-600">{managerEvalError}</p>}
+                <div className="pt-2 border-t border-amber-200 space-y-2">
+                  <p className="text-xs text-gray-500">
+                    送出後人資 / 管理員將收到通知，並可下載含主管評分的職能報表以送交簽核。送出後仍可由人資刪除紀錄重評。
+                  </p>
+                  <button
+                    onClick={handleSubmitManagerEval}
+                    disabled={managerEvalSubmitting}
+                    className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    {managerEvalSubmitting ? (
+                      <><RefreshCw size={14} className="animate-spin" /> 送出中...</>
+                    ) : (
+                      <><CheckCircle size={14} /> 送出對 {managerEvalTarget.employeeName} 的主管評估</>
+                    )}
+                  </button>
+                  {managerEvalError && <p className="text-xs text-red-600">{managerEvalError}</p>}
+                </div>
               </div>
             );
           })()}

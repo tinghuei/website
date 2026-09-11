@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>產線月曆看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --ground: #eef1f4;
+    --surface: #ffffff;
+    --surface-2: #f4f6f8;
+    --ink: #1b2127;
+    --ink-soft: #5c6670;
+    --ink-faint: #9aa4ad;
+    --line: #d7dde3;
+    --line-strong: #b9c1c9;
+    --accent: #d9560f;
+    --accent-ink: #ffffff;
+    --weekend-band: #fbece2;
+    --done: #2f8f5b;
+    --danger: #c2410c;
+    --shadow: 0 12px 32px -16px rgba(20, 24, 28, 0.28);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #14171b;
+      --surface: #1c2126;
+      --surface-2: #20262c;
+      --ink: #ecedef;
+      --ink-soft: #9aa4ad;
+      --ink-faint: #6b747c;
+      --line: #2b3138;
+      --line-strong: #3a424a;
+      --accent: #ff7a33;
+      --accent-ink: #1b1004;
+      --weekend-band: #2b1e15;
+      --done: #4fc582;
+      --danger: #ff8a5c;
+      --shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Noto Sans TC", system-ui, sans-serif;
+    padding-inline: 16px;
+    padding-block: 20px 60px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+  h1, h2, h3, h4 { font-family: "Barlow Condensed", "Noto Sans TC", sans-serif; font-weight: 700; margin: 0; text-wrap: balance; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  /* ---- Header ---- */
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 18px; box-shadow: var(--shadow);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; flex: 1 1 260px; min-width: 0; }
+  .brand .mark { width: 10px; height: 22px; background: var(--accent); border-radius: 2px; flex: none; }
+  .dept-input {
+    font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 1.5rem; color: var(--ink);
+    background: transparent; border: none; border-bottom: 2px solid transparent; padding: 2px 2px;
+    min-width: 3ch; max-width: 100%;
+  }
+  .dept-input:hover, .dept-input:focus { border-bottom-color: var(--line-strong); outline: none; }
+  .subtitle { color: var(--ink-faint); font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  .month-nav { display: flex; align-items: center; gap: 10px; }
+  .month-nav .label { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 1.35rem; min-width: 8ch; text-align: center; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-2);
+    color: var(--ink); font-size: 1rem; cursor: pointer; display: grid; place-items: center;
+  }
+  .icon-btn:hover { border-color: var(--line-strong); }
+
+  .btn-primary, .btn-secondary, .btn-ghost {
+    font: inherit; font-weight: 600; border-radius: 9px; padding: 9px 16px; cursor: pointer; border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-secondary { background: var(--surface-2); color: var(--ink); border-color: var(--line); }
+  .btn-ghost { background: transparent; color: var(--ink-soft); }
+  .btn-ghost:hover { color: var(--ink); }
+
+  .status-pill {
+    font-size: 0.72rem; color: var(--ink-faint); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px 10px; white-space: nowrap;
+  }
+  .status-pill.live::before { content: "●"; color: var(--done); margin-right: 5px; }
+  .status-pill.offline::before { content: "●"; color: var(--danger); margin-right: 5px; }
+  .status-pill.busy::before { content: "●"; color: var(--accent); margin-right: 5px; }
+
+  .hint-banner {
+    background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 12px; padding: 12px 16px;
+    color: var(--ink-soft); font-size: 0.88rem; display: none;
+  }
+  .hint-banner.show { display: block; }
+  .hint-banner.warn { border-color: var(--danger); color: var(--danger); }
+
+  /* ---- Layout ---- */
+  .board-area { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .board-area { grid-template-columns: 1fr; } }
+
+  .board {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
+  }
+  .board-head { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--surface-2); }
+  .board-head div {
+    padding: 10px 6px; text-align: center; font-family: "Barlow Condensed", sans-serif; font-weight: 700;
+    font-size: 0.95rem; color: var(--ink-soft); border-bottom: 1px solid var(--line);
+  }
+  .board-head div.weekend { color: var(--accent); background: var(--weekend-band); }
+  .board-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+
+  .cell {
+    min-height: 118px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    padding: 8px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; background: var(--surface);
+    transition: background 0.12s;
+  }
+  .cell:hover { background: var(--surface-2); }
+  .cell.weekend { background: color-mix(in srgb, var(--weekend-band) 55%, var(--surface)); }
+  .cell.pad { cursor: default; background: var(--surface-2); opacity: 0.4; }
+  .cell.pad:hover { background: var(--surface-2); }
+  .cell-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .daynum { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 4px; }
+  .daynum .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .wk { font-size: 0.7rem; color: var(--ink-faint); }
+  .leave-label { font-size: 0.66rem; color: var(--ink-faint); letter-spacing: 0.03em; }
+  .leave-chips { display: flex; flex-direction: column; gap: 3px; }
+  .chip { font-size: 0.72rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; line-height: 1.5; }
+
+  /* ---- Summary rail ---- */
+  .summary {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+    padding: 16px; display: flex; flex-direction: column; gap: 10px; max-height: 900px; overflow: auto;
+  }
+  .summary h3 { font-size: 1.15rem; }
+  .summary .count { color: var(--ink-faint); font-size: 0.78rem; font-weight: 400; font-family: "IBM Plex Sans"; }
+  .summary-empty { color: var(--ink-faint); font-size: 0.85rem; padding: 10px 0; }
+  .summary-row {
+    display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--line);
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--done); flex: none; }
+  .summary-row .date { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: var(--ink-faint); flex: none; width: 3.4em; }
+  .summary-row .text { font-size: 0.86rem; line-height: 1.45; }
+  .summary-row .text.done { text-decoration: line-through; color: var(--ink-faint); }
+  .summary-row .owner { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+  /* ---- Modal ---- */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(10, 12, 14, 0.55); display: grid; place-items: center; padding: 20px; z-index: 40;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    width: min(480px, 100%); max-height: 88vh; overflow: auto; background: var(--surface); border-radius: 16px;
+    border: 1px solid var(--line); box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .modal header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .modal section { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .modal h4 { font-size: 1rem; color: var(--ink-soft); }
+  .modal footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px; }
+  .modal p.note { font-size: 0.82rem; color: var(--ink-soft); margin: 0; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .row input[type="text"], .row input[type="password"], .row select {
+    font: inherit; font-size: 0.86rem; padding: 7px 8px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--surface-2); color: var(--ink); min-width: 0;
+  }
+  .row .field-text { flex: 1 1 auto; }
+  .row .field-owner { flex: 0 0 6em; }
+  .row .field-type { flex: 0 0 5em; }
+  .row .rm-btn { flex: none; width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface-2); color: var(--danger); cursor: pointer; }
+  .row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--done); flex: none; }
+  .rows { display: flex; flex-direction: column; gap: 6px; }
+  .rows-empty { color: var(--ink-faint); font-size: 0.82rem; }
+
+  /* ---- Poster (export-only clone): always the full desktop grid ---- */
+  .poster { position: fixed; top: 0; left: -99999px; width: 1360px; background: var(--surface); padding: 26px; }
+  .poster .poster-title { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 2.1rem; text-align: center; margin-bottom: 14px; }
+  .poster .board-area { grid-template-columns: 1fr 330px !important; }
+  .poster .cell { min-height: 132px; cursor: default; }
+  .poster .board-head { display: grid !important; }
+  .poster .cell-head { width: auto !important; }
+  .poster .leave-label { display: block !important; }
+  .poster .leave-chips { flex-direction: column !important; }
+
+  /* ---- Mobile: collapse the 7-column grid to a scrollable day list ---- */
+  @media (max-width: 640px) {
+    .board:not(.poster .board) .board-head { display: none; }
+    .board:not(.poster .board) .board-grid { grid-template-columns: 1fr; }
+    .board:not(.poster .board) .cell { min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 12px; }
+    .board:not(.poster .board) .cell-head { flex: none; width: 4.2em; gap: 6px; }
+    .board:not(.poster .board) .leave-label { display: none; }
+    .board:not(.poster .board) .leave-chips { flex-direction: row; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; }
+    .board:not(.poster .board) .chip { padding: 2px 7px; }
+  }
+
+  footer.credit { text-align: center; color: var(--ink-faint); font-size: 0.72rem; padding-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="toolbar">
+    <div class="brand">
+      <span class="mark"></span>
+      <div>
+        <input id="deptInput" class="dept-input" value="製造課" maxlength="20" />
+        <div class="subtitle">產線月曆看板</div>
+      </div>
+    </div>
+    <div class="month-nav">
+      <button class="icon-btn" id="prevMonth" aria-label="上個月">‹</button>
+      <div class="label mono" id="monthLabel">—</div>
+      <button class="icon-btn" id="nextMonth" aria-label="下個月">›</button>
+    </div>
+    <span id="statusPill" class="status-pill">連線中…</span>
+    <button id="exportBtn" class="btn-primary">匯出圖片</button>
+  </div>
+
+  <div id="setupBanner" class="hint-banner warn">
+    尚未設定後端網址。請依照 <code>calendar/README.md</code> 的步驟建立 Google 試算表 + Apps Script 部署,
+    然後把取得的網址貼到 <code>index.html</code> 最下方的 <code>APPS_SCRIPT_URL</code>。在設定完成前,這頁只能離線瀏覽,無法多人同步。
+  </div>
+  <div id="hintBanner" class="hint-banner">本月尚未填寫任何行程。點擊任一天的格子即可新增請假或事項,右側會自動彙整成本月事項清單。</div>
+
+  <div class="board-area" id="boardArea">
+    <div class="board">
+      <div class="board-head" id="boardHead"></div>
+      <div class="board-grid" id="boardGrid"></div>
+    </div>
+    <div class="summary">
+      <h3>本月事項摘要 <span class="count" id="summaryCount"></span></h3>
+      <div id="summaryList"></div>
+    </div>
+  </div>
+
+  <footer class="credit">資料每 8 秒自動同步一次 · 匯出圖片可列印張貼於公佈欄</footer>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal">
+    <header>
+      <h3 id="modalTitle">—</h3>
+      <button class="icon-btn" id="modalClose" aria-label="關閉">✕</button>
+    </header>
+    <section>
+      <h4>請假</h4>
+      <div class="rows" id="leaveRows"></div>
+      <button class="btn-secondary" id="addLeaveRow">+ 新增請假</button>
+    </section>
+    <section>
+      <h4>行事曆事項</h4>
+      <div class="rows" id="itemRows"></div>
+      <button class="btn-secondary" id="addItemRow">+ 新增事項</button>
+    </section>
+    <footer>
+      <button class="btn-ghost" id="modalCancel">取消</button>
+      <button class="btn-primary" id="modalSave">儲存</button>
+    </footer>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="pinBackdrop" hidden>
+  <div class="modal">
+    <header><h3>輸入編輯密碼</h3></header>
+    <section>
+      <p class="note">這台裝置第一次儲存資料前,需要輸入公司內部共用的編輯密碼(由管理員在 Apps Script 設定)。輸入一次後這台裝置會記住。</p>
+      <div class="row"><input type="password" id="pinInput" class="field-text" placeholder="編輯密碼" /></div>
+    </section>
+    <footer>
+      <button class="btn-ghost" id="pinCancel">取消</button>
+      <button class="btn-primary" id="pinConfirm">確認</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ================== 設定區 ==================
+  // 把 Google Apps Script 部署後取得的網址貼在這裡(結尾通常是 /exec)。
+  // 設定步驟見 calendar/README.md。
+  const APPS_SCRIPT_URL = ""; // 例如 "https://script.google.com/macros/s/AKfycb.../exec"
+  const POLL_INTERVAL_MS = 8000;
+  // =============================================
+
+  const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+  const LEAVE_TYPES = ['病', '事', '特', '其他'];
+  const pad2 = n => String(n).padStart(2, '0');
+
+  const now = new Date();
+  let view = { department: localStorage.getItem('board.department') || '製造課', year: now.getFullYear(), month: now.getMonth() + 1 };
+  let state = { department: view.department, year: view.year, month: view.month, days: {} };
+  let pollTimer = null;
+  let modalOpen = false;
+  let pendingSaveAfterPin = null;
+
+  const deptInput = document.getElementById('deptInput');
+  const monthLabel = document.getElementById('monthLabel');
+  const boardHead = document.getElementById('boardHead');
+  const boardGrid = document.getElementById('boardGrid');
+  const summaryList = document.getElementById('summaryList');
+  const summaryCount = document.getElementById('summaryCount');
+  const statusPill = document.getElementById('statusPill');
+  const hintBanner = document.getElementById('hintBanner');
+  const setupBanner = document.getElementById('setupBanner');
+  const exportBtn = document.getElementById('exportBtn');
+  deptInput.value = view.department;
+
+  const configured = !!APPS_SCRIPT_URL;
+  setupBanner.classList.toggle('show', !configured);
+
+  function key() { return view.department + '_' + view.year + '-' + pad2(view.month); }
+
+  function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+  function firstWeekday(y, m) { return new Date(y, m - 1, 1).getDay(); }
+
+  function setStatus(kind, text) {
+    statusPill.className = 'status-pill ' + kind;
+    statusPill.textContent = text;
+  }
+
+  function monthName() { return view.year + '年' + view.month + '月'; }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---------- rendering ----------
+  function renderHead(target) {
+    target.innerHTML = WEEKDAYS.map((w, i) =>
+      '<div class="' + (i === 0 || i === 6 ? 'weekend' : '') + '">' + w + '</div>'
+    ).join('');
+  }
+
+  function cellHTML(day, weekday, dayData, interactive) {
+    const leave = (dayData && dayData.leave) || [];
+    const items = (dayData && dayData.items) || [];
+    const chips = leave.map(l => '<div class="chip">' + escapeHtml(l.name) + (l.type ? '(' + escapeHtml(l.type) + ')' : '') + '</div>').join('');
+    const dot = items.length ? '<span class="dot" title="本日有 ' + items.length + ' 項事項"></span>' : '';
+    return (
+      '<div class="cell' + (weekday === 0 || weekday === 6 ? ' weekend' : '') + '"' +
+      (interactive ? ' data-day="' + day + '"' : '') + '>' +
+      '<div class="cell-head"><span class="daynum">' + day + dot + '</span><span class="wk">' + WEEKDAYS[weekday] + '</span></div>' +
+      '<div class="leave-label">請假</div>' +
+      '<div class="leave-chips">' + chips + '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderGrid(target, interactive) {
+    const total = daysInMonth(view.year, view.month);
+    const lead = firstWeekday(view.year, view.month);
+    let html = '';
+    for (let i = 0; i < lead; i++) html += '<div class="cell pad"></div>';
+    for (let d = 1; d <= total; d++) {
+      const weekday = (lead + d - 1) % 7;
+      html += cellHTML(d, weekday, state.days[String(d)], interactive);
+    }
+    const trailing = (lead + total) % 7;
+    if (trailing !== 0) for (let i = trailing; i < 7; i++) html += '<div class="cell pad"></div>';
+    target.innerHTML = html;
+  }
+
+  function allItemsSorted() {
+    const rows = [];
+    Object.keys(state.days).forEach(dayKey => {
+      const items = state.days[dayKey].items || [];
+      items.forEach((it, idx) => rows.push({ day: Number(dayKey), idx, ...it }));
+    });
+    rows.sort((a, b) => a.day - b.day);
+    return rows;
+  }
+
+  function renderSummary() {
+    const rows = allItemsSorted();
+    summaryCount.textContent = rows.length ? '(' + rows.length + ')' : '';
+    if (!rows.length) {
+      summaryList.innerHTML = '<div class="summary-empty">本月尚無事項,填寫日曆後會自動列在這裡。</div>';
+      return;
+    }
+    summaryList.innerHTML = rows.map(r =>
+      '<label class="summary-row">' +
+      '<input type="checkbox" data-day="' + r.day + '" data-idx="' + r.idx + '" ' + (r.done ? 'checked' : '') + ' />' +
+      '<span class="date mono">' + view.month + '/' + r.day + '</span>' +
+      '<span class="text' + (r.done ? ' done' : '') + '">' + escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span>' +
+      '</label>'
+    ).join('');
+  }
+
+  function renderAll() {
+    monthLabel.textContent = monthName();
+    renderHead(boardHead);
+    renderGrid(boardGrid, true);
+    renderSummary();
+    hintBanner.classList.toggle('show', Object.keys(state.days).length === 0);
+  }
+
+  // ---------- summary checkbox toggling ----------
+  summaryList.addEventListener('change', async (e) => {
+    const cb = e.target.closest('input[type="checkbox"]');
+    if (!cb) return;
+    const day = cb.getAttribute('data-day'), idx = Number(cb.getAttribute('data-idx'));
+    const items = (state.days[day] && state.days[day].items) || [];
+    items[idx] = { ...items[idx], done: cb.checked };
+    await saveDay(day, { leave: (state.days[day] && state.days[day].leave) || [], items });
+  });
+
+  // ---------- day modal ----------
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const modalTitle = document.getElementById('modalTitle');
+  const leaveRowsEl = document.getElementById('leaveRows');
+  const itemRowsEl = document.getElementById('itemRows');
+  let editDay = null, editLeave = [], editItems = [];
+
+  function openModal(day) {
+    editDay = day;
+    const data = state.days[String(day)] || {};
+    editLeave = (data.leave || []).map(x => ({ ...x }));
+    editItems = (data.items || []).map(x => ({ ...x }));
+    modalTitle.textContent = monthName() + ' ' + day + '日';
+    renderLeaveRows();
+    renderItemRows();
+    modalBackdrop.hidden = false;
+    modalOpen = true;
+  }
+  function closeModal() { modalBackdrop.hidden = true; editDay = null; modalOpen = false; }
+
+  function renderLeaveRows() {
+    leaveRowsEl.innerHTML = editLeave.length ? editLeave.map((l, i) =>
+      '<div class="row" data-i="' + i + '">' +
+      '<input type="text" class="field-text" data-f="name" placeholder="姓名" value="' + escapeHtml(l.name || '') + '" />' +
+      '<select class="field-type" data-f="type">' + LEAVE_TYPES.map(t => '<option ' + (l.type === t ? 'selected' : '') + '>' + t + '</option>').join('') + '</select>' +
+      '<button class="rm-btn" data-rm="1">✕</button>' +
+      '</div>'
+    ).join('') : '<div class="rows-empty">尚無請假紀錄</div>';
+  }
+  function renderItemRows() {
+    itemRowsEl.innerHTML = editItems.length ? editItems.map((it, i) =>
+      '<div class="row" data-i="' + i + '">' +
+      '<input type="checkbox" data-f="done" ' + (it.done ? 'checked' : '') + ' />' +
+      '<input type="text" class="field-text" data-f="text" placeholder="事項內容" value="' + escapeHtml(it.text || '') + '" />' +
+      '<input type="text" class="field-owner" data-f="owner" placeholder="負責人" value="' + escapeHtml(it.owner || '') + '" />' +
+      '<button class="rm-btn" data-rm="1">✕</button>' +
+      '</div>'
+    ).join('') : '<div class="rows-empty">尚無事項</div>';
+  }
+
+  leaveRowsEl.addEventListener('input', e => {
+    const row = e.target.closest('.row'); if (!row) return;
+    const i = Number(row.getAttribute('data-i'));
+    const f = e.target.getAttribute('data-f');
+    editLeave[i][f] = e.target.value;
+  });
+  leaveRowsEl.addEventListener('click', e => {
+    if (e.target.getAttribute('data-rm') !== '1') return;
+    const row = e.target.closest('.row'); const i = Number(row.getAttribute('data-i'));
+    editLeave.splice(i, 1); renderLeaveRows();
+  });
+  document.getElementById('addLeaveRow').addEventListener('click', () => {
+    editLeave.push({ name: '', type: '事' }); renderLeaveRows();
+  });
+
+  itemRowsEl.addEventListener('input', e => {
+    const row = e.target.closest('.row'); if (!row) return;
+    const i = Number(row.getAttribute('data-i'));
+    const f = e.target.getAttribute('data-f');
+    editItems[i][f] = f === 'done' ? e.target.checked : e.target.value;
+  });
+  itemRowsEl.addEventListener('click', e => {
+    if (e.target.getAttribute('data-rm') !== '1') return;
+    const row = e.target.closest('.row'); const i = Number(row.getAttribute('data-i'));
+    editItems.splice(i, 1); renderItemRows();
+  });
+  document.getElementById('addItemRow').addEventListener('click', () => {
+    editItems.push({ text: '', owner: '', done: false }); renderItemRows();
+  });
+
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
+  document.getElementById('modalSave').addEventListener('click', async () => {
+    const leave = editLeave.filter(l => (l.name || '').trim());
+    const items = editItems.filter(it => (it.text || '').trim());
+    await saveDay(String(editDay), { leave, items });
+    closeModal();
+  });
+
+  boardGrid.addEventListener('click', e => {
+    const cell = e.target.closest('.cell[data-day]');
+    if (!cell) return;
+    openModal(Number(cell.getAttribute('data-day')));
+  });
+
+  // ---------- PIN gate ----------
+  const pinBackdrop = document.getElementById('pinBackdrop');
+  const pinInput = document.getElementById('pinInput');
+  function getPin() { return localStorage.getItem('board.pin') || ''; }
+  function askPin() {
+    return new Promise(resolve => {
+      pinInput.value = '';
+      pinBackdrop.hidden = false;
+      const onConfirm = () => { cleanup(); resolve(pinInput.value.trim()); };
+      const onCancel = () => { cleanup(); resolve(null); };
+      function cleanup() {
+        pinBackdrop.hidden = true;
+        document.getElementById('pinConfirm').removeEventListener('click', onConfirm);
+        document.getElementById('pinCancel').removeEventListener('click', onCancel);
+      }
+      document.getElementById('pinConfirm').addEventListener('click', onConfirm);
+      document.getElementById('pinCancel').addEventListener('click', onCancel);
+    });
+  }
+
+  // ---------- persistence (Google Apps Script backend, no login required) ----------
+  async function fetchState() {
+    if (!configured) return;
+    try {
+      const res = await fetch(APPS_SCRIPT_URL + '?action=get&key=' + encodeURIComponent(key()), { method: 'GET' });
+      const json = await res.json();
+      if (json && json.ok) {
+        state = { department: view.department, year: view.year, month: view.month, days: {}, ...json.data };
+        if (!state.days) state.days = {};
+        setStatus('live', '已同步');
+        if (!modalOpen) renderAll();
+      } else {
+        setStatus('offline', '同步失敗');
+      }
+    } catch (err) {
+      setStatus('offline', '無法連線後端');
+    }
+  }
+
+  async function saveDay(day, dayObj, retryPin) {
+    const prevDay = state.days[day];
+    state.days[day] = dayObj;
+    if (!modalOpen) renderAll(); else { renderSummary(); }
+
+    if (!configured) { setStatus('offline', '尚未設定後端(未儲存)'); return; }
+
+    let pin = retryPin != null ? retryPin : getPin();
+    if (!pin) {
+      pin = await askPin();
+      if (pin == null) { state.days[day] = prevDay; renderAll(); return; }
+      localStorage.setItem('board.pin', pin);
+    }
+
+    setStatus('busy', '儲存中…');
+    try {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 避免觸發 CORS 預檢請求
+        body: JSON.stringify({ action: 'saveDay', key: key(), day, dayData: dayObj, pin })
+      });
+      const json = await res.json();
+      if (json && json.ok) {
+        setStatus('live', '已儲存');
+      } else if (json && json.error === 'invalid_pin') {
+        localStorage.removeItem('board.pin');
+        setStatus('offline', '密碼錯誤,請重新輸入');
+        await saveDay(day, dayObj, await askPin());
+      } else {
+        setStatus('offline', '儲存失敗');
+      }
+    } catch (err) {
+      setStatus('offline', '儲存失敗,請檢查網路');
+    }
+  }
+
+  function goto(y, m, dept) {
+    view = { department: dept != null ? dept : view.department, year: y, month: m };
+    localStorage.setItem('board.department', view.department);
+    state = { department: view.department, year: view.year, month: view.month, days: {} };
+    renderAll();
+    fetchState();
+  }
+
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    const m = view.month - 1, y = m < 1 ? view.year - 1 : view.year;
+    goto(y, m < 1 ? 12 : m);
+  });
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    const m = view.month + 1, y = m > 12 ? view.year + 1 : view.year;
+    goto(y, m > 12 ? 1 : m);
+  });
+  deptInput.addEventListener('change', () => {
+    const v = deptInput.value.trim() || '未命名部門';
+    deptInput.value = v;
+    goto(view.year, view.month, v);
+  });
+
+  // ---------- export (plain browser download, works outside any sandbox) ----------
+  async function exportImage() {
+    exportBtn.disabled = true; exportBtn.textContent = '匯出中…';
+    const poster = document.createElement('div');
+    poster.className = 'poster';
+    poster.innerHTML =
+      '<div class="poster-title">' + escapeHtml(view.department) + ' ' + monthName() + ' 行事曆</div>' +
+      '<div class="board-area">' +
+      '<div class="board"><div class="board-head" id="pHead"></div><div class="board-grid" id="pGrid"></div></div>' +
+      '<div class="summary"><h3>本月事項摘要</h3><div id="pSummary"></div></div>' +
+      '</div>';
+    document.body.appendChild(poster);
+    renderHead(poster.querySelector('#pHead'));
+    renderGrid(poster.querySelector('#pGrid'), false);
+    const rows = allItemsSorted();
+    poster.querySelector('#pSummary').innerHTML = rows.length ? rows.map(r =>
+      '<div class="summary-row"><span style="width:16px;height:16px;border:1px solid var(--line-strong);border-radius:3px;flex:none;' + (r.done ? 'background:var(--done);' : '') + '"></span>' +
+      '<span class="date mono">' + view.month + '/' + r.day + '</span>' +
+      '<span class="text' + (r.done ? ' done' : '') + '">' + escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span></div>'
+    ).join('') : '<div class="summary-empty">本月尚無事項</div>';
+
+    try {
+      const bg = getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#ffffff';
+      const canvas = await html2canvas(poster, { backgroundColor: bg, scale: 2 });
+      const blobResult = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const filename = view.department.replace(/[\\/:*?"<>|]/g, '') + '_' + view.year + pad2(view.month) + '_行事曆.png';
+      const url = URL.createObjectURL(blobResult);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (err) {
+      setStatus('offline', '匯出失敗');
+    } finally {
+      document.body.removeChild(poster);
+      exportBtn.disabled = false; exportBtn.textContent = '匯出圖片';
+    }
+  }
+  exportBtn.addEventListener('click', exportImage);
+
+  // ---------- boot ----------
+  renderHead(boardHead);
+  renderGrid(boardGrid, true);
+  monthLabel.textContent = monthName();
+  if (configured) {
+    setStatus('offline', '連線中…');
+    fetchState();
+    pollTimer = setInterval(() => { if (!modalOpen) fetchState(); }, POLL_INTERVAL_MS);
+  } else {
+    setStatus('offline', '未設定後端');
+  }
+})();
+</script>
+</body>
+</html>

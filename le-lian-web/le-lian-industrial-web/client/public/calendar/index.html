@@ -215,7 +215,7 @@
     <div class="brand">
       <span class="mark"></span>
       <div>
-        <input id="deptInput" class="dept-input" value="製造課" maxlength="20" />
+        <input id="deptInput" class="dept-input" value="樂聯工業股份有限公司" maxlength="20" />
         <div class="subtitle">產線月曆看板</div>
       </div>
     </div>
@@ -290,7 +290,7 @@
   // ================== 設定區 ==================
   // 把 Google Apps Script 部署後取得的網址貼在這裡(結尾通常是 /exec)。
   // 設定步驟見 calendar/README.md。
-  const APPS_SCRIPT_URL = ""; // 例如 "https://script.google.com/macros/s/AKfycb.../exec"
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwOuGyKnq5zMG8nIJFrhLjZTXtCLZuvF7bE5tQW1Hc793iptYaeSh3apB4rKJ3yQrs8/exec";
   const POLL_INTERVAL_MS = 8000;
   // =============================================
 
@@ -299,7 +299,7 @@
   const pad2 = n => String(n).padStart(2, '0');
 
   const now = new Date();
-  let view = { department: localStorage.getItem('board.department') || '製造課', year: now.getFullYear(), month: now.getMonth() + 1 };
+  let view = { department: localStorage.getItem('board.department') || '樂聯工業股份有限公司', year: now.getFullYear(), month: now.getMonth() + 1 };
   let state = { department: view.department, year: view.year, month: view.month, days: {} };
   let pollTimer = null;
   let modalOpen = false;

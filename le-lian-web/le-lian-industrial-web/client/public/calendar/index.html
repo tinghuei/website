@@ -310,6 +310,23 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="exportPreviewBackdrop" hidden>
+  <div class="modal">
+    <header>
+      <h3>匯出圖片</h3>
+      <button class="icon-btn" id="exportPreviewClose" aria-label="關閉">✕</button>
+    </header>
+    <section>
+      <p class="note">手機:長按下面的圖片選「儲存圖片」或「加入照片」。電腦:在圖片上按右鍵選「另存圖片」。</p>
+      <img id="exportPreviewImg" style="width:100%;border-radius:8px;border:1px solid var(--line);" alt="行事曆匯出圖片" />
+    </section>
+    <footer style="flex-wrap:wrap;">
+      <button class="btn-secondary" id="exportPreviewShare" hidden>分享 / 儲存到相簿</button>
+      <a class="btn-primary" id="exportPreviewDownload" style="text-decoration:none;text-align:center;">下載圖片</a>
+    </footer>
+  </div>
+</div>
+
 <script>
 (function () {
   // ================== 設定區 ==================
@@ -641,11 +658,15 @@
   });
 
   // ---------- export (plain browser download, works outside any sandbox) ----------
+  const exportPreviewBackdrop = document.getElementById('exportPreviewBackdrop');
+  const exportPreviewImg = document.getElementById('exportPreviewImg');
+  const exportPreviewShare = document.getElementById('exportPreviewShare');
+  const exportPreviewDownload = document.getElementById('exportPreviewDownload');
+  document.getElementById('exportPreviewClose').addEventListener('click', () => { exportPreviewBackdrop.hidden = true; });
+  exportPreviewBackdrop.addEventListener('click', e => { if (e.target === exportPreviewBackdrop) exportPreviewBackdrop.hidden = true; });
+
   async function exportImage() {
     exportBtn.disabled = true; exportBtn.textContent = '匯出中…';
-    // 在還沒開始非同步作業前就先同步開一個空白分頁,避免瀏覽器(尤其是 Safari)
-    // 事後才 window.open 被當成彈出視窗擋掉
-    const popupWin = window.open('', '_blank');
     const poster = document.createElement('div');
     poster.className = 'poster';
     poster.innerHTML =
@@ -671,29 +692,22 @@
       const filename = view.department.replace(/[\\/:*?"<>|]/g, '') + '_' + view.year + pad2(view.month) + '_行事曆.png';
       const url = URL.createObjectURL(blobResult);
 
-      if (popupWin && !popupWin.closed) {
-        // 直接在新分頁顯示圖片 + 操作說明,不管有沒有存成功都看得到結果,
-        // 手機長按圖片存起來,電腦按右鍵另存圖片,比靜默背景下載可靠
-        popupWin.document.write(
-          '<!doctype html><html><head><meta charset="utf-8"><title>' + escapeHtml(filename) + '</title></head>' +
-          '<body style="margin:0;background:#20262c;font-family:system-ui,sans-serif;">' +
-          '<p style="color:#fff;text-align:center;padding:14px;margin:0;font-size:15px;">' +
-          '手機:長按圖片選「儲存圖片」或「加入照片」　電腦:在圖片上按右鍵「另存圖片」' +
-          '</p>' +
-          '<img src="' + url + '" style="display:block;max-width:100%;margin:0 auto;">' +
-          '</body></html>'
-        );
-        popupWin.document.close();
-      } else {
-        // 彈出視窗被擋掉時,退回原本的背景下載方式
-        const a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        alert('圖片已下載,若沒看到結果請到「檔案」App 的「下載項目」裡找 ' + filename);
+      // 直接在頁面內彈窗顯示圖片,不開新分頁/不依賴瀏覽器背景下載,
+      // 避免不同瀏覽器(含 App 內建瀏覽器)對 window.open / 下載的支援落差
+      exportPreviewImg.src = url;
+      exportPreviewDownload.href = url;
+      exportPreviewDownload.download = filename;
+      exportPreviewBackdrop.hidden = false;
+
+      exportPreviewShare.hidden = true;
+      const file = new File([blobResult], filename, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        exportPreviewShare.hidden = false;
+        exportPreviewShare.onclick = () => {
+          navigator.share({ files: [file], title: filename }).catch(() => {});
+        };
       }
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
-      if (popupWin && !popupWin.closed) popupWin.close();
       setStatus('offline', '匯出失敗');
       alert('匯出圖片失敗:' + (err && err.message ? err.message : '未知錯誤'));
     } finally {
@@ -792,11 +806,19 @@
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const filename = view.department.replace(/[\\/:*?"<>|]/g, '') + '_' + view.year + pad2(view.month) + '_行事曆.xlsx';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      const file = new File([blob], filename, { type: blob.type });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // 手機用系統分享選單,可以直接存到「檔案」App 或傳給其他 App,比背景下載清楚
+        await navigator.share({ files: [file], title: filename }).catch(() => {});
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        alert('Excel 檔案已下載(檔名:' + filename + ')。手機請到「檔案」App 的「下載項目」資料夾找,電腦請看瀏覽器的下載清單。');
+      }
     } catch (err) {
       alert('匯出 Excel 失敗:' + (err && err.message ? err.message : '未知錯誤'));
     } finally {

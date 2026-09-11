@@ -363,8 +363,16 @@ create table if not exists public.competency_self_assessments (
   position_name text not null,
   self_scores jsonb not null default '{}'::jsonb,
   manager_scores jsonb not null default '{}'::jsonb,
-  submitted_at timestamptz not null default now()
+  submitted_at timestamptz not null default now(),
+  manager_submitted_at timestamptz,
+  manager_id uuid references public.profiles(id),
+  manager_name text
 );
+-- 若資料表已存在（舊版無主管欄位），補上缺少的欄位
+alter table public.competency_self_assessments
+  add column if not exists manager_submitted_at timestamptz,
+  add column if not exists manager_id uuid references public.profiles(id),
+  add column if not exists manager_name text;
 
 -- 組織圖月份快照（HR/管理員可於組織圖頁面新增「當月組織圖」，不影響 orgChartData.ts 既有基準資料）
 create table if not exists public.org_snapshots (
@@ -1240,13 +1248,21 @@ create policy position_competency_overrides_write on public.position_competency_
   using (true) with check (true);
 
 -- competency_self_assessments：manager/hr/admin 可讀全部（跨職位缺口分析彙整用），本人僅可讀寫自己的紀錄
+-- 主管（manager_or_above）需可 update 員工紀錄（填寫主管評分）
 drop policy if exists competency_self_assessments_select on public.competency_self_assessments;
 create policy competency_self_assessments_select on public.competency_self_assessments for select to authenticated
   using (user_id = auth.uid() or public.is_manager_or_above());
+drop policy if exists competency_self_assessments_insert on public.competency_self_assessments;
+create policy competency_self_assessments_insert on public.competency_self_assessments for insert to authenticated
+  with check (user_id = auth.uid() or public.is_hr_or_admin());
+drop policy if exists competency_self_assessments_update on public.competency_self_assessments;
+create policy competency_self_assessments_update on public.competency_self_assessments for update to authenticated
+  using (user_id = auth.uid() or public.is_manager_or_above())
+  with check (user_id = auth.uid() or public.is_manager_or_above());
+drop policy if exists competency_self_assessments_delete on public.competency_self_assessments;
+create policy competency_self_assessments_delete on public.competency_self_assessments for delete to authenticated
+  using (user_id = auth.uid() or public.is_hr_or_admin());
 drop policy if exists competency_self_assessments_write on public.competency_self_assessments;
-create policy competency_self_assessments_write on public.competency_self_assessments for all to authenticated
-  using (user_id = auth.uid() or public.is_admin())
-  with check (user_id = auth.uid() or public.is_admin());
 
 -- org_snapshots：全員可讀，僅 hr/admin 可新增當月組織圖
 drop policy if exists org_snapshots_select on public.org_snapshots;

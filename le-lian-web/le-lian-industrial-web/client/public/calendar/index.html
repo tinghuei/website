@@ -224,7 +224,7 @@
     <div class="brand">
       <span class="mark"></span>
       <div>
-        <input id="deptInput" class="dept-input" value="樂聯工業股份有限公司" maxlength="20" />
+        <input id="deptInput" class="dept-input" value="樂聯工業CHOICE" maxlength="20" />
         <div class="subtitle">公司行事曆</div>
       </div>
     </div>
@@ -308,7 +308,7 @@
   const pad2 = n => String(n).padStart(2, '0');
 
   const now = new Date();
-  let view = { department: localStorage.getItem('board.department') || '樂聯工業股份有限公司', year: now.getFullYear(), month: now.getMonth() + 1 };
+  let view = { department: localStorage.getItem('board.department') || '樂聯工業CHOICE', year: now.getFullYear(), month: now.getMonth() + 1 };
   let state = { department: view.department, year: view.year, month: view.month, days: {} };
   let pollTimer = null;
   let modalOpen = false;

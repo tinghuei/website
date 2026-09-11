@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
   :root {
     --ground: #eef1f4;
@@ -247,6 +248,7 @@
       <button class="icon-btn" id="nextMonth" aria-label="下個月">›</button>
     </div>
     <span id="statusPill" class="status-pill">連線中…</span>
+    <button id="exportExcelBtn" class="btn-secondary">匯出 Excel</button>
     <button id="exportBtn" class="btn-primary">匯出圖片</button>
   </div>
 
@@ -678,6 +680,108 @@
     }
   }
   exportBtn.addEventListener('click', exportImage);
+
+  // ---------- export (Excel, for printing / further editing) ----------
+  const exportExcelBtn = document.getElementById('exportExcelBtn');
+
+  async function exportExcel() {
+    if (typeof ExcelJS === 'undefined') { alert('Excel 匯出元件載入失敗,請重新整理頁面再試一次。'); return; }
+    exportExcelBtn.disabled = true; exportExcelBtn.textContent = '匯出中…';
+    try {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(monthName().replace(/[\\/*?:[\]]/g, ''));
+      ws.columns = WEEKDAYS.map(() => ({ width: 16 }));
+
+      const thin = { style: 'thin', color: { argb: 'FFD7DDE3' } };
+      const border = { top: thin, left: thin, bottom: thin, right: thin };
+
+      ws.mergeCells(1, 1, 1, 7);
+      const titleCell = ws.getCell(1, 1);
+      titleCell.value = view.department + ' ' + monthName() + ' 行事曆';
+      titleCell.font = { size: 16, bold: true };
+      titleCell.alignment = { horizontal: 'center' };
+      ws.getRow(1).height = 26;
+
+      WEEKDAYS.forEach((w, i) => {
+        const c = ws.getCell(2, i + 1);
+        c.value = w;
+        c.font = { bold: true, color: { argb: (i === 0 || i === 6) ? 'FFD9560F' : 'FF1B2127' } };
+        c.alignment = { horizontal: 'center' };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: (i === 0 || i === 6) ? 'FFFBECE2' : 'FFF4F6F8' } };
+        c.border = border;
+      });
+
+      const total = daysInMonth(view.year, view.month);
+      const lead = firstWeekday(view.year, view.month);
+      const weeks = Math.ceil((lead + total) / 7);
+      let day = 1;
+      for (let w = 0; w < weeks; w++) {
+        const rowIndex = 3 + w;
+        ws.getRow(rowIndex).height = 64;
+        for (let wd = 0; wd < 7; wd++) {
+          const cellIndex = w * 7 + wd;
+          const c = ws.getCell(rowIndex, wd + 1);
+          c.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+          c.border = border;
+          const isWeekend = wd === 0 || wd === 6;
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isWeekend ? 'FFFDF6F1' : 'FFFFFFFF' } };
+          if (cellIndex >= lead && day <= total) {
+            const dayData = state.days[String(day)] || {};
+            const leaveLines = (dayData.leave || []).map(l => l.name + (l.type ? '(' + l.type + ')' : ''));
+            c.value = String(day) + (leaveLines.length ? '\n請假:\n' + leaveLines.join('\n') : '');
+            day++;
+          } else {
+            c.value = '';
+          }
+        }
+      }
+
+      let r = 3 + weeks + 1;
+      ws.mergeCells(r, 1, r, 7);
+      const sumTitle = ws.getCell(r, 1);
+      sumTitle.value = '本月事項摘要';
+      sumTitle.font = { bold: true, size: 13 };
+      r++;
+      ['日期', '時間', '內容', '負責人', '完成'].forEach((h, i) => {
+        const c = ws.getCell(r, i + 1);
+        c.value = h;
+        c.font = { bold: true };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4F6F8' } };
+        c.border = border;
+      });
+      r++;
+      const items = allItemsSorted();
+      if (!items.length) {
+        ws.mergeCells(r, 1, r, 5);
+        ws.getCell(r, 1).value = '本月尚無事項';
+        for (let ci = 1; ci <= 5; ci++) ws.getCell(r, ci).border = border;
+      } else {
+        items.forEach(it => {
+          ws.getCell(r, 1).value = view.month + '/' + it.day;
+          ws.getCell(r, 2).value = it.time || '';
+          ws.getCell(r, 3).value = it.text;
+          ws.getCell(r, 4).value = it.owner || '';
+          ws.getCell(r, 5).value = it.done ? '✓' : '';
+          for (let ci = 1; ci <= 5; ci++) ws.getCell(r, ci).border = border;
+          r++;
+        });
+      }
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const filename = view.department.replace(/[\\/:*?"<>|]/g, '') + '_' + view.year + pad2(view.month) + '_行事曆.xlsx';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (err) {
+      alert('匯出 Excel 失敗:' + (err && err.message ? err.message : '未知錯誤'));
+    } finally {
+      exportExcelBtn.disabled = false; exportExcelBtn.textContent = '匯出 Excel';
+    }
+  }
+  exportExcelBtn.addEventListener('click', exportExcel);
 
   // ---------- boot ----------
   renderHead(boardHead);

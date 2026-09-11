@@ -21,6 +21,7 @@
     --accent: #d9560f;
     --accent-ink: #ffffff;
     --weekend-band: #fbece2;
+    --weekend-cell: #fdf6f1;
     --done: #2f8f5b;
     --danger: #c2410c;
     --shadow: 0 12px 32px -16px rgba(20, 24, 28, 0.28);
@@ -39,6 +40,7 @@
       --accent: #ff7a33;
       --accent-ink: #1b1004;
       --weekend-band: #2b1e15;
+      --weekend-cell: #241f1d;
       --done: #4fc582;
       --danger: #ff8a5c;
       --shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.6);
@@ -128,7 +130,7 @@
     transition: background 0.12s;
   }
   .cell:hover { background: var(--surface-2); }
-  .cell.weekend { background: color-mix(in srgb, var(--weekend-band) 55%, var(--surface)); }
+  .cell.weekend { background: var(--weekend-cell); }
   .cell.pad { cursor: default; background: var(--surface-2); opacity: 0.4; }
   .cell.pad:hover { background: var(--surface-2); }
   .cell-head { display: flex; align-items: baseline; justify-content: space-between; }
@@ -186,7 +188,17 @@
   .rows-empty { color: var(--ink-faint); font-size: 0.82rem; }
 
   /* ---- Poster (export-only clone): always the full desktop grid ---- */
-  .poster { position: fixed; top: 0; left: -99999px; width: 1360px; background: var(--surface); padding: 26px; }
+  /* 匯出的海報版固定用淺色配色列印,不依賴瀏覽器對 CSS 變數/色彩函式的支援程度,
+     避免匯出圖片在某些瀏覽器（或暗色模式）下顏色算不出來、甚至整張匯出失敗 */
+  .poster {
+    --ground: #eef1f4; --surface: #ffffff; --surface-2: #f4f6f8;
+    --ink: #1b2127; --ink-soft: #5c6670; --ink-faint: #9aa4ad;
+    --line: #d7dde3; --line-strong: #b9c1c9;
+    --accent: #d9560f; --accent-ink: #ffffff;
+    --weekend-band: #fbece2; --weekend-cell: #fdf6f1;
+    --done: #2f8f5b; --danger: #c2410c;
+    position: fixed; top: 0; left: -99999px; width: 1360px; background: #ffffff; padding: 26px; color: #1b2127;
+  }
   .poster .poster-title { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 2.1rem; text-align: center; margin-bottom: 14px; }
   .poster .board-area { grid-template-columns: 1fr 330px !important; }
   .poster .cell { min-height: 132px; cursor: default; }
@@ -648,8 +660,8 @@
     ).join('') : '<div class="summary-empty">本月尚無事項</div>';
 
     try {
-      const bg = getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#ffffff';
-      const canvas = await html2canvas(poster, { backgroundColor: bg, scale: 2 });
+      // 海報版固定淺色配色,匯出背景也固定用白色,不受裝置暗色模式影響
+      const canvas = await html2canvas(poster, { backgroundColor: '#ffffff', scale: 2 });
       const blobResult = await new Promise(res => canvas.toBlob(res, 'image/png'));
       const filename = view.department.replace(/[\\/:*?"<>|]/g, '') + '_' + view.year + pad2(view.month) + '_行事曆.png';
       const url = URL.createObjectURL(blobResult);
@@ -659,6 +671,7 @@
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     } catch (err) {
       setStatus('offline', '匯出失敗');
+      alert('匯出圖片失敗:' + (err && err.message ? err.message : '未知錯誤'));
     } finally {
       document.body.removeChild(poster);
       exportBtn.disabled = false; exportBtn.textContent = '匯出圖片';

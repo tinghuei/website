@@ -625,9 +625,15 @@
         if (cred == null) { state.days[day] = prevDay; renderAll(); return; }
         await saveDay(day, dayObj, cred);
       } else {
+        state.days[day] = prevDay;
+        renderAll();
+        alert('儲存失敗,剛剛的修改沒有存進去,請重新輸入一次。\n(原因:' + (json && json.error ? json.error : '未知') + ')');
         setStatus('offline', '儲存失敗');
       }
     } catch (err) {
+      state.days[day] = prevDay;
+      renderAll();
+      alert('儲存失敗,剛剛的修改沒有存進去,請檢查網路連線後再重新輸入一次。');
       setStatus('offline', '儲存失敗,請檢查網路');
     }
   }

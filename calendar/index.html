@@ -234,6 +234,7 @@
       <button class="icon-btn" id="nextMonth" aria-label="下個月">›</button>
     </div>
     <span id="statusPill" class="status-pill">連線中…</span>
+    <button id="auditToggleBtn" class="btn-secondary">異動紀錄</button>
     <button id="exportBtn" class="btn-primary">匯出圖片</button>
   </div>
 
@@ -252,6 +253,11 @@
       <h3>本月事項摘要 <span class="count" id="summaryCount"></span></h3>
       <div id="summaryList"></div>
     </div>
+  </div>
+
+  <div class="summary" id="auditPanel" hidden>
+    <h3>最近異動紀錄 <span class="count">(誰新增/刪除/更正了什麼)</span></h3>
+    <div id="auditList"></div>
   </div>
 
   <footer class="credit">資料每 8 秒自動同步一次 · 匯出圖片可列印張貼於公佈欄</footer>
@@ -282,9 +288,10 @@
 
 <div class="modal-backdrop" id="pinBackdrop" hidden>
   <div class="modal">
-    <header><h3>輸入編輯密碼</h3></header>
+    <header><h3>輸入姓名與編輯密碼</h3></header>
     <section>
-      <p class="note">這台裝置第一次儲存資料前,需要輸入公司內部共用的編輯密碼(由管理員在 Apps Script 設定)。輸入一次後這台裝置會記住。</p>
+      <p class="note">這台裝置第一次儲存資料前,需要輸入你的姓名(讓大家看得出異動紀錄是誰做的)和公司內部共用的編輯密碼。輸入一次後這台裝置會記住。</p>
+      <div class="row"><input type="text" id="nameInput" class="field-text" placeholder="你的姓名" /></div>
       <div class="row"><input type="password" id="pinInput" class="field-text" placeholder="編輯密碼" /></div>
     </section>
     <footer>
@@ -511,15 +518,18 @@
     openModal(Number(cell.getAttribute('data-day')));
   });
 
-  // ---------- PIN gate ----------
+  // ---------- name + PIN gate ----------
   const pinBackdrop = document.getElementById('pinBackdrop');
   const pinInput = document.getElementById('pinInput');
+  const nameInput = document.getElementById('nameInput');
   function getPin() { return localStorage.getItem('board.pin') || ''; }
-  function askPin() {
+  function getName() { return localStorage.getItem('board.name') || ''; }
+  function askCredentials() {
     return new Promise(resolve => {
-      pinInput.value = '';
+      pinInput.value = getPin();
+      nameInput.value = getName();
       pinBackdrop.hidden = false;
-      const onConfirm = () => { cleanup(); resolve(pinInput.value.trim()); };
+      const onConfirm = () => { cleanup(); resolve({ pin: pinInput.value.trim(), name: nameInput.value.trim() }); };
       const onCancel = () => { cleanup(); resolve(null); };
       function cleanup() {
         pinBackdrop.hidden = true;
@@ -529,6 +539,35 @@
       document.getElementById('pinConfirm').addEventListener('click', onConfirm);
       document.getElementById('pinCancel').addEventListener('click', onCancel);
     });
+  }
+
+  // ---------- audit log ----------
+  const auditToggleBtn = document.getElementById('auditToggleBtn');
+  const auditPanel = document.getElementById('auditPanel');
+  const auditList = document.getElementById('auditList');
+
+  auditToggleBtn.addEventListener('click', async () => {
+    auditPanel.hidden = !auditPanel.hidden;
+    if (!auditPanel.hidden) await loadAuditLog();
+  });
+
+  async function loadAuditLog() {
+    if (!configured) { auditList.innerHTML = '<div class="summary-empty">尚未設定後端</div>'; return; }
+    auditList.innerHTML = '<div class="summary-empty">載入中…</div>';
+    try {
+      const res = await fetch(APPS_SCRIPT_URL + '?action=log&key=' + encodeURIComponent(key()));
+      const json = await res.json();
+      if (!json || !json.ok) { auditList.innerHTML = '<div class="summary-empty">載入失敗</div>'; return; }
+      if (!json.logs.length) { auditList.innerHTML = '<div class="summary-empty">本月尚無異動紀錄</div>'; return; }
+      auditList.innerHTML = json.logs.map(l => {
+        const d = new Date(l.timestamp);
+        const ts = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        return '<div class="summary-row"><span class="date mono">' + ts + '</span><span class="text">' +
+          escapeHtml(l.day) + '日 · <span class="owner">' + escapeHtml(l.name) + '</span><br>' + escapeHtml(l.summary) + '</span></div>';
+      }).join('');
+    } catch (err) {
+      auditList.innerHTML = '<div class="summary-empty">載入失敗,請檢查網路</div>';
+    }
   }
 
   // ---------- persistence (Google Apps Script backend, no login required) ----------
@@ -550,18 +589,22 @@
     }
   }
 
-  async function saveDay(day, dayObj, retryPin) {
+  async function saveDay(day, dayObj, override) {
     const prevDay = state.days[day];
     state.days[day] = dayObj;
     if (!modalOpen) renderAll(); else { renderSummary(); }
 
     if (!configured) { setStatus('offline', '尚未設定後端(未儲存)'); return; }
 
-    let pin = retryPin != null ? retryPin : getPin();
-    if (!pin) {
-      pin = await askPin();
-      if (pin == null) { state.days[day] = prevDay; renderAll(); return; }
+    let pin = override ? override.pin : getPin();
+    let who = override ? override.name : getName();
+    if (!pin || !who) {
+      const cred = await askCredentials();
+      if (cred == null) { state.days[day] = prevDay; renderAll(); return; }
+      if (!cred.pin || !cred.name) { setStatus('offline', '姓名與密碼都要填寫'); state.days[day] = prevDay; renderAll(); return; }
+      pin = cred.pin; who = cred.name;
       localStorage.setItem('board.pin', pin);
+      localStorage.setItem('board.name', who);
     }
 
     setStatus('busy', '儲存中…');
@@ -569,15 +612,18 @@
       const res = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 避免觸發 CORS 預檢請求
-        body: JSON.stringify({ action: 'saveDay', key: key(), day, dayData: dayObj, pin })
+        body: JSON.stringify({ action: 'saveDay', key: key(), day, dayData: dayObj, pin, name: who })
       });
       const json = await res.json();
       if (json && json.ok) {
         setStatus('live', '已儲存');
+        if (!auditPanel.hidden) loadAuditLog();
       } else if (json && json.error === 'invalid_pin') {
         localStorage.removeItem('board.pin');
         setStatus('offline', '密碼錯誤,請重新輸入');
-        await saveDay(day, dayObj, await askPin());
+        const cred = await askCredentials();
+        if (cred == null) { state.days[day] = prevDay; renderAll(); return; }
+        await saveDay(day, dayObj, cred);
       } else {
         setStatus('offline', '儲存失敗');
       }
@@ -590,6 +636,7 @@
     view = { department: dept != null ? dept : view.department, year: y, month: m };
     localStorage.setItem('board.department', view.department);
     state = { department: view.department, year: view.year, month: view.month, days: {} };
+    auditPanel.hidden = true;
     renderAll();
     fetchState();
   }

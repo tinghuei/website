@@ -152,7 +152,7 @@
   }
   .summary-row:last-child { border-bottom: none; }
   .summary-row input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--done); flex: none; }
-  .summary-row .date { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: var(--ink-faint); flex: none; width: 3.4em; }
+  .summary-row .date { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--ink-faint); flex: none; width: 4.4em; line-height: 1.5; }
   .summary-row .text { font-size: 0.86rem; line-height: 1.45; }
   .summary-row .text.done { text-decoration: line-through; color: var(--ink-faint); }
   .summary-row .owner { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
@@ -178,6 +178,7 @@
   }
   .row .field-text { flex: 1 1 auto; }
   .row .field-owner { flex: 0 0 6em; }
+  .row .field-time { flex: 0 0 6.5em; }
   .row .field-type { flex: 0 0 5em; }
   .row .rm-btn { flex: none; width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface-2); color: var(--danger); cursor: pointer; }
   .row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--done); flex: none; }
@@ -234,7 +235,6 @@
       <button class="icon-btn" id="nextMonth" aria-label="下個月">›</button>
     </div>
     <span id="statusPill" class="status-pill">連線中…</span>
-    <button id="auditToggleBtn" class="btn-secondary">異動紀錄</button>
     <button id="exportBtn" class="btn-primary">匯出圖片</button>
   </div>
 
@@ -253,11 +253,6 @@
       <h3>本月事項摘要 <span class="count" id="summaryCount"></span></h3>
       <div id="summaryList"></div>
     </div>
-  </div>
-
-  <div class="summary" id="auditPanel" hidden>
-    <h3>最近異動紀錄 <span class="count">(誰新增/刪除/更正了什麼)</span></h3>
-    <div id="auditList"></div>
   </div>
 
   <footer class="credit">資料每 8 秒自動同步一次 · 匯出圖片可列印張貼於公佈欄</footer>
@@ -394,7 +389,7 @@
       const items = state.days[dayKey].items || [];
       items.forEach((it, idx) => rows.push({ day: Number(dayKey), idx, ...it }));
     });
-    rows.sort((a, b) => a.day - b.day);
+    rows.sort((a, b) => a.day - b.day || (a.time || '').localeCompare(b.time || ''));
     return rows;
   }
 
@@ -408,7 +403,7 @@
     summaryList.innerHTML = rows.map(r =>
       '<label class="summary-row">' +
       '<input type="checkbox" data-day="' + r.day + '" data-idx="' + r.idx + '" ' + (r.done ? 'checked' : '') + ' />' +
-      '<span class="date mono">' + view.month + '/' + r.day + '</span>' +
+      '<span class="date mono">' + view.month + '/' + r.day + (r.time ? '<br>' + escapeHtml(r.time) : '') + '</span>' +
       '<span class="text' + (r.done ? ' done' : '') + '">' + escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span>' +
       '</label>'
     ).join('');
@@ -465,6 +460,7 @@
     itemRowsEl.innerHTML = editItems.length ? editItems.map((it, i) =>
       '<div class="row" data-i="' + i + '">' +
       '<input type="checkbox" data-f="done" ' + (it.done ? 'checked' : '') + ' />' +
+      '<input type="text" class="field-time" data-f="time" placeholder="14:00-15:00" value="' + escapeHtml(it.time || '') + '" />' +
       '<input type="text" class="field-text" data-f="text" placeholder="事項內容" value="' + escapeHtml(it.text || '') + '" />' +
       '<input type="text" class="field-owner" data-f="owner" placeholder="負責人" value="' + escapeHtml(it.owner || '') + '" />' +
       '<button class="rm-btn" data-rm="1">✕</button>' +
@@ -499,7 +495,7 @@
     editItems.splice(i, 1); renderItemRows();
   });
   document.getElementById('addItemRow').addEventListener('click', () => {
-    editItems.push({ text: '', owner: '', done: false }); renderItemRows();
+    editItems.push({ text: '', time: '', owner: '', done: false }); renderItemRows();
   });
 
   document.getElementById('modalClose').addEventListener('click', closeModal);
@@ -539,35 +535,6 @@
       document.getElementById('pinConfirm').addEventListener('click', onConfirm);
       document.getElementById('pinCancel').addEventListener('click', onCancel);
     });
-  }
-
-  // ---------- audit log ----------
-  const auditToggleBtn = document.getElementById('auditToggleBtn');
-  const auditPanel = document.getElementById('auditPanel');
-  const auditList = document.getElementById('auditList');
-
-  auditToggleBtn.addEventListener('click', async () => {
-    auditPanel.hidden = !auditPanel.hidden;
-    if (!auditPanel.hidden) await loadAuditLog();
-  });
-
-  async function loadAuditLog() {
-    if (!configured) { auditList.innerHTML = '<div class="summary-empty">尚未設定後端</div>'; return; }
-    auditList.innerHTML = '<div class="summary-empty">載入中…</div>';
-    try {
-      const res = await fetch(APPS_SCRIPT_URL + '?action=log&key=' + encodeURIComponent(key()));
-      const json = await res.json();
-      if (!json || !json.ok) { auditList.innerHTML = '<div class="summary-empty">載入失敗</div>'; return; }
-      if (!json.logs.length) { auditList.innerHTML = '<div class="summary-empty">本月尚無異動紀錄</div>'; return; }
-      auditList.innerHTML = json.logs.map(l => {
-        const d = new Date(l.timestamp);
-        const ts = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-        return '<div class="summary-row"><span class="date mono">' + ts + '</span><span class="text">' +
-          escapeHtml(l.day) + '日 · <span class="owner">' + escapeHtml(l.name) + '</span><br>' + escapeHtml(l.summary) + '</span></div>';
-      }).join('');
-    } catch (err) {
-      auditList.innerHTML = '<div class="summary-empty">載入失敗,請檢查網路</div>';
-    }
   }
 
   // ---------- persistence (Google Apps Script backend, no login required) ----------
@@ -617,7 +584,6 @@
       const json = await res.json();
       if (json && json.ok) {
         setStatus('live', '已儲存');
-        if (!auditPanel.hidden) loadAuditLog();
       } else if (json && json.error === 'invalid_pin') {
         localStorage.removeItem('board.pin');
         setStatus('offline', '密碼錯誤,請重新輸入');
@@ -642,7 +608,6 @@
     view = { department: dept != null ? dept : view.department, year: y, month: m };
     localStorage.setItem('board.department', view.department);
     state = { department: view.department, year: view.year, month: view.month, days: {} };
-    auditPanel.hidden = true;
     renderAll();
     fetchState();
   }
@@ -678,7 +643,7 @@
     const rows = allItemsSorted();
     poster.querySelector('#pSummary').innerHTML = rows.length ? rows.map(r =>
       '<div class="summary-row"><span style="width:16px;height:16px;border:1px solid var(--line-strong);border-radius:3px;flex:none;' + (r.done ? 'background:var(--done);' : '') + '"></span>' +
-      '<span class="date mono">' + view.month + '/' + r.day + '</span>' +
+      '<span class="date mono">' + view.month + '/' + r.day + (r.time ? '<br>' + escapeHtml(r.time) : '') + '</span>' +
       '<span class="text' + (r.done ? ' done' : '') + '">' + escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="summary-empty">本月尚無事項</div>';
 

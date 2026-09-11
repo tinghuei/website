@@ -643,6 +643,9 @@
   // ---------- export (plain browser download, works outside any sandbox) ----------
   async function exportImage() {
     exportBtn.disabled = true; exportBtn.textContent = '匯出中…';
+    // 在還沒開始非同步作業前就先同步開一個空白分頁,避免瀏覽器(尤其是 Safari)
+    // 事後才 window.open 被當成彈出視窗擋掉
+    const popupWin = window.open('', '_blank');
     const poster = document.createElement('div');
     poster.className = 'poster';
     poster.innerHTML =
@@ -667,11 +670,30 @@
       const blobResult = await new Promise(res => canvas.toBlob(res, 'image/png'));
       const filename = view.department.replace(/[\\/:*?"<>|]/g, '') + '_' + view.year + pad2(view.month) + '_行事曆.png';
       const url = URL.createObjectURL(blobResult);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+      if (popupWin && !popupWin.closed) {
+        // 直接在新分頁顯示圖片 + 操作說明,不管有沒有存成功都看得到結果,
+        // 手機長按圖片存起來,電腦按右鍵另存圖片,比靜默背景下載可靠
+        popupWin.document.write(
+          '<!doctype html><html><head><meta charset="utf-8"><title>' + escapeHtml(filename) + '</title></head>' +
+          '<body style="margin:0;background:#20262c;font-family:system-ui,sans-serif;">' +
+          '<p style="color:#fff;text-align:center;padding:14px;margin:0;font-size:15px;">' +
+          '手機:長按圖片選「儲存圖片」或「加入照片」　電腦:在圖片上按右鍵「另存圖片」' +
+          '</p>' +
+          '<img src="' + url + '" style="display:block;max-width:100%;margin:0 auto;">' +
+          '</body></html>'
+        );
+        popupWin.document.close();
+      } else {
+        // 彈出視窗被擋掉時,退回原本的背景下載方式
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        alert('圖片已下載,若沒看到結果請到「檔案」App 的「下載項目」裡找 ' + filename);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
+      if (popupWin && !popupWin.closed) popupWin.close();
       setStatus('offline', '匯出失敗');
       alert('匯出圖片失敗:' + (err && err.message ? err.message : '未知錯誤'));
     } finally {

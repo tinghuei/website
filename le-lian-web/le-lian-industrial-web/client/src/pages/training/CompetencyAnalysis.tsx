@@ -699,8 +699,9 @@ export default function CompetencyAnalysis() {
       setManagerEvalScores({});
       setManagerEvalSuccessName(targetName);
       setTimeout(() => setManagerEvalSuccessName(null), 5000);
-    } catch {
-      setManagerEvalError('送出失敗，請稍後再試');
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? String(err);
+      setManagerEvalError(`送出失敗：${msg}`);
     } finally {
       setManagerEvalSubmitting(false);
     }

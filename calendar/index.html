@@ -110,6 +110,16 @@
   .hint-banner.show { display: block; }
   .hint-banner.warn { border-color: var(--danger); color: var(--danger); }
 
+  /* ---- Department filter chips ---- */
+  .dept-filter { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dept-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--ink-soft); cursor: pointer; user-select: none;
+  }
+  .dept-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--dept-color, var(--ink-faint)); }
+  .dept-chip.active { border-color: var(--dept-color, var(--accent)); color: var(--ink); background: var(--surface-2); }
+
   /* ---- Layout ---- */
   .board-area { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
   @media (max-width: 900px) { .board-area { grid-template-columns: 1fr; } }
@@ -159,6 +169,7 @@
   .summary-row .text { font-size: 0.86rem; line-height: 1.45; }
   .summary-row .text.done { text-decoration: line-through; color: var(--ink-faint); }
   .summary-row .owner { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+  .dept-tag { display: inline-block; font-size: 0.68rem; font-weight: 700; color: #fff; padding: 1px 7px; border-radius: 999px; vertical-align: 1px; }
 
   /* ---- Modal ---- */
   .modal-backdrop {
@@ -174,7 +185,7 @@
   .modal h4 { font-size: 1rem; color: var(--ink-soft); }
   .modal footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px; }
   .modal p.note { font-size: 0.82rem; color: var(--ink-soft); margin: 0; }
-  .row { display: flex; gap: 6px; align-items: center; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .row input[type="text"], .row input[type="password"], .row select {
     font: inherit; font-size: 0.86rem; padding: 7px 8px; border-radius: 7px; border: 1px solid var(--line);
     background: var(--surface-2); color: var(--ink); min-width: 0;
@@ -182,6 +193,7 @@
   .row .field-text { flex: 1 1 auto; }
   .row .field-owner { flex: 0 0 6em; }
   .row .field-time { flex: 0 0 6.5em; }
+  .row .field-dept { flex: 0 0 7em; }
   .row .field-type { flex: 0 0 5em; }
   .row .rm-btn { flex: none; width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface-2); color: var(--danger); cursor: pointer; }
   .row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--done); flex: none; }
@@ -257,6 +269,8 @@
     然後把取得的網址貼到 <code>index.html</code> 最下方的 <code>APPS_SCRIPT_URL</code>。在設定完成前,這頁只能離線瀏覽,無法多人同步。
   </div>
   <div id="hintBanner" class="hint-banner">本月尚未填寫任何行程。點擊任一天的格子即可新增請假或事項,右側會自動彙整成本月事項清單。</div>
+
+  <div class="dept-filter" id="deptFilter"></div>
 
   <div class="board-area" id="boardArea">
     <div class="board">
@@ -338,6 +352,26 @@
 
   const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
   const LEAVE_TYPES = ['病', '事', '特', '其他'];
+  const DEPARTMENTS = [
+    { name: '總經理室', color: '#64748b' },
+    { name: '管理部', color: '#ca8a04' },
+    { name: '財務部', color: '#db2777' },
+    { name: '業務課', color: '#dc2626' },
+    { name: '營業部', color: '#ea580c' },
+    { name: '研發課', color: '#7c3aed' },
+    { name: '資材課', color: '#9333ea' },
+    { name: '製造課', color: '#16a34a' },
+    { name: '品保課', color: '#2563eb' },
+    { name: '廠務部', color: '#65a30d' },
+    { name: '廠務室', color: '#0d9488' },
+    { name: '總務課', color: '#0891b2' },
+    { name: '其他', color: '#78716c' },
+  ];
+  function deptColor(name) {
+    const d = DEPARTMENTS.find(x => x.name === name);
+    return d ? d.color : '#78716c';
+  }
+  let activeDeptFilter = null; // null = 全部
   const pad2 = n => String(n).padStart(2, '0');
 
   const now = new Date();
@@ -356,6 +390,13 @@
   const statusPill = document.getElementById('statusPill');
   const hintBanner = document.getElementById('hintBanner');
   const setupBanner = document.getElementById('setupBanner');
+  const deptFilterEl = document.getElementById('deptFilter');
+  deptFilterEl.addEventListener('click', e => {
+    const chip = e.target.closest('.dept-chip');
+    if (!chip) return;
+    activeDeptFilter = chip.getAttribute('data-dept') || null;
+    renderAll();
+  });
   const exportBtn = document.getElementById('exportBtn');
   deptInput.value = view.department;
 
@@ -387,9 +428,11 @@
 
   function cellHTML(day, weekday, dayData, interactive) {
     const leave = (dayData && dayData.leave) || [];
-    const items = (dayData && dayData.items) || [];
+    const allItems = (dayData && dayData.items) || [];
+    const items = activeDeptFilter ? allItems.filter(it => it.dept === activeDeptFilter) : allItems;
     const chips = leave.map(l => '<div class="chip">' + escapeHtml(l.name) + (l.type ? '(' + escapeHtml(l.type) + ')' : '') + '</div>').join('');
-    const dot = items.length ? '<span class="dot" title="本日有 ' + items.length + ' 項事項"></span>' : '';
+    const dotColor = activeDeptFilter ? deptColor(activeDeptFilter) : 'var(--accent)';
+    const dot = items.length ? '<span class="dot" style="background:' + dotColor + '" title="本日有 ' + items.length + ' 項事項"></span>' : '';
     return (
       '<div class="cell' + (weekday === 0 || weekday === 6 ? ' weekend' : '') + '"' +
       (interactive ? ' data-day="' + day + '"' : '') + '>' +
@@ -414,36 +457,56 @@
     target.innerHTML = html;
   }
 
-  function allItemsSorted() {
+  function allItemsSorted(deptFilter) {
     const rows = [];
     Object.keys(state.days).forEach(dayKey => {
       const items = state.days[dayKey].items || [];
-      items.forEach((it, idx) => rows.push({ day: Number(dayKey), idx, ...it }));
+      items.forEach((it, idx) => {
+        if (deptFilter && it.dept !== deptFilter) return;
+        rows.push({ day: Number(dayKey), idx, ...it });
+      });
     });
     rows.sort((a, b) => a.day - b.day || (a.time || '').localeCompare(b.time || ''));
     return rows;
   }
 
   function renderSummary() {
-    const rows = allItemsSorted();
+    const rows = allItemsSorted(activeDeptFilter);
     summaryCount.textContent = rows.length ? '(' + rows.length + ')' : '';
     if (!rows.length) {
-      summaryList.innerHTML = '<div class="summary-empty">本月尚無事項,填寫日曆後會自動列在這裡。</div>';
+      summaryList.innerHTML = '<div class="summary-empty">' + (activeDeptFilter ? '此部門本月尚無事項。' : '本月尚無事項,填寫日曆後會自動列在這裡。') + '</div>';
       return;
     }
     summaryList.innerHTML = rows.map(r =>
       '<label class="summary-row">' +
       '<input type="checkbox" data-day="' + r.day + '" data-idx="' + r.idx + '" ' + (r.done ? 'checked' : '') + ' />' +
       '<span class="date mono">' + view.month + '/' + r.day + (r.time ? '<br>' + escapeHtml(r.time) : '') + '</span>' +
-      '<span class="text' + (r.done ? ' done' : '') + '">' + escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span>' +
+      '<span class="text' + (r.done ? ' done' : '') + '">' +
+      (r.dept ? '<span class="dept-tag" style="background:' + deptColor(r.dept) + '">' + escapeHtml(r.dept) + '</span> ' : '') +
+      escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span>' +
       '</label>'
     ).join('');
+  }
+
+  function renderDeptFilter() {
+    const counts = {};
+    allItemsSorted().forEach(it => { counts[it.dept] = (counts[it.dept] || 0) + 1; });
+    const chips = [{ name: null, label: '全部' }].concat(DEPARTMENTS.map(d => ({ name: d.name, label: d.name })));
+    deptFilterEl.innerHTML = chips.map(c => {
+      const active = activeDeptFilter === c.name;
+      const color = c.name ? deptColor(c.name) : 'var(--accent)';
+      const count = c.name ? (counts[c.name] || 0) : allItemsSorted().length;
+      return '<span class="dept-chip' + (active ? ' active' : '') + '" style="--dept-color:' + color + '" data-dept="' + (c.name || '') + '">' +
+        '<span class="dot"></span>' + escapeHtml(c.label) + (count ? ' (' + count + ')' : '') +
+        '</span>';
+    }).join('');
   }
 
   function renderAll() {
     monthLabel.textContent = monthName();
     renderHead(boardHead);
     renderGrid(boardGrid, true);
+    renderDeptFilter();
     renderSummary();
     hintBanner.classList.toggle('show', Object.keys(state.days).length === 0);
   }
@@ -492,6 +555,9 @@
       '<div class="row" data-i="' + i + '">' +
       '<input type="checkbox" data-f="done" ' + (it.done ? 'checked' : '') + ' />' +
       '<input type="text" class="field-time" data-f="time" placeholder="14:00-15:00" value="' + escapeHtml(it.time || '') + '" />' +
+      '<select class="field-dept" data-f="dept">' +
+      DEPARTMENTS.map(d => '<option ' + (it.dept === d.name ? 'selected' : '') + '>' + d.name + '</option>').join('') +
+      '</select>' +
       '<input type="text" class="field-text" data-f="text" placeholder="事項內容" value="' + escapeHtml(it.text || '') + '" />' +
       '<input type="text" class="field-owner" data-f="owner" placeholder="負責人" value="' + escapeHtml(it.owner || '') + '" />' +
       '<button class="rm-btn" data-rm="1">✕</button>' +
@@ -526,7 +592,7 @@
     editItems.splice(i, 1); renderItemRows();
   });
   document.getElementById('addItemRow').addEventListener('click', () => {
-    editItems.push({ text: '', time: '', owner: '', done: false }); renderItemRows();
+    editItems.push({ text: '', time: '', owner: '', dept: activeDeptFilter || DEPARTMENTS[0].name, done: false }); renderItemRows();
   });
 
   document.getElementById('modalClose').addEventListener('click', closeModal);
@@ -667,6 +733,8 @@
 
   async function exportImage() {
     exportBtn.disabled = true; exportBtn.textContent = '匯出中…';
+    const savedFilter = activeDeptFilter;
+    activeDeptFilter = null; // 匯出的海報版一律顯示全部部門,不受畫面上目前的篩選影響
     const poster = document.createElement('div');
     poster.className = 'poster';
     poster.innerHTML =
@@ -682,7 +750,9 @@
     poster.querySelector('#pSummary').innerHTML = rows.length ? rows.map(r =>
       '<div class="summary-row"><span style="width:16px;height:16px;border:1px solid var(--line-strong);border-radius:3px;flex:none;' + (r.done ? 'background:var(--done);' : '') + '"></span>' +
       '<span class="date mono">' + view.month + '/' + r.day + (r.time ? '<br>' + escapeHtml(r.time) : '') + '</span>' +
-      '<span class="text' + (r.done ? ' done' : '') + '">' + escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span></div>'
+      '<span class="text' + (r.done ? ' done' : '') + '">' +
+      (r.dept ? '<span class="dept-tag" style="background:' + deptColor(r.dept) + '">' + escapeHtml(r.dept) + '</span> ' : '') +
+      escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="summary-empty">本月尚無事項</div>';
 
     try {
@@ -712,6 +782,7 @@
       alert('匯出圖片失敗:' + (err && err.message ? err.message : '未知錯誤'));
     } finally {
       document.body.removeChild(poster);
+      activeDeptFilter = savedFilter;
       exportBtn.disabled = false; exportBtn.textContent = '匯出圖片';
     }
   }
@@ -778,7 +849,7 @@
       sumTitle.value = '本月事項摘要';
       sumTitle.font = { bold: true, size: 13 };
       r++;
-      ['日期', '時間', '內容', '負責人', '完成'].forEach((h, i) => {
+      ['日期', '部門', '時間', '內容', '負責人', '完成'].forEach((h, i) => {
         const c = ws.getCell(r, i + 1);
         c.value = h;
         c.font = { bold: true };
@@ -788,17 +859,24 @@
       r++;
       const items = allItemsSorted();
       if (!items.length) {
-        ws.mergeCells(r, 1, r, 5);
+        ws.mergeCells(r, 1, r, 6);
         ws.getCell(r, 1).value = '本月尚無事項';
-        for (let ci = 1; ci <= 5; ci++) ws.getCell(r, ci).border = border;
+        for (let ci = 1; ci <= 6; ci++) ws.getCell(r, ci).border = border;
       } else {
         items.forEach(it => {
           ws.getCell(r, 1).value = view.month + '/' + it.day;
-          ws.getCell(r, 2).value = it.time || '';
-          ws.getCell(r, 3).value = it.text;
-          ws.getCell(r, 4).value = it.owner || '';
-          ws.getCell(r, 5).value = it.done ? '✓' : '';
-          for (let ci = 1; ci <= 5; ci++) ws.getCell(r, ci).border = border;
+          const deptCell = ws.getCell(r, 2);
+          deptCell.value = it.dept || '';
+          if (it.dept) {
+            deptCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            deptCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + deptColor(it.dept).replace('#', '').toUpperCase() } };
+            deptCell.alignment = { horizontal: 'center' };
+          }
+          ws.getCell(r, 3).value = it.time || '';
+          ws.getCell(r, 4).value = it.text;
+          ws.getCell(r, 5).value = it.owner || '';
+          ws.getCell(r, 6).value = it.done ? '✓' : '';
+          for (let ci = 1; ci <= 6; ci++) ws.getCell(r, ci).border = border;
           r++;
         });
       }

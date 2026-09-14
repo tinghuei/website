@@ -39,6 +39,11 @@ function employeeRowFields(a: CompetencySelfAssessment) {
     position_name: a.positionName,
     self_scores: a.selfScores,
     submitted_at: a.submittedAt,
+    // 員工重新提交自評時，清空主管評估讓主管重新評分
+    manager_scores: {},
+    manager_submitted_at: null,
+    manager_id: null,
+    manager_name: null,
   };
 }
 

@@ -311,11 +311,11 @@
 
 <div class="modal-backdrop" id="pinBackdrop" hidden>
   <div class="modal">
-    <header><h3>輸入姓名與編輯密碼</h3></header>
+    <header><h3>輸入姓名與密碼</h3></header>
     <section>
-      <p class="note">這台裝置第一次儲存資料前,需要輸入你的姓名(讓大家看得出異動紀錄是誰做的)和公司內部共用的編輯密碼。輸入一次後這台裝置會記住。</p>
+      <p class="note">這台裝置第一次儲存資料前,需要輸入你的姓名跟密碼。密碼是「工號+生日(月/日)」,例如工號 0329、生日 11 月 13 日,密碼就是 032911/13。輸入一次後這台裝置會記住。</p>
       <div class="row"><input type="text" id="nameInput" class="field-text" placeholder="你的姓名" /></div>
-      <div class="row"><input type="password" id="pinInput" class="field-text" placeholder="編輯密碼" /></div>
+      <div class="row"><input type="text" id="pinInput" class="field-text" placeholder="工號+生日(mm/dd)" /></div>
     </section>
     <footer>
       <button class="btn-ghost" id="pinCancel">取消</button>
@@ -509,6 +509,10 @@
   summaryList.addEventListener('change', async (e) => {
     const cb = e.target.closest('input[type="checkbox"]');
     if (!cb) return;
+    if (!confirm('確定要標記這個事項為「' + (cb.checked ? '已完成' : '未完成') + '」嗎?')) {
+      cb.checked = !cb.checked; // 使用者按了取消,把勾選狀態改回去
+      return;
+    }
     const day = cb.getAttribute('data-day'), idx = Number(cb.getAttribute('data-idx'));
     const items = (state.days[day] && state.days[day].items) || [];
     items[idx] = { ...items[idx], done: cb.checked };
@@ -593,6 +597,7 @@
   document.getElementById('modalCancel').addEventListener('click', closeModal);
   modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
   document.getElementById('modalSave').addEventListener('click', async () => {
+    if (!confirm('確定要儲存這次修改嗎?')) return;
     const leave = editLeave.filter(l => (l.name || '').trim());
     const items = editItems.filter(it => (it.text || '').trim());
     await saveDay(String(editDay), { leave, items });
@@ -605,18 +610,18 @@
     openModal(Number(cell.getAttribute('data-day')));
   });
 
-  // ---------- name + PIN gate ----------
+  // ---------- name + password gate (password = 工號+生日mm/dd, checked against the pre-seeded Employees sheet) ----------
   const pinBackdrop = document.getElementById('pinBackdrop');
   const pinInput = document.getElementById('pinInput');
   const nameInput = document.getElementById('nameInput');
-  function getPin() { return localStorage.getItem('board.pin') || ''; }
+  function getEmployeeId() { return localStorage.getItem('board.employeeId') || ''; }
   function getName() { return localStorage.getItem('board.name') || ''; }
   function askCredentials() {
     return new Promise(resolve => {
-      pinInput.value = getPin();
+      pinInput.value = getEmployeeId();
       nameInput.value = getName();
       pinBackdrop.hidden = false;
-      const onConfirm = () => { cleanup(); resolve({ pin: pinInput.value.trim(), name: nameInput.value.trim() }); };
+      const onConfirm = () => { cleanup(); resolve({ employeeId: pinInput.value.trim(), name: nameInput.value.trim() }); };
       const onCancel = () => { cleanup(); resolve(null); };
       function cleanup() {
         pinBackdrop.hidden = true;
@@ -654,14 +659,14 @@
 
     if (!configured) { setStatus('offline', '尚未設定後端(未儲存)'); return; }
 
-    let pin = override ? override.pin : getPin();
+    let empId = override ? override.employeeId : getEmployeeId();
     let who = override ? override.name : getName();
-    if (!pin || !who) {
+    if (!empId || !who) {
       const cred = await askCredentials();
       if (cred == null) { state.days[day] = prevDay; renderAll(); return; }
-      if (!cred.pin || !cred.name) { setStatus('offline', '姓名與密碼都要填寫'); state.days[day] = prevDay; renderAll(); return; }
-      pin = cred.pin; who = cred.name;
-      localStorage.setItem('board.pin', pin);
+      if (!cred.employeeId || !cred.name) { setStatus('offline', '姓名與密碼都要填寫'); state.days[day] = prevDay; renderAll(); return; }
+      empId = cred.employeeId; who = cred.name;
+      localStorage.setItem('board.employeeId', empId);
       localStorage.setItem('board.name', who);
     }
 
@@ -670,14 +675,16 @@
       const res = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 避免觸發 CORS 預檢請求
-        body: JSON.stringify({ action: 'saveDay', key: key(), day, dayData: dayObj, pin, name: who })
+        body: JSON.stringify({ action: 'saveDay', key: key(), day, dayData: dayObj, name: who, employeeId: empId })
       });
       const json = await res.json();
       if (json && json.ok) {
         setStatus('live', '已儲存');
-      } else if (json && json.error === 'invalid_pin') {
-        localStorage.removeItem('board.pin');
-        setStatus('offline', '密碼錯誤,請重新輸入');
+      } else if (json && json.error === 'employee_mismatch') {
+        localStorage.removeItem('board.employeeId');
+        localStorage.removeItem('board.name');
+        setStatus('offline', '姓名或密碼不對,請重新輸入');
+        alert('姓名找不到,或密碼(工號+生日)不正確。請確認姓名與密碼正確後再試一次;如果你是新到職員工,請先請人資把你加進 Employees 名單。');
         const cred = await askCredentials();
         if (cred == null) { state.days[day] = prevDay; renderAll(); return; }
         await saveDay(day, dayObj, cred);

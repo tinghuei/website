@@ -7,10 +7,7 @@
 
 var SHEET_NAME = 'CalendarData';
 var LOG_SHEET_NAME = 'AuditLog';
-
-// 內部共用的編輯密碼。任何人拿到這組密碼都能修改資料,請自行更換成公司內部的密碼,
-// 不要用預設值。只有「儲存」需要密碼,單純瀏覽不需要。
-var EDIT_PIN = '請改成你自己的密碼';
+var EMPLOYEE_SHEET_NAME = 'Employees';
 
 function doGet(e) {
   var action = e.parameter.action || 'get';
@@ -52,11 +49,17 @@ function doPost(e) {
     return jsonResponse({ ok: false, error: 'bad_request' });
   }
 
-  if (body.pin !== EDIT_PIN) {
-    return jsonResponse({ ok: false, error: 'invalid_pin' });
-  }
   if (body.action !== 'saveDay' || !body.key || body.day == null) {
     return jsonResponse({ ok: false, error: 'bad_request' });
+  }
+
+  var who = (body.name || '').toString().trim();
+  var empId = (body.employeeId || '').toString().trim();
+  if (!who || !empId) {
+    return jsonResponse({ ok: false, error: 'bad_request' });
+  }
+  if (!verifyEmployee(who, empId)) {
+    return jsonResponse({ ok: false, error: 'employee_mismatch' });
   }
 
   var lock = LockService.getScriptLock();
@@ -78,7 +81,6 @@ function doPost(e) {
     sheet.getRange(rowIndex, 2).setValue(JSON.stringify(data));
     sheet.getRange(rowIndex, 3).setValue(new Date());
 
-    var who = (body.name || '').toString().trim() || '(未填寫姓名)';
     var summary = describeDayDiff(oldDayData, body.dayData);
     getLogSheet().appendRow([new Date(), body.key, body.day, who, summary]);
 
@@ -135,6 +137,30 @@ function getLogSheet() {
   if (!sheet) {
     sheet = ss.insertSheet(LOG_SHEET_NAME);
     sheet.appendRow(['Timestamp', 'Key', 'Day', 'Name', 'Summary']);
+  }
+  return sheet;
+}
+
+// 姓名 + 密碼的識別檢查。密碼是「工號 + 生日(mm/dd)」,例如工號 0329、生日 11/13,
+// 密碼就是 "032911/13"。名單要先手動貼進 Employees 工作表(Name / EmployeeId / Password
+// 三欄),這裡只做「查表比對」,姓名不在名單裡或密碼對不上都直接拒絕,不會自動新增。
+function verifyEmployee(name, password) {
+  var sheet = getEmployeeSheet();
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][0] === name) {
+      return values[i][2] === password;
+    }
+  }
+  return false; // 名單裡找不到這個姓名
+}
+
+function getEmployeeSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(EMPLOYEE_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(EMPLOYEE_SHEET_NAME);
+    sheet.appendRow(['Name', 'EmployeeId', 'Password']);
   }
   return sheet;
 }

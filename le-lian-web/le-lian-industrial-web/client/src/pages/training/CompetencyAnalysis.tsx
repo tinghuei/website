@@ -96,6 +96,11 @@ function buildStandardScores(position: PositionData): CompetencyScores {
   return scores;
 }
 
+// 合併覆寫標準與預設標準，確保所有維度都有值（覆寫值優先，缺漏的補上預設）
+function mergeStandards(position: PositionData, customStandards?: Record<string, number> | null): CompetencyScores {
+  return { ...buildStandardScores(position), ...(customStandards ?? {}) };
+}
+
 
 function getDimensions(position: PositionData): DimensionMeta[] {
   return position.competencies.map((c) => ({
@@ -556,7 +561,7 @@ export default function CompetencyAnalysis() {
   const [hrProxySubmitting, setHrProxySubmitting] = useState(false);
   const [hrProxyError, setHrProxyError] = useState<string | null>(null);
 
-  const standards = (empOverride ?? overrides[positionName])?.standards ?? buildStandardScores(position);
+  const standards = mergeStandards(position, (empOverride ?? overrides[positionName])?.standards);
 
   // Competency gap quiz states
   const [quizStarted, setQuizStarted] = useState(false);
@@ -802,7 +807,7 @@ export default function CompetencyAnalysis() {
     try {
       const effPos = getEffectivePosition(r.positionName, overrides);
       const dims = getDimensions(effPos);
-      const std = overrides[r.positionName]?.standards ?? buildStandardScores(effPos);
+      const std = mergeStandards(effPos, overrides[r.positionName]?.standards);
       const now = new Date();
       await downloadCompetencyReport({
         companyName: '樂聯工業股份有限公司',
@@ -830,7 +835,7 @@ export default function CompetencyAnalysis() {
     try {
       const effPos = getEffectivePosition(assessment.positionName, overrides);
       const dims = getDimensions(effPos);
-      const std = overrides[assessment.positionName]?.standards ?? buildStandardScores(effPos);
+      const std = mergeStandards(effPos, overrides[assessment.positionName]?.standards);
       const date = new Date(assessment.submittedAt);
       const hasManager = !!assessment.managerSubmittedAt && Object.keys(assessment.managerScores).length > 0;
       await downloadCompetencyReport({
@@ -1145,7 +1150,7 @@ export default function CompetencyAnalysis() {
     return Object.entries(byPosition)
       .map(([posName, assessments]) => {
         const effPosition = getEffectivePosition(posName, overrides);
-        const std = overrides[posName]?.standards ?? buildStandardScores(effPosition);
+        const std = mergeStandards(effPosition, overrides[posName]?.standards);
         const dims = getDimensions(effPosition);
 
         let totalGap = 0;
@@ -1372,7 +1377,7 @@ export default function CompetencyAnalysis() {
             const proxyUser = users.find((u) => u.id === hrProxyUserId);
             const proxyPos = hrProxyPosition ? getEffectivePosition(hrProxyPosition, overrides) : null;
             const proxyDims = proxyPos ? getDimensions(proxyPos) : [];
-            const proxyStd = proxyPos ? (overrides[hrProxyPosition]?.standards ?? buildStandardScores(proxyPos)) : {};
+            const proxyStd = proxyPos ? mergeStandards(proxyPos, overrides[hrProxyPosition]?.standards) : {};
             const eligibleUsers = users.filter((u) => !['admin', 'hr'].includes(u.role) && u.status !== 'resigned');
             return (
               <div className="mb-4 border border-blue-200 rounded-xl bg-blue-50/40 p-4 space-y-4">
@@ -1655,7 +1660,7 @@ export default function CompetencyAnalysis() {
           {managerEvalTarget && (() => {
             const evalPos = getEffectivePosition(managerEvalTarget.positionName, overrides);
             const evalDims = getDimensions(evalPos);
-            const evalStd = overrides[managerEvalTarget.positionName]?.standards ?? buildStandardScores(evalPos);
+            const evalStd = mergeStandards(evalPos, overrides[managerEvalTarget.positionName]?.standards);
             return (
               <div className="border border-amber-200 rounded-xl bg-amber-50/40 p-4 space-y-4">
                 <div className="flex items-center gap-3">

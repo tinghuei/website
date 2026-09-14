@@ -15,7 +15,7 @@ import { DETAILED_COMPETENCY_FRAMEWORK, type PositionData, type CompetencyCatego
 import { extractFileText, parseJobDescriptionText, type ParsedJobDescription } from '../../lib/jobDescriptionParser';
 import { loadOverrides, saveOverrides, type PositionCompetencyOverride } from '../../lib/competencyOverrides';
 import { loadEmployeeJDs, saveEmployeeJDs, type EmployeeJDRecord } from '../../lib/employeeJobDescriptions';
-import { loadSelfAssessments, saveSelfAssessment, saveManagerAssessment, deleteSelfAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
+import { loadSelfAssessments, saveSelfAssessment, saveManagerAssessment, deleteSelfAssessment, resetManagerAssessment, type CompetencySelfAssessment } from '../../lib/competencySelfAssessments';
 import { downloadCompetencyReport } from '../../lib/competencyReportGenerator';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -538,6 +538,8 @@ export default function CompetencyAnalysis() {
   const [managerEvalSuccessName, setManagerEvalSuccessName] = useState<string | null>(null);
   const [deleteEvalStep, setDeleteEvalStep] = useState<{ userId: string; name: string; step: 1 | 2 } | null>(null);
   const [deleteEvalLoading, setDeleteEvalLoading] = useState(false);
+  const [resetManagerId, setResetManagerId] = useState<string | null>(null);
+  const [resetManagerLoading, setResetManagerLoading] = useState(false);
   const [gapSummaryCollapsed, setGapSummaryCollapsed] = useState(false);
   const [jdLibraryCollapsed, setJdLibraryCollapsed] = useState(false);
   const [evalFilterMonth, setEvalFilterMonth] = useState<string>('');
@@ -1604,14 +1606,25 @@ export default function CompetencyAnalysis() {
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2 justify-end">
                                 {isDone ? (
-                                  <button
-                                    onClick={() => handleDownloadAssessmentReport(a)}
-                                    disabled={reportDownloadingId === a.userId}
-                                    className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
-                                  >
-                                    {reportDownloadingId === a.userId ? <RefreshCw size={11} className="animate-spin" /> : <Download size={11} />}
-                                    下載報表
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => handleDownloadAssessmentReport(a)}
+                                      disabled={reportDownloadingId === a.userId}
+                                      className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+                                    >
+                                      {reportDownloadingId === a.userId ? <RefreshCw size={11} className="animate-spin" /> : <Download size={11} />}
+                                      下載報表
+                                    </button>
+                                    {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+                                      <button
+                                        onClick={() => setResetManagerId(a.userId)}
+                                        className="text-xs text-gray-400 hover:text-amber-600 border border-gray-200 hover:border-amber-300 px-2 py-1.5 rounded-lg transition-colors"
+                                        title="清除主管評估，讓主管重新評分"
+                                      >
+                                        重置
+                                      </button>
+                                    )}
+                                  </>
                                 ) : (
                                   <button
                                     onClick={() => handleStartManagerEval(a)}
@@ -1703,6 +1716,55 @@ export default function CompetencyAnalysis() {
           )}
         </div>
       )}
+
+      {/* 重置主管評估確認 */}
+      {resetManagerId && (() => {
+        const target = Object.values(selfAssessments).find((a) => a.userId === resetManagerId);
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+              <h3 className="font-bold text-gray-900 mb-2">重置主管評估</h3>
+              <p className="text-gray-500 text-sm mb-4">
+                將清除「{target?.employeeName}」的主管評估分數，讓主管重新填寫。員工自評資料保留不動。
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setResetManagerId(null)}
+                  className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  disabled={resetManagerLoading}
+                  onClick={async () => {
+                    setResetManagerLoading(true);
+                    try {
+                      await resetManagerAssessment(resetManagerId);
+                      setSelfAssessments((prev) => ({
+                        ...prev,
+                        [resetManagerId]: {
+                          ...prev[resetManagerId],
+                          managerScores: {},
+                          managerSubmittedAt: null,
+                          managerId: null,
+                          managerName: null,
+                        },
+                      }));
+                    } finally {
+                      setResetManagerLoading(false);
+                      setResetManagerId(null);
+                    }
+                  }}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  {resetManagerLoading ? <RefreshCw size={13} className="animate-spin" /> : null}
+                  確認重置
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 刪除評估紀錄：兩段式確認 */}
       {deleteEvalStep && (

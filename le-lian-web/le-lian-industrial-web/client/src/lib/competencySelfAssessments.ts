@@ -61,6 +61,20 @@ export async function saveSelfAssessment(assessment: CompetencySelfAssessment): 
   if (error) throw error;
 }
 
+/** 人資/管理員清除主管評估（保留員工自評），讓主管重新評分。 */
+export async function resetManagerAssessment(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('competency_self_assessments')
+    .update({
+      manager_scores: {},
+      manager_submitted_at: null,
+      manager_id: null,
+      manager_name: null,
+    })
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
 /** 人資/管理員刪除指定員工的職能評估紀錄（含自評與主管評估）。 */
 export async function deleteSelfAssessment(userId: string): Promise<void> {
   const { error } = await supabase

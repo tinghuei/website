@@ -12,6 +12,12 @@ var LOG_SHEET_NAME = 'AuditLog';
 // 不要用預設值。只有「儲存」需要密碼,單純瀏覽不需要。
 var EDIT_PIN = '請改成你自己的密碼';
 
+// 身分驗證(選用)。設定其中一個或兩個,要跟 index.html 裡的 LIFF_ID / GOOGLE_CLIENT_ID
+// 搭配使用。設定好之後,存檔一定要通過對應的驗證,不能只靠使用者自己打的姓名冒充別人。
+// 兩個都留空的話,維持舊行為:相信前端傳來的姓名文字。設定步驟見 calendar/README.md。
+var GOOGLE_CLIENT_ID = ''; // 例如 'xxxxxxxxxxxx.apps.googleusercontent.com'
+var LINE_CHANNEL_ID = ''; // 你的 LINE Messaging API channel 的 Channel ID(純數字字串)
+
 function doGet(e) {
   var action = e.parameter.action || 'get';
   if (action === 'log') return handleGetLog(e);
@@ -59,6 +65,11 @@ function doPost(e) {
     return jsonResponse({ ok: false, error: 'bad_request' });
   }
 
+  var who = resolveIdentity(body);
+  if (!who) {
+    return jsonResponse({ ok: false, error: 'identity_failed' });
+  }
+
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -78,7 +89,6 @@ function doPost(e) {
     sheet.getRange(rowIndex, 2).setValue(JSON.stringify(data));
     sheet.getRange(rowIndex, 3).setValue(new Date());
 
-    var who = (body.name || '').toString().trim() || '(未填寫姓名)';
     var summary = describeDayDiff(oldDayData, body.dayData);
     getLogSheet().appendRow([new Date(), body.key, body.day, who, summary]);
 
@@ -86,6 +96,57 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// 驗證身分,回傳真正要記錄的姓名字串;驗證失敗回傳 null。
+// 優先順序:Google ID token → LINE access token → (兩者都沒設定時)前端傳來的姓名文字。
+function resolveIdentity(body) {
+  if (GOOGLE_CLIENT_ID && body.googleToken) {
+    try {
+      var gres = UrlFetchApp.fetch(
+        'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(body.googleToken),
+        { muteHttpExceptions: true }
+      );
+      if (gres.getResponseCode() !== 200) return null;
+      var gdata = JSON.parse(gres.getContentText());
+      if (gdata.aud !== GOOGLE_CLIENT_ID) return null; // token 不是發給這個網頁的,可能是別人的
+      if (Number(gdata.exp) < Math.floor(Date.now() / 1000)) return null; // 過期
+      var gname = (gdata.name || gdata.email || '').toString().trim();
+      return gname || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  if (LINE_CHANNEL_ID && body.lineAccessToken) {
+    try {
+      var vres = UrlFetchApp.fetch(
+        'https://api.line.me/oauth2/v2.1/verify?access_token=' + encodeURIComponent(body.lineAccessToken),
+        { muteHttpExceptions: true }
+      );
+      if (vres.getResponseCode() !== 200) return null;
+      var vdata = JSON.parse(vres.getContentText());
+      if (String(vdata.client_id) !== String(LINE_CHANNEL_ID)) return null; // token 不是發給這個 LINE 頻道的
+      var pres = UrlFetchApp.fetch('https://api.line.me/v2/profile', {
+        headers: { Authorization: 'Bearer ' + body.lineAccessToken },
+        muteHttpExceptions: true
+      });
+      if (pres.getResponseCode() !== 200) return null;
+      var pdata = JSON.parse(pres.getContentText());
+      var lname = (pdata.displayName || '').toString().trim();
+      return lname || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  if (!GOOGLE_CLIENT_ID && !LINE_CHANNEL_ID) {
+    // 尚未設定任何身分驗證,退回舊行為:相信前端傳來的姓名文字(不保證是本人)
+    var name = (body.name || '').toString().trim();
+    return name || null;
+  }
+
+  return null; // 有設定驗證,但這次請求沒有帶有效的 token
 }
 
 // 比較同一天新舊資料,產生「新增/刪除/更正了什麼」的白話摘要,用於異動紀錄。

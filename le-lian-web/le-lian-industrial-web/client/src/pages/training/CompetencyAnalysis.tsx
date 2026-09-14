@@ -670,11 +670,19 @@ export default function CompetencyAnalysis() {
     }
   }
 
-  // 主管開始評估：以職能標準分數預填，讓主管從標準位置調整
+  // localStorage key for manager eval draft
+  const mgrDraftKey = (userId: string) => `mgr_eval_draft_${userId}`;
+
+  // 主管開始評估：優先還原暫存，否則以標準分數預填
   function handleStartManagerEval(assessment: CompetencySelfAssessment) {
     const evalPos = getEffectivePosition(assessment.positionName, overrides);
+    let initial = buildStandardScores(evalPos);
+    try {
+      const saved = localStorage.getItem(mgrDraftKey(assessment.userId));
+      if (saved) initial = { ...initial, ...JSON.parse(saved) };
+    } catch { /* ignore */ }
     setManagerEvalTarget(assessment);
-    setManagerEvalScores(buildStandardScores(evalPos));
+    setManagerEvalScores(initial);
     setManagerEvalError(null);
   }
 
@@ -702,6 +710,7 @@ export default function CompetencyAnalysis() {
           managerName: currentUser.name,
         },
       }));
+      try { localStorage.removeItem(mgrDraftKey(managerEvalTarget.userId)); } catch { /* ignore */ }
       setManagerEvalTarget(null);
       setManagerEvalScores({});
       setManagerEvalSuccessName(targetName);
@@ -1663,7 +1672,7 @@ export default function CompetencyAnalysis() {
             const evalStd = mergeStandards(evalPos, overrides[managerEvalTarget.positionName]?.standards);
             return (
               <div className="border border-amber-200 rounded-xl bg-amber-50/40 p-4 space-y-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <button
                     onClick={() => { setManagerEvalTarget(null); setManagerEvalScores({}); }}
                     className="text-xs text-gray-400 hover:text-gray-600 underline"
@@ -1673,6 +1682,13 @@ export default function CompetencyAnalysis() {
                   <span className="text-sm font-bold text-gray-900">
                     評估 {managerEvalTarget.employeeName}（{managerEvalTarget.positionName}）
                   </span>
+                  {(() => {
+                    try {
+                      return localStorage.getItem(mgrDraftKey(managerEvalTarget.userId))
+                        ? <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">已還原暫存草稿</span>
+                        : null;
+                    } catch { return null; }
+                  })()}
                 </div>
                 {evalDims.map(({ id, label }) => (
                   <div key={id} className="space-y-1.5">
@@ -1685,7 +1701,11 @@ export default function CompetencyAnalysis() {
                       min={0}
                       max={100}
                       value={managerEvalScores[id] ?? 0}
-                      onChange={(e) => setManagerEvalScores((prev) => ({ ...prev, [id]: Number(e.target.value) }))}
+                      onChange={(e) => {
+                        const next = { ...managerEvalScores, [id]: Number(e.target.value) };
+                        setManagerEvalScores(next);
+                        try { localStorage.setItem(mgrDraftKey(managerEvalTarget.userId), JSON.stringify(next)); } catch { /* ignore */ }
+                      }}
                       className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-green-600"
                     />
                     <div className="flex justify-between text-xs text-gray-400">

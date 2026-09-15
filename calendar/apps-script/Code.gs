@@ -12,6 +12,7 @@ var EMPLOYEE_SHEET_NAME = 'Employees';
 function doGet(e) {
   var action = e.parameter.action || 'get';
   if (action === 'log') return handleGetLog(e);
+  if (action === 'verify') return handleVerify(e);
 
   var key = e.parameter.key;
   if (!key) return jsonResponse({ ok: false, error: 'missing_key' });
@@ -20,6 +21,16 @@ function doGet(e) {
   var data = row ? safeParse(row[1]) : { days: {} };
   return jsonResponse({ ok: true, data: data });
 }
+
+// 唯讀的身分驗證,不寫入任何資料。前端在開始編輯前用這個先確認姓名+密碼對不對。
+function handleVerify(e) {
+  var name = (e.parameter.name || '').toString().trim();
+  var employeeId = (e.parameter.employeeId || '').toString().trim();
+  if (!name || !employeeId) return jsonResponse({ ok: false, error: 'bad_request' });
+  if (!verifyEmployee(name, employeeId)) return jsonResponse({ ok: false, error: 'employee_mismatch' });
+  return jsonResponse({ ok: true });
+}
+
 
 function handleGetLog(e) {
   var key = e.parameter.key;

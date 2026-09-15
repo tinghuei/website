@@ -268,6 +268,10 @@
     尚未設定後端網址。請依照 <code>calendar/README.md</code> 的步驟建立 Google 試算表 + Apps Script 部署,
     然後把取得的網址貼到 <code>index.html</code> 最下方的 <code>APPS_SCRIPT_URL</code>。在設定完成前,這頁只能離線瀏覽,無法多人同步。
   </div>
+  <div id="inAppBanner" class="hint-banner warn">
+    偵測到你目前是用 LINE 等 App 內建的瀏覽器開啟這個頁面,「匯出圖片」「匯出 Excel」在這種瀏覽器裡常常無法正常運作。
+    請點畫面上的「⋯」或分享圖示,選「在瀏覽器中開啟」(或「用 Safari/Chrome 開啟」),改用手機真正的瀏覽器 App 使用匯出功能。
+  </div>
   <div id="hintBanner" class="hint-banner">本月尚未填寫任何行程。點擊任一天的格子即可新增請假或事項,右側會自動彙整成本月事項清單。</div>
 
   <div class="dept-filter" id="deptFilter"></div>
@@ -947,6 +951,12 @@
   exportExcelBtn.addEventListener('click', exportExcel);
 
   // ---------- boot ----------
+  // App 內建瀏覽器(LINE、FB、IG、微信等)常常擋掉 window.open / 檔案下載,
+  // 偵測到就提醒使用者切到真正的瀏覽器 App 再使用匯出功能
+  if (/Line\/|FBAN|FBAV|Instagram|MicroMessenger|WeChat/i.test(navigator.userAgent)) {
+    document.getElementById('inAppBanner').classList.add('show');
+  }
+
   renderHead(boardHead);
   renderGrid(boardGrid, true);
   monthLabel.textContent = monthName();

@@ -260,6 +260,7 @@
       <button class="icon-btn" id="nextMonth" aria-label="下個月">›</button>
     </div>
     <span id="statusPill" class="status-pill">連線中…</span>
+    <button id="identityPill" class="status-pill" style="cursor:pointer;display:none" title="點擊登出目前身分"></button>
     <button id="exportExcelBtn" class="btn-secondary">匯出 Excel</button>
     <button id="exportBtn" class="btn-primary">匯出圖片</button>
   </div>
@@ -619,9 +620,28 @@
   const pinBackdrop = document.getElementById('pinBackdrop');
   const pinInput = document.getElementById('pinInput');
   const nameInput = document.getElementById('nameInput');
+  const identityPill = document.getElementById('identityPill');
   let identityVerified = false;
   function getEmployeeId() { return localStorage.getItem('board.employeeId') || ''; }
   function getName() { return localStorage.getItem('board.name') || ''; }
+
+  // 這台裝置目前記住的身分會顯示在這裡,點擊可以登出,避免有人借用別人的裝置測試/操作後,
+  // 之後這台裝置一直被當成那個人使用而不自知。
+  function updateIdentityDisplay() {
+    if (identityVerified) {
+      identityPill.style.display = '';
+      identityPill.textContent = '身分:' + getName() + '(登出)';
+    } else {
+      identityPill.style.display = 'none';
+    }
+  }
+  identityPill.addEventListener('click', () => {
+    if (!confirm('確定要登出目前這台裝置記住的身分(' + getName() + ')嗎?\n登出後,下一次編輯或勾選都需要重新輸入姓名+密碼。')) return;
+    identityVerified = false;
+    localStorage.removeItem('board.employeeId');
+    localStorage.removeItem('board.name');
+    updateIdentityDisplay();
+  });
   function askCredentials() {
     return new Promise(resolve => {
       pinInput.value = getEmployeeId();
@@ -656,7 +676,7 @@
 
     const cachedId = getEmployeeId(), cachedName = getName();
     if (cachedId && cachedName) {
-      if (await verifyOnServer(cachedName, cachedId)) { identityVerified = true; return true; }
+      if (await verifyOnServer(cachedName, cachedId)) { identityVerified = true; updateIdentityDisplay(); return true; }
       localStorage.removeItem('board.employeeId');
       localStorage.removeItem('board.name');
     }
@@ -669,10 +689,25 @@
         localStorage.setItem('board.employeeId', cred.employeeId);
         localStorage.setItem('board.name', cred.name);
         identityVerified = true;
+        updateIdentityDisplay();
         return true;
       }
       alert('姓名找不到,或密碼(工號+生日)不正確。請確認後再試一次;如果你是新到職員工,請先請人資把你加進 Employees 名單。');
     }
+  }
+
+  // 開頁時如果這台裝置已經記住身分,先在背景默默驗證一次,讓「目前身分」的標籤馬上顯示出來,
+  // 不用等到使用者去點編輯才看到自己(或前一個用這台裝置的人)是誰。
+  async function verifyCachedIdentityOnBoot() {
+    const cachedId = getEmployeeId(), cachedName = getName();
+    if (!cachedId || !cachedName || !configured) return;
+    if (await verifyOnServer(cachedName, cachedId)) {
+      identityVerified = true;
+    } else {
+      localStorage.removeItem('board.employeeId');
+      localStorage.removeItem('board.name');
+    }
+    updateIdentityDisplay();
   }
 
   // ---------- persistence (Google Apps Script backend, no login required) ----------
@@ -724,6 +759,7 @@
         identityVerified = false;
         localStorage.removeItem('board.employeeId');
         localStorage.removeItem('board.name');
+        updateIdentityDisplay();
         state.days[day] = prevDay;
         renderAll();
         alert('身分驗證已失效(密碼可能被更新過),請重新驗證後再試一次剛剛的修改。');
@@ -953,6 +989,7 @@
   if (configured) {
     setStatus('offline', '連線中…');
     fetchState();
+    verifyCachedIdentityOnBoot();
     pollTimer = setInterval(() => { if (!modalOpen) fetchState(); }, POLL_INTERVAL_MS);
   } else {
     setStatus('offline', '未設定後端');

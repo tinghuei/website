@@ -509,10 +509,11 @@
   summaryList.addEventListener('change', async (e) => {
     const cb = e.target.closest('input[type="checkbox"]');
     if (!cb) return;
-    if (!confirm('確定要標記這個事項為「' + (cb.checked ? '已完成' : '未完成') + '」嗎?')) {
-      cb.checked = !cb.checked; // 使用者按了取消,把勾選狀態改回去
-      return;
-    }
+    const wantChecked = cb.checked;
+    cb.checked = !wantChecked; // 先復原成原本狀態,等身分驗證+確認都過了才真的套用
+    if (!(await ensureIdentity())) return;
+    if (!confirm('確定要標記這個事項為「' + (wantChecked ? '已完成' : '未完成') + '」嗎?')) return;
+    cb.checked = wantChecked;
     const day = cb.getAttribute('data-day'), idx = Number(cb.getAttribute('data-idx'));
     const items = (state.days[day] && state.days[day].items) || [];
     items[idx] = { ...items[idx], done: cb.checked };
@@ -597,6 +598,7 @@
   document.getElementById('modalCancel').addEventListener('click', closeModal);
   modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
   document.getElementById('modalSave').addEventListener('click', async () => {
+    if (!(await ensureIdentity())) return;
     if (!confirm('確定要儲存這次修改嗎?')) return;
     const leave = editLeave.filter(l => (l.name || '').trim());
     const items = editItems.filter(it => (it.text || '').trim());
@@ -604,16 +606,20 @@
     closeModal();
   });
 
-  boardGrid.addEventListener('click', e => {
+  boardGrid.addEventListener('click', async e => {
     const cell = e.target.closest('.cell[data-day]');
     if (!cell) return;
+    if (!(await ensureIdentity())) return;
     openModal(Number(cell.getAttribute('data-day')));
   });
 
   // ---------- name + password gate (password = 工號+生日mm/dd, checked against the pre-seeded Employees sheet) ----------
+  // 身分驗證跟「存檔」是分開兩件事:點任何一天要編輯、或勾選任何核取方塊,都會先呼叫 ensureIdentity()
+  // 卡住流程,驗證成功才放行,不會等到按下儲存才發現密碼錯誤、但編輯畫面已經被亂動過。
   const pinBackdrop = document.getElementById('pinBackdrop');
   const pinInput = document.getElementById('pinInput');
   const nameInput = document.getElementById('nameInput');
+  let identityVerified = false;
   function getEmployeeId() { return localStorage.getItem('board.employeeId') || ''; }
   function getName() { return localStorage.getItem('board.name') || ''; }
   function askCredentials() {
@@ -631,6 +637,42 @@
       document.getElementById('pinConfirm').addEventListener('click', onConfirm);
       document.getElementById('pinCancel').addEventListener('click', onCancel);
     });
+  }
+
+  async function verifyOnServer(name, employeeId) {
+    try {
+      const res = await fetch(APPS_SCRIPT_URL + '?action=verify&name=' + encodeURIComponent(name) + '&employeeId=' + encodeURIComponent(employeeId));
+      const json = await res.json();
+      return !!(json && json.ok);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  // 卡住流程直到身分驗證成功(或使用者取消)才回傳。成功過一次之後,同一次瀏覽都不用再驗證。
+  async function ensureIdentity() {
+    if (identityVerified) return true;
+    if (!configured) { alert('尚未設定後端,無法驗證身分。'); return false; }
+
+    const cachedId = getEmployeeId(), cachedName = getName();
+    if (cachedId && cachedName) {
+      if (await verifyOnServer(cachedName, cachedId)) { identityVerified = true; return true; }
+      localStorage.removeItem('board.employeeId');
+      localStorage.removeItem('board.name');
+    }
+
+    while (true) {
+      const cred = await askCredentials();
+      if (cred == null) return false; // 使用者按取消
+      if (!cred.employeeId || !cred.name) { alert('姓名與密碼都要填寫。'); continue; }
+      if (await verifyOnServer(cred.name, cred.employeeId)) {
+        localStorage.setItem('board.employeeId', cred.employeeId);
+        localStorage.setItem('board.name', cred.name);
+        identityVerified = true;
+        return true;
+      }
+      alert('姓名找不到,或密碼(工號+生日)不正確。請確認後再試一次;如果你是新到職員工,請先請人資把你加進 Employees 名單。');
+    }
   }
 
   // ---------- persistence (Google Apps Script backend, no login required) ----------
@@ -652,22 +694,20 @@
     }
   }
 
-  async function saveDay(day, dayObj, override) {
+  async function saveDay(day, dayObj) {
     const prevDay = state.days[day];
     state.days[day] = dayObj;
     if (!modalOpen) renderAll(); else { renderSummary(); }
 
     if (!configured) { setStatus('offline', '尚未設定後端(未儲存)'); return; }
 
-    let empId = override ? override.employeeId : getEmployeeId();
-    let who = override ? override.name : getName();
+    const empId = getEmployeeId(), who = getName();
     if (!empId || !who) {
-      const cred = await askCredentials();
-      if (cred == null) { state.days[day] = prevDay; renderAll(); return; }
-      if (!cred.employeeId || !cred.name) { setStatus('offline', '姓名與密碼都要填寫'); state.days[day] = prevDay; renderAll(); return; }
-      empId = cred.employeeId; who = cred.name;
-      localStorage.setItem('board.employeeId', empId);
-      localStorage.setItem('board.name', who);
+      // 理論上呼叫這裡之前一定已經 ensureIdentity() 過,這是防呆用的
+      state.days[day] = prevDay; renderAll();
+      alert('尚未驗證身分,請重新整理頁面再試一次。');
+      setStatus('offline', '尚未驗證身分');
+      return;
     }
 
     setStatus('busy', '儲存中…');
@@ -681,13 +721,13 @@
       if (json && json.ok) {
         setStatus('live', '已儲存');
       } else if (json && json.error === 'employee_mismatch') {
+        identityVerified = false;
         localStorage.removeItem('board.employeeId');
         localStorage.removeItem('board.name');
-        setStatus('offline', '姓名或密碼不對,請重新輸入');
-        alert('姓名找不到,或密碼(工號+生日)不正確。請確認姓名與密碼正確後再試一次;如果你是新到職員工,請先請人資把你加進 Employees 名單。');
-        const cred = await askCredentials();
-        if (cred == null) { state.days[day] = prevDay; renderAll(); return; }
-        await saveDay(day, dayObj, cred);
+        state.days[day] = prevDay;
+        renderAll();
+        alert('身分驗證已失效(密碼可能被更新過),請重新驗證後再試一次剛剛的修改。');
+        setStatus('offline', '身分驗證失效');
       } else {
         state.days[day] = prevDay;
         renderAll();

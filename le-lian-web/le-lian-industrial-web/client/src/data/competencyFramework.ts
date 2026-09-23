@@ -1673,6 +1673,77 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
+  '成本會計': {
+    category: '財務部',
+    level: '基層執行',
+    requiredLevel: 2,
+    competencies: [
+      {
+        id: 'ca-fin-1',
+        category: '成本核算作業',
+        items: [
+          { id: 'ca-fin-1-1', name: '成本資料收集與登錄', description: '收集並登錄材料、人工、製造費用等成本資料至會計系統，確保資料正確完整' },
+          { id: 'ca-fin-1-2', name: '成本結轉執行', description: '依成本結轉流程執行料品進耗存相關作業，完成期末成本結算' },
+          { id: 'ca-fin-1-3', name: '單位成本核算', description: '核算各產品單位成本，分攤材料、人工及製造費用，彙整成本核算結果' },
+        ]
+      },
+      {
+        id: 'ca-fin-2',
+        category: '成本分析與報表',
+        items: [
+          { id: 'ca-fin-2-1', name: '成本差異分析', description: '比較實際成本與標準成本，找出差異原因，製作成本差異分析報表提供主管參考' },
+          { id: 'ca-fin-2-2', name: '成本分析報表編製', description: '依規定期限完成各項成本分析報表編製，確保報表數據正確並如期提交' },
+        ]
+      },
+      {
+        id: 'ca-fin-3',
+        category: '存貨帳務與盤點配合',
+        items: [
+          { id: 'ca-fin-3-1', name: '存貨帳務處理', description: '處理存貨進出帳務，核對帳物是否相符，識別並回報異常差異' },
+          { id: 'ca-fin-3-2', name: '盤點配合與庫齡追蹤', description: '配合定期盤點作業，追蹤存貨庫齡，協助識別滯料風險，確保帳務正確性' },
+        ]
+      },
+      {
+        id: 'ca-fin-4',
+        category: '憑證審核與稽核配合',
+        items: [
+          { id: 'ca-fin-4-1', name: '憑證與單據審核', description: '審核各項費用支付之發票、領料單等相關單據，確保單據合規且帳務正確' },
+          { id: 'ca-fin-4-2', name: '配合稽核查核', description: '配合會計師、稅捐機關及內部稽核，提供成本相關帳務資料，確保合規無虞' },
+        ]
+      },
+    ]
+  },
+  '製造助理': {
+    category: '製造課',
+    level: '基層執行',
+    requiredLevel: 2,
+    competencies: [
+      {
+        id: 'ma-1',
+        category: '生產作業輔助',
+        items: [
+          { id: 'ma-1-1', name: '依指示執行生產輔助作業', description: '依組長或班長指示執行各項生產輔助作業，確實遵守作業標準與安全規範' },
+          { id: 'ma-1-2', name: '生產數據紀錄', description: '協助記錄生產數量、良品數及不良品數量，確保生產數據正確填寫於白板及相關表單' },
+        ]
+      },
+      {
+        id: 'ma-2',
+        category: '物料與零組件管理',
+        items: [
+          { id: 'ma-2-1', name: '備料與領料作業', description: '依製令單協助備料與領料，確認物料規格與數量正確，確保生產線不缺料' },
+          { id: 'ma-2-2', name: '盤點零組件、半成品及成品', description: '依作業規範盤點材料、半成品及成品數量，確認庫存正確並完成紀錄' },
+        ]
+      },
+      {
+        id: 'ma-3',
+        category: '環境清潔與設備基本保養',
+        items: [
+          { id: 'ma-3-1', name: '工作環境清理與5S執行', description: '依5S規範清理並維護工作區域，保持環境整潔有序，配合廢棄物分類回收作業' },
+          { id: 'ma-3-2', name: '機具設備基本清潔保養', description: '依保養規範執行機具設備日常清潔，完成基本保養項目並回報異常狀況' },
+        ]
+      },
+    ]
+  },
   '文管中心': {
     category: '總經理室',
     level: '專業人員',

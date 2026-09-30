@@ -123,6 +123,7 @@
   /* ---- Layout ---- */
   .board-area { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
   @media (max-width: 900px) { .board-area { grid-template-columns: 1fr; } }
+  .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
   .board {
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
@@ -136,7 +137,7 @@
   .board-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 
   .cell {
-    min-height: 118px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    min-height: 118px; min-width: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
     padding: 8px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; background: var(--surface);
     transition: background 0.12s;
   }
@@ -145,12 +146,17 @@
   .cell.pad { cursor: default; background: var(--surface-2); opacity: 0.4; }
   .cell.pad:hover { background: var(--surface-2); }
   .cell-head { display: flex; align-items: baseline; justify-content: space-between; }
-  .daynum { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 4px; }
-  .daynum .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .daynum { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 0.95rem; }
   .wk { font-size: 0.7rem; color: var(--ink-faint); }
-  .leave-label { font-size: 0.66rem; color: var(--ink-faint); letter-spacing: 0.03em; }
-  .leave-chips { display: flex; flex-direction: column; gap: 3px; }
-  .chip { font-size: 0.72rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; line-height: 1.5; }
+
+  /* 格子裡的事項標籤:用部門顏色一眼看出當天排了什麼、大概是哪個部門的 */
+  .item-chips { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .item-chip {
+    font-size: 0.7rem; font-weight: 600; color: #fff; border-radius: 6px; padding: 2px 6px; line-height: 1.5;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .item-chip .t { font-weight: 400; opacity: 0.88; }
+  .item-chip.more { background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--line); }
 
   /* ---- Summary rail ---- */
   .summary {
@@ -170,6 +176,7 @@
   .summary-row .text.done { text-decoration: line-through; color: var(--ink-faint); }
   .summary-row .owner { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
   .dept-tag { display: inline-block; font-size: 0.68rem; font-weight: 700; color: #fff; padding: 1px 7px; border-radius: 999px; vertical-align: 1px; }
+  .leave-type { display: inline-block; font-size: 0.66rem; font-weight: 700; color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--line); padding: 1px 7px; border-radius: 999px; vertical-align: 1px; }
 
   /* ---- Modal ---- */
   .modal-backdrop {
@@ -217,28 +224,27 @@
   .poster .cell { min-height: 132px; cursor: default; }
   .poster .board-head { display: grid !important; }
   .poster .cell-head { width: auto !important; }
-  .poster .leave-label { display: block !important; }
-  .poster .leave-chips { flex-direction: column !important; }
+
+  /* 匯出/列印版事項標籤:不設數量上限、不截斷,文字太長就換行,時間+部門+內容都要完整可讀 */
+  .poster .item-chip {
+    font-size: 0.76rem !important; padding: 3px 7px !important; line-height: 1.45 !important;
+    white-space: normal !important; overflow: visible !important; text-overflow: unset !important; min-width: auto !important;
+  }
+  .poster .item-chip .t { display: block; font-size: 0.68rem; }
 
   /* ---- Mobile: keep the 7-column box grid, just shrink it to fit ---- */
   @media (max-width: 640px) {
     .board:not(.poster .board) .board-head div { padding: 6px 2px; font-size: 0.72rem; }
     .board:not(.poster .board) .cell { min-height: 68px; padding: 5px; gap: 3px; }
-    .board:not(.poster .board) .daynum { font-size: 0.78rem; gap: 2px; }
+    .board:not(.poster .board) .daynum { font-size: 0.78rem; }
     .board:not(.poster .board) .wk { display: none; }
-    .board:not(.poster .board) .leave-label { display: none; }
-    .board:not(.poster .board) .leave-chips { gap: 2px; }
-    .board:not(.poster .board) .chip {
-      font-size: 0.6rem; padding: 1px 4px; max-width: 100%;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
+    .board:not(.poster .board) .item-chips { gap: 2px; }
+    .board:not(.poster .board) .item-chip { font-size: 0.6rem; padding: 1px 4px; }
   }
   .poster .cell { min-height: 132px !important; padding: 8px !important; }
   .poster .board-head div { padding: 10px 6px !important; font-size: 0.95rem !important; }
   .poster .daynum { font-size: 0.95rem !important; }
   .poster .wk { display: inline !important; font-size: 0.7rem !important; }
-  .poster .leave-label { display: block !important; }
-  .poster .chip { font-size: 0.72rem !important; white-space: normal !important; }
 
   footer.credit { text-align: center; color: var(--ink-faint); font-size: 0.72rem; padding-top: 4px; }
 </style>
@@ -278,9 +284,15 @@
       <div class="board-head" id="boardHead"></div>
       <div class="board-grid" id="boardGrid"></div>
     </div>
-    <div class="summary">
-      <h3>本月事項摘要 <span class="count" id="summaryCount"></span></h3>
-      <div id="summaryList"></div>
+    <div class="rail">
+      <div class="summary">
+        <h3>本月事項摘要 <span class="count" id="summaryCount"></span></h3>
+        <div id="summaryList"></div>
+      </div>
+      <div class="summary">
+        <h3>本月請假 <span class="count" id="leaveCount"></span></h3>
+        <div id="leaveList"></div>
+      </div>
     </div>
   </div>
 
@@ -382,6 +394,8 @@
   const boardGrid = document.getElementById('boardGrid');
   const summaryList = document.getElementById('summaryList');
   const summaryCount = document.getElementById('summaryCount');
+  const leaveList = document.getElementById('leaveList');
+  const leaveCount = document.getElementById('leaveCount');
   const statusPill = document.getElementById('statusPill');
   const hintBanner = document.getElementById('hintBanner');
   const setupBanner = document.getElementById('setupBanner');
@@ -421,19 +435,34 @@
     ).join('');
   }
 
+  const MAX_VISIBLE_ITEMS = 3; // 畫面上每格最多顯示幾個事項,避免格子被事項多的那天撐變形
+
+  // interactive(畫面):標籤只放時間開頭+內容,超過 MAX_VISIBLE_ITEMS 顯示「+N 更多」
+  // 非 interactive(匯出圖片/列印用海報):不設上限、不截斷,時間+部門+內容全部印出來
+  function itemChipHTML(it, full) {
+    const label = full
+      ? (it.time ? '<span class="t">' + escapeHtml(it.time) + '</span> ' : '') + '<b>' + escapeHtml(it.dept || '') + '</b> ' + escapeHtml(it.text)
+      : (it.time ? '<span class="t">' + escapeHtml(it.time.split('-')[0]) + '</span> ' : '') + escapeHtml(it.text);
+    return '<div class="item-chip" style="background:' + deptColor(it.dept) + '" title="' + escapeHtml(it.dept || '') + ' · ' + escapeHtml(it.text) + '">' + label + '</div>';
+  }
+
   function cellHTML(day, weekday, dayData, interactive) {
-    const leave = (dayData && dayData.leave) || [];
     const allItems = (dayData && dayData.items) || [];
-    const items = activeDeptFilter ? allItems.filter(it => it.dept === activeDeptFilter) : allItems;
-    const chips = leave.map(l => '<div class="chip">' + escapeHtml(l.name) + (l.type ? '(' + escapeHtml(l.type) + ')' : '') + '</div>').join('');
-    const dotColor = activeDeptFilter ? deptColor(activeDeptFilter) : 'var(--accent)';
-    const dot = items.length ? '<span class="dot" style="background:' + dotColor + '" title="本日有 ' + items.length + ' 項事項"></span>' : '';
+    const items = (interactive && activeDeptFilter) ? allItems.filter(it => it.dept === activeDeptFilter) : allItems;
+    let itemChips;
+    if (interactive) {
+      const shown = items.slice(0, MAX_VISIBLE_ITEMS);
+      const hiddenCount = items.length - shown.length;
+      itemChips = shown.map(it => itemChipHTML(it, false)).join('');
+      if (hiddenCount > 0) itemChips += '<div class="item-chip more">+' + hiddenCount + ' 更多</div>';
+    } else {
+      itemChips = items.map(it => itemChipHTML(it, true)).join('');
+    }
     return (
       '<div class="cell' + (weekday === 0 || weekday === 6 ? ' weekend' : '') + '"' +
       (interactive ? ' data-day="' + day + '"' : '') + '>' +
-      '<div class="cell-head"><span class="daynum">' + day + dot + '</span><span class="wk">' + WEEKDAYS[weekday] + '</span></div>' +
-      '<div class="leave-label">請假</div>' +
-      '<div class="leave-chips">' + chips + '</div>' +
+      '<div class="cell-head"><span class="daynum">' + day + '</span><span class="wk">' + WEEKDAYS[weekday] + '</span></div>' +
+      '<div class="item-chips">' + itemChips + '</div>' +
       '</div>'
     );
   }
@@ -483,6 +512,27 @@
     ).join('');
   }
 
+  function allLeaveSorted() {
+    const rows = [];
+    Object.keys(state.days).forEach(dayKey => {
+      const leave = state.days[dayKey].leave || [];
+      leave.forEach((l, idx) => rows.push({ day: Number(dayKey), idx, ...l }));
+    });
+    rows.sort((a, b) => a.day - b.day);
+    return rows;
+  }
+
+  function renderLeaveList() {
+    const rows = allLeaveSorted();
+    leaveCount.textContent = rows.length ? '(' + rows.length + ')' : '';
+    leaveList.innerHTML = rows.length ? rows.map(r =>
+      '<div class="summary-row">' +
+      '<span class="date mono">' + view.month + '/' + r.day + '</span>' +
+      '<span class="text">' + escapeHtml(r.name) + (r.type ? ' <span class="leave-type">' + escapeHtml(r.type) + '</span>' : '') + '</span>' +
+      '</div>'
+    ).join('') : '<div class="summary-empty">本月尚無請假紀錄。</div>';
+  }
+
   function renderDeptFilter() {
     const counts = {};
     allItemsSorted().forEach(it => { counts[it.dept] = (counts[it.dept] || 0) + 1; });
@@ -503,6 +553,7 @@
     renderGrid(boardGrid, true);
     renderDeptFilter();
     renderSummary();
+    renderLeaveList();
     hintBanner.classList.toggle('show', Object.keys(state.days).length === 0);
   }
 
@@ -818,7 +869,10 @@
       '<div class="poster-title">' + escapeHtml(view.department) + ' ' + monthName() + ' 行事曆</div>' +
       '<div class="board-area">' +
       '<div class="board"><div class="board-head" id="pHead"></div><div class="board-grid" id="pGrid"></div></div>' +
+      '<div class="rail">' +
       '<div class="summary"><h3>本月事項摘要</h3><div id="pSummary"></div></div>' +
+      '<div class="summary"><h3>本月請假</h3><div id="pLeave"></div></div>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(poster);
     renderHead(poster.querySelector('#pHead'));
@@ -831,6 +885,11 @@
       (r.dept ? '<span class="dept-tag" style="background:' + deptColor(r.dept) + '">' + escapeHtml(r.dept) + '</span> ' : '') +
       escapeHtml(r.text) + (r.owner ? ' <span class="owner">' + escapeHtml(r.owner) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="summary-empty">本月尚無事項</div>';
+    const leaveRows = allLeaveSorted();
+    poster.querySelector('#pLeave').innerHTML = leaveRows.length ? leaveRows.map(r =>
+      '<div class="summary-row"><span class="date mono">' + view.month + '/' + r.day + '</span>' +
+      '<span class="text">' + escapeHtml(r.name) + (r.type ? ' <span class="leave-type">' + escapeHtml(r.type) + '</span>' : '') + '</span></div>'
+    ).join('') : '<div class="summary-empty">本月尚無請假紀錄</div>';
 
     try {
       // 海報版固定淺色配色,匯出背景也固定用白色,不受裝置暗色模式影響

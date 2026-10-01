@@ -540,26 +540,39 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
     competencies: [
       {
         id: 'pm-1',
-        category: '生産排程規劃',
+        category: '製令開立與單據管理',
         items: [
-          { id: 'pm-1-1', name: '依訂單排定生産排程', description: '根據業務訂單分析生産需求，排定各產品生産排程，確保排程符合交期要求' },
-          { id: 'pm-1-2', name: '開立製令單', description: '依生産排程開立製令單，確認各生産工令資訊正確，提供製造部門執行依據' },
+          { id: 'pm-1-1', name: '開立廠內製令', description: '依生産管制程序書每日開立廠內製令，於ERP系統產生批次需求計畫及生産計劃，確保製令資訊正確' },
+          { id: 'pm-1-2', name: '列印彙總表及途程單據', description: '每日列印生管彙總表、製令單及SFT途程單等單據，操作外掛系統列印含SFT途程之生管製令，並確實發放SFT製令至製造現場' },
         ]
       },
       {
         id: 'pm-2',
-        category: '物料計畫管制',
+        category: '訂單簽收管理',
         items: [
-          { id: 'pm-2-1', name: '物料計畫製作', description: '製作物料需求計畫，執行國內外件請購作業，管控庫存水準，防止缺料或超儲' },
-          { id: 'pm-2-2', name: '確保生産排程執行', description: '掌握產銷平衡，參與缺料產銷檢討會議，協調解決物料短缺問題，確保生産排程如期執行' },
+          { id: 'pm-2-1', name: '簽收業務訂單', description: '每日簽收業務訂單備忘錄，操作外掛系統完成生管訂單權歸入作業，確認訂單資訊正確無誤' },
         ]
       },
       {
         id: 'pm-3',
-        category: '交期管理',
+        category: '請購作業',
         items: [
-          { id: 'pm-3-1', name: '客戶交期控制與達成', description: '追蹤並管控各訂單客戶交期，協調製造、品保等部門確保交期如期達成' },
-          { id: 'pm-3-2', name: '生産進度檢討', description: '召開或參與生産進度檢討會，收集並分析生産進度資訊，提出改善行動方案' },
+          { id: 'pm-3-1', name: '一般物品請購作業', description: '依生産管制程序書每週執行一般物品（含鐵桌士等耗材）請購作業，於ERP採購管理系統建立請購單，確認請購數量與規格正確' },
+        ]
+      },
+      {
+        id: 'pm-4',
+        category: '請款作業',
+        items: [
+          { id: 'pm-4-1', name: '一般請款作業', description: '依財務部/會計科目規定每月執行一般請款作業，於ERP應付管理系統完成請款流程，確保單據正確合規' },
+        ]
+      },
+      {
+        id: 'pm-5',
+        category: '部門庶務與支援',
+        items: [
+          { id: 'pm-5-1', name: '生管課部庶務處理', description: '不定時處理生管課部門庶務事項，確保部門日常行政作業順暢' },
+          { id: 'pm-5-2', name: '協助包配件作業', description: '依部門支援需求協助包配件作業，操作ERP製令單及領料單完成配件出庫，確保配件供應如期完成' },
         ]
       },
     ]

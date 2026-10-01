@@ -1478,30 +1478,53 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         ]
       },
       {
-        id: 'sm-2',
-        category: '銷售管理',
-        items: [
-          { id: 'sm-2-1', name: '銷售策略規劃', description: '規劃銷售策略，分配業務區域與目標' },
-          { id: 'sm-2-2', name: '銷售進度管控', description: '監控銷售進度，即時調整業務方向' },
-          { id: 'sm-2-3', name: '重要客戶管理', description: '維護重要客戶關係，處理重大業務談判' },
-        ]
-      },
-      {
-        id: 'sm-3',
-        category: '市場管理',
-        items: [
-          { id: 'sm-3-1', name: '市場趨勢分析', description: '分析市場趨勢與競爭對手動態' },
-          { id: 'sm-3-2', name: '定價策略', description: '制定符合市場競爭力的定價策略' },
-          { id: 'sm-3-3', name: '新市場開發', description: '開拓新業務區域與潛在客群' },
-        ]
-      },
-      {
         id: 'sm-4',
         category: '成本控制與預算管理',
         items: [
           { id: 'sm-4-1', name: '業務成本控制', description: '控制業務費用與行銷成本，確保效益最大化' },
           { id: 'sm-4-2', name: '銷售預算管理', description: '編制業務部門預算，追蹤執行狀況' },
           { id: 'sm-4-3', name: '利潤率管理', description: '管控各產品線利潤率，避免低利潤接單' },
+        ]
+      },
+      {
+        id: 'sm-5',
+        category: '研發計畫管理',
+        items: [
+          { id: 'sm-5-1', name: '研擬及執行產品研發計畫', description: '研擬及執行產品研發計畫，協調開發進度與技術，確保產品開發按時完成並符合品質目標' },
+          { id: 'sm-5-2', name: '推動新產品樣品試作', description: '研擬及執行推動新產品之樣品試作，督導客戶產品初期試驗，並追蹤試作結果與問題改善' },
+        ]
+      },
+      {
+        id: 'sm-6',
+        category: '技術督導與設計管理',
+        items: [
+          { id: 'sm-6-1', name: '產品圖面與說明書督導', description: '督導產品圖面、說明書之繪製與修訂，確保圖面正確性及製作可行性' },
+          { id: 'sm-6-2', name: '研發技術蒐集與掌握', description: '執行各項研發技術之蒐集及掌握，督導客戶圖面資料轉換，確保技術能力與時俱進' },
+          { id: 'sm-6-3', name: 'BOM製作與材料管理督導', description: '督導材料規格之認定與承認及BOM之製作與管理，確保物料清單正確完整' },
+        ]
+      },
+      {
+        id: 'sm-7',
+        category: '供應商與成本管理',
+        items: [
+          { id: 'sm-7-1', name: '新產品供應商議價督導', description: '督導新產品供應商報價議價及模具開模事項，執行請款作業督導，控管開發成本' },
+          { id: 'sm-7-2', name: '預算管理', description: '執行模具及材料成本加工製作費用分析，管理部門預算，確保開發成本合理' },
+        ]
+      },
+      {
+        id: 'sm-8',
+        category: '研發文件與稽核管理',
+        items: [
+          { id: 'sm-8-1', name: '研發圖面發行與設計變更管理', description: '督導研發圖面發行及設計變更處理，確保文件保存完整，工作SOP的制定與維護' },
+          { id: 'sm-8-2', name: '配合稽核', description: '配合內外部稽核（含內控缺失改善），擬定工作目標與組織目標達成具一致性' },
+        ]
+      },
+      {
+        id: 'sm-9',
+        category: '人員管理與跨部門協調',
+        items: [
+          { id: 'sm-9-1', name: '人員績效管理', description: '執行人員溝通與績效管理，包含出勤管理、績效考核、訓練等，培育部門人才' },
+          { id: 'sm-9-2', name: '跨部門會議協調', description: '主導或參與跨部門例行會議及專案會議，協調製造、品保等部門確保業務需求順利執行' },
         ]
       },
     ]

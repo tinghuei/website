@@ -74,7 +74,7 @@ function isExpired(ann: AnnouncementLocal): boolean {
 }
 
 const ANN_CATEGORIES = ['訓練通知', '安全通知', '課程公告', '人事公告', '補助資訊', '系統公告'];
-const DEPARTMENTS_LIST = ['總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組'];
+const DEPARTMENTS_LIST = ['廠務部', '製造課', '資材課', '品保課', '總務課', '營業部', '業務課', '研發課', '總經理室', '財務部'];
 
 function typeStripe(n: MockNotification): string {
   if (n.urgent || n.type === 'deadline_reminder') return 'bg-red-500';

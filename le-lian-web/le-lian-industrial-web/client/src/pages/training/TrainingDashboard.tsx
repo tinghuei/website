@@ -23,7 +23,7 @@ const statusBadge: Record<string, { label: string; cls: string }> = {
   rejected: { label: '已退回', cls: 'bg-red-100 text-red-700' },
 };
 
-const DEPT_OPTIONS = ['總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組', '組三組', '沖床組', '塗裝組', '加工組', '財務部', '庶務組', '人資安全組'];
+const DEPT_OPTIONS = ['廠務部', '製造課', '資材課', '品保課', '總務課', '營業部', '業務課', '研發課', '總經理室', '財務部'];
 // 合併常見職稱與組織圖（orgChartData.ts，全公司職位單一資料來源）中實際使用的職稱，
 // 並讓員工可自行輸入清單外的職稱，避免實際職稱不在固定清單中而無法填寫
 const TITLE_OPTIONS = Array.from(new Set([

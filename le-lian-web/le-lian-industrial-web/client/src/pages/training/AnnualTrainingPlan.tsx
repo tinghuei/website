@@ -1077,7 +1077,7 @@ export default function AnnualTrainingPlan() {
                   onChange={(e) => setDepartment(e.target.value)}
                   className="pl-3 pr-8 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {['總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組', '組三組', '沖床組', '塗裝組', '加工組', '財務部', '庶務組', '人資安全組'].map((d) => (
+                  {['廠務部', '製造課', '資材課', '品保課', '總務課', '營業部', '業務課', '研發課', '總經理室', '財務部'].map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>

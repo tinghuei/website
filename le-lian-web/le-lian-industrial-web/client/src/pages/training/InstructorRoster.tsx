@@ -18,7 +18,7 @@ interface StudentForm {
 const DEFAULT_INS_FORM: InstructorForm = { name: '', type: '內部', title: '', department: '', specialty: '', phone: '', email: '', certifications: '' };
 const DEFAULT_STU_FORM: StudentForm = { name: '', birthday: '', department: '', title: '', employeeId: '', joinDate: '', email: '' };
 
-const DEPARTMENTS = ['總經理室', '品保課', '管理部', '總務課', '營業部', '業務課', '研發課', '廠務部', '廠務室', '製造課', '組一組', '組二組', '組三組', '生管課', '工程課'];
+const DEPARTMENTS = ['廠務部', '製造課', '資材課', '品保課', '總務課', '營業部', '業務課', '研發課', '總經理室', '財務部'];
 
 export default function InstructorRoster() {
   const { currentUser } = useTrainingAuth();

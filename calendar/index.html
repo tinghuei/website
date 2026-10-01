@@ -354,6 +354,22 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="exportExcelPreviewBackdrop" hidden>
+  <div class="modal">
+    <header>
+      <h3>匯出 Excel</h3>
+      <button class="icon-btn" id="exportExcelPreviewClose" aria-label="關閉">✕</button>
+    </header>
+    <section>
+      <p class="note">點下面的按鈕儲存檔案。手機如果跳出系統分享選單,選「儲存到檔案」即可存到手機裡。</p>
+    </section>
+    <footer style="flex-wrap:wrap;">
+      <button class="btn-secondary" id="exportExcelPreviewShare" hidden>分享 / 儲存</button>
+      <a class="btn-primary" id="exportExcelPreviewDownload" style="text-decoration:none;text-align:center;">下載 Excel 檔案</a>
+    </footer>
+  </div>
+</div>
+
 <script>
 (function () {
   // ================== 設定區 ==================
@@ -926,6 +942,11 @@
 
   // ---------- export (Excel, for printing / further editing) ----------
   const exportExcelBtn = document.getElementById('exportExcelBtn');
+  const exportExcelPreviewBackdrop = document.getElementById('exportExcelPreviewBackdrop');
+  const exportExcelPreviewShare = document.getElementById('exportExcelPreviewShare');
+  const exportExcelPreviewDownload = document.getElementById('exportExcelPreviewDownload');
+  document.getElementById('exportExcelPreviewClose').addEventListener('click', () => { exportExcelPreviewBackdrop.hidden = true; });
+  exportExcelPreviewBackdrop.addEventListener('click', e => { if (e.target === exportExcelPreviewBackdrop) exportExcelPreviewBackdrop.hidden = true; });
 
   async function exportExcel() {
     if (typeof ExcelJS === 'undefined') { alert('Excel 匯出元件載入失敗,請重新整理頁面再試一次。'); return; }
@@ -1020,18 +1041,22 @@
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const filename = view.department.replace(/[\\/:*?"<>|]/g, '') + '_' + view.year + pad2(view.month) + '_行事曆.xlsx';
-      const file = new File([blob], filename, { type: blob.type });
+      const url = URL.createObjectURL(blob);
 
+      // 直接在頁面內彈窗給一個可以手動點的下載連結,不自動觸發下載/分享——
+      // 自動觸發在手機瀏覽器(含 App 內建瀏覽器)常常悄悄失敗,使用者按了「匯出 Excel」卻什麼事都沒發生。
+      // 跟匯出圖片用同一套做法:使用者自己點,才確保瀏覽器真的會處理這個動作。
+      exportExcelPreviewDownload.href = url;
+      exportExcelPreviewDownload.download = filename;
+      exportExcelPreviewBackdrop.hidden = false;
+
+      exportExcelPreviewShare.hidden = true;
+      const file = new File([blob], filename, { type: blob.type });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        // 手機用系統分享選單,可以直接存到「檔案」App 或傳給其他 App,比背景下載清楚
-        await navigator.share({ files: [file], title: filename }).catch(() => {});
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-        alert('Excel 檔案已下載(檔名:' + filename + ')。手機請到「檔案」App 的「下載項目」資料夾找,電腦請看瀏覽器的下載清單。');
+        exportExcelPreviewShare.hidden = false;
+        exportExcelPreviewShare.onclick = () => {
+          navigator.share({ files: [file], title: filename }).catch(() => {});
+        };
       }
     } catch (err) {
       alert('匯出 Excel 失敗:' + (err && err.message ? err.message : '未知錯誤'));

@@ -975,28 +975,53 @@
         c.border = border;
       });
 
+      // 跟匯出圖片一樣,格子裡直接顯示當天事項(部門用顏色標出來),不是只有請假
+      function dayCellRichText(day, dayData) {
+        const runs = [{ font: { bold: true }, text: String(day) }];
+        (dayData.items || []).forEach(it => {
+          runs.push({ text: '\n' });
+          runs.push({ font: { bold: true, color: { argb: 'FF' + deptColor(it.dept).replace('#', '').toUpperCase() } }, text: (it.dept || '') + ' ' });
+          runs.push({ text: (it.time ? it.time + ' ' : '') + it.text });
+        });
+        const leave = dayData.leave || [];
+        if (leave.length) {
+          runs.push({ text: '\n' });
+          runs.push({
+            font: { italic: true, color: { argb: 'FF5C6670' } },
+            text: '請假:' + leave.map(l => l.name + (l.type ? '(' + l.type + ')' : '')).join('、')
+          });
+        }
+        return runs;
+      }
+
       const total = daysInMonth(view.year, view.month);
       const lead = firstWeekday(view.year, view.month);
       const weeks = Math.ceil((lead + total) / 7);
-      let day = 1;
       for (let w = 0; w < weeks; w++) {
         const rowIndex = 3 + w;
-        ws.getRow(rowIndex).height = 64;
+        // 先算這一週裡最多事項的那一天,整列的高度要跟著那天走,不然事項多的那天會被裁掉
+        const rowDays = [];
+        let maxLines = 1;
         for (let wd = 0; wd < 7; wd++) {
-          const cellIndex = w * 7 + wd;
+          const dateNum = w * 7 + wd - lead + 1;
+          if (dateNum >= 1 && dateNum <= total) {
+            const dayData = state.days[String(dateNum)] || {};
+            rowDays.push({ dateNum, dayData });
+            const lines = 1 + (dayData.items || []).length + ((dayData.leave || []).length ? 1 : 0);
+            if (lines > maxLines) maxLines = lines;
+          } else {
+            rowDays.push(null);
+          }
+        }
+        ws.getRow(rowIndex).height = Math.max(64, maxLines * 15 + 14);
+        for (let wd = 0; wd < 7; wd++) {
           const c = ws.getCell(rowIndex, wd + 1);
           c.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
           c.border = border;
           const isWeekend = wd === 0 || wd === 6;
           c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isWeekend ? 'FFFDF6F1' : 'FFFFFFFF' } };
-          if (cellIndex >= lead && day <= total) {
-            const dayData = state.days[String(day)] || {};
-            const leaveLines = (dayData.leave || []).map(l => l.name + (l.type ? '(' + l.type + ')' : ''));
-            c.value = String(day) + (leaveLines.length ? '\n請假:\n' + leaveLines.join('\n') : '');
-            day++;
-          } else {
-            c.value = '';
-          }
+          const d = rowDays[wd];
+          c.value = d ? { richText: dayCellRichText(d.dateNum, d.dayData) } : '';
         }
       }
 

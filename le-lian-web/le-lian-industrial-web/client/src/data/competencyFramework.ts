@@ -564,6 +564,54 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
+  '物料組長': {
+    category: '資材課',
+    level: '基層主管',
+    requiredLevel: 3,
+    competencies: [
+      {
+        id: 'iml-1',
+        category: '收料與入庫督導',
+        items: [
+          { id: 'iml-1-1', name: '督導收料作業', description: '督導組員執行原物料、半成品、不良品、呆滯品之收料作業，確認帳務正確，防止呆料累積' },
+          { id: 'iml-1-2', name: '督導入庫與儲位管理', description: '督導合格品入庫及倉儲架位控制，確保儲位正確且儲運效率符合目標' },
+        ]
+      },
+      {
+        id: 'iml-2',
+        category: '備料與發料督導',
+        items: [
+          { id: 'iml-2-1', name: '督導備料作業', description: '督導組員依製令單提前備料，確認庫存查詢（QR CODE掃描）與備料時效，確保生産線不缺料' },
+          { id: 'iml-2-2', name: '督導發料與異常處理', description: '督導組員執行發料作業，即時處理發料異常，協調生産線上下料需求，確保物料準時到位' },
+        ]
+      },
+      {
+        id: 'iml-3',
+        category: '物料帳務與盤點管理',
+        items: [
+          { id: 'iml-3-1', name: '物料帳務管理', description: '管控物料帳務正確性，識別並追蹤帳物差異，定期複核庫存數量與系統資料一致性' },
+          { id: 'iml-3-2', name: '規劃與督導盤點作業', description: '規劃定期及年度物料盤點，督導組員確實執行，核對盤點結果並彙報差異原因及改善措施' },
+          { id: 'iml-3-3', name: '呆滯料管控', description: '定期分析呆滯料庫齡與數量，向主管提出處置建議，防止呆料持續累積影響倉儲空間與帳務' },
+        ]
+      },
+      {
+        id: 'iml-4',
+        category: '料架環境與設備管理',
+        items: [
+          { id: 'iml-4-1', name: '料架與倉儲環境督導', description: '督導料架整潔、結構安全及儲位標識清楚，確保倉儲環境符合5S管理要求' },
+          { id: 'iml-4-2', name: '搬運設備管理', description: '督導堆高機等搬運設備正確操作與日常保養，確保設備安全可用，回報異常請修' },
+        ]
+      },
+      {
+        id: 'iml-5',
+        category: '人員管理與跨部門協調',
+        items: [
+          { id: 'iml-5-1', name: '人員出勤與績效管理', description: '管理組員出勤，執行工作分配與績效考核，協助新進人員教育訓練，確保組員達到作業標準' },
+          { id: 'iml-5-2', name: '跨部門協調', description: '與生管、製造、品保等部門協調物料需求與缺料問題，確保物料供應順暢，支援生産計畫如期執行' },
+        ]
+      },
+    ]
+  },
   '物管': {
     category: '資材課',
     level: '基層執行',

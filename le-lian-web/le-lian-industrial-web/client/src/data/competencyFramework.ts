@@ -1827,6 +1827,53 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
+  '高級專員': {
+    category: '總經理室',
+    level: '專業人員',
+    requiredLevel: 3,
+    competencies: [
+      {
+        id: 'sr-1',
+        category: '新品開發案管理',
+        items: [
+          { id: 'sr-1-1', name: '新品開發案資料彙整', description: '彙整新品開發案相關資料，確保資料完整正確，建立可供查閱之歸檔管理' },
+          { id: 'sr-1-2', name: '開發進度更新與追蹤', description: '每週更新新品開發案進度，識別落後項目並追蹤改善，確保開發時程如期推進' },
+        ]
+      },
+      {
+        id: 'sr-2',
+        category: '研發會議管理',
+        items: [
+          { id: 'sr-2-1', name: '研發會議進度更新', description: '每週整理並更新研發會議進度資料，確保會議資訊正確完整，提供各單位參考' },
+          { id: 'sr-2-2', name: '追蹤事項會議記錄', description: '每週製作研發會議追蹤事項會議記錄，確認各項待辦事項執行狀況，回報未結案項目' },
+        ]
+      },
+      {
+        id: 'sr-3',
+        category: '政府補助計劃案管理',
+        items: [
+          { id: 'sr-3-1', name: '補助計劃案申請與簽約', description: '執行政府補助計劃案申請作業，準備申請文件，辦理簽約相關事宜，確保流程合規' },
+          { id: 'sr-3-2', name: '計劃執行與結案管理', description: '管理補助計劃案執行、計劃變更及結案各階段作業，追蹤執行進度，確保如期完成並符合補助規範' },
+        ]
+      },
+      {
+        id: 'sr-4',
+        category: '專案協調與執行',
+        items: [
+          { id: 'sr-4-1', name: '輔導案聯絡與跨部門協調', description: '執行生產管理精進輔導等專案，聯絡廠商、協調跨部門溝通，確保各方資訊順暢傳遞' },
+          { id: 'sr-4-2', name: '專案進度追蹤', description: '追蹤各專案執行進度，識別異常並提出解決方案，定期向主管彙報專案現況' },
+        ]
+      },
+      {
+        id: 'sr-5',
+        category: '跨部門協作與主管交辦',
+        items: [
+          { id: 'sr-5-1', name: '跨部門協作', description: '協調各部門共同推動研發相關事務，促進跨部門資訊共享與資源整合，確保協作目標達成' },
+          { id: 'sr-5-2', name: '主管交辦事項執行', description: '確實執行主管交辦之各項事務，掌握完成時限，回報執行結果，確保任務如期完成' },
+        ]
+      },
+    ]
+  },
   '文管中心': {
     category: '總經理室',
     level: '專業人員',

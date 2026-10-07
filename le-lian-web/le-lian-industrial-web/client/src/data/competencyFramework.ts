@@ -1890,7 +1890,7 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
-  '帳務專員': {
+  '帳務會計': {
     category: '財務部',
     level: '基層執行',
     requiredLevel: 2,
@@ -1940,27 +1940,27 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
-  '帳務會計': {
+  '帳務會計（東福）': {
     category: '財務部',
     level: '基層執行',
     requiredLevel: 2,
     competencies: [
       {
         id: 'gac-1',
-        category: '萊福進銷憑單審核與拋轉',
+        category: '東福進銷憑單審核與拋轉',
         items: [
-          { id: 'gac-1-1', name: '萊福進貨單審核與拋轉', description: '審核萊福進貨單，確認品項、數量及金額正確，拋轉進貨傳票完成入帳' },
-          { id: 'gac-1-2', name: '萊福外銷銷貨結帳單審核與拋轉', description: '審核萊福外銷銷貨結帳單，確認出口資料正確，拋轉銷貨傳票完成入帳' },
-          { id: 'gac-1-3', name: '萊福內銷銷貨結帳單審核與拋轉', description: '審核萊福內銷銷貨結帳單，確認品項及客戶資料正確，拋轉銷貨傳票完成入帳' },
+          { id: 'gac-1-1', name: '東福進貨單審核與拋轉', description: '審核東福進貨單，確認品項、數量及金額正確，拋轉進貨傳票完成入帳' },
+          { id: 'gac-1-2', name: '東福外銷銷貨結帳單審核與拋轉', description: '審核東福外銷銷貨結帳單，確認出口資料正確，拋轉銷貨傳票完成入帳' },
+          { id: 'gac-1-3', name: '東福內銷銷貨結帳單審核與拋轉', description: '審核東福內銷銷貨結帳單，確認品項及客戶資料正確，拋轉銷貨傳票完成入帳' },
         ]
       },
       {
         id: 'gac-2',
-        category: '萊福應付費用憑單作業',
+        category: '東福應付費用憑單作業',
         items: [
-          { id: 'gac-2-1', name: '萊福應付憑單審核與拋轉', description: '審核萊福應付憑單，確認廠商、金額及付款條件正確，拋轉付款傳票完成入帳' },
-          { id: 'gac-2-2', name: '萊福費用應付憑單審核與拋轉', description: '審核萊福費用類應付憑單，確認費用科目及金額正確，拋轉費用傳票完成入帳' },
-          { id: 'gac-2-3', name: '萊福其他收入拋轉', description: '審核萊福福報及其他各類收入憑證，拋轉對應傳票，確保收入帳務完整正確' },
+          { id: 'gac-2-1', name: '東福應付憑單審核與拋轉', description: '審核東福應付憑單，確認廠商、金額及付款條件正確，拋轉付款傳票完成入帳' },
+          { id: 'gac-2-2', name: '東福費用應付憑單審核與拋轉', description: '審核東福費用類應付憑單，確認費用科目及金額正確，拋轉費用傳票完成入帳' },
+          { id: 'gac-2-3', name: '東福其他收入拋轉', description: '審核東福其他各類收入憑證，拋轉對應傳票，確保收入帳務完整正確' },
         ]
       },
       {
@@ -1976,9 +1976,9 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         id: 'gac-4',
         category: '稅務申報',
         items: [
-          { id: 'gac-4-1', name: '萊福月度營業稅申報', description: '每月彙整萊福銷售資料，完成營業稅申報作業，確保如期申報並符合法規' },
+          { id: 'gac-4-1', name: '東福月度營業稅申報', description: '每月彙整東福銷售資料，完成營業稅申報作業，確保如期申報並符合法規' },
           { id: 'gac-4-2', name: '奧興明細帳及發票明細管理', description: '產出奧興應收應付明細折舊費用報表及發票銷銷明細表，確保子公司帳務資料完整正確' },
-          { id: 'gac-4-3', name: '年度扣繳憑整及調節', description: '年度辦理萊福所得扣繳憑整申報及調節作業，確保數字與各項明細相符並如期申報' },
+          { id: 'gac-4-3', name: '年度扣繳憑整及調節', description: '年度辦理東福所得扣繳憑整申報及調節作業，確保數字與各項明細相符並如期申報' },
         ]
       },
       {
@@ -1987,8 +1987,8 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         items: [
           { id: 'gac-5-1', name: '會計師查核配合', description: '配合會計師執行期中及期末查核，準備查核所需資料，進行相關平準作業，確保查核順利進行' },
           { id: 'gac-5-2', name: '年度廠校及資產盤點', description: '參與年度工廠校正及整攤調查，配合固定資產盤點作業，確保帳實相符' },
-          { id: 'gac-5-3', name: '帳冊歸檔與系統維護', description: '整理並歸檔萊福傳票及帳冊，執行電腦主機資料備份，確保財務資料安全保存' },
-          { id: 'gac-5-4', name: '現金管理與行政庶務', description: '保管萊福高雄財務專用金，執行萊聯福委會庶務及SBIR專案庶務等行政支援事項' },
+          { id: 'gac-5-3', name: '帳冊歸檔與系統維護', description: '整理並歸檔東福傳票及帳冊，執行電腦主機資料備份，確保財務資料安全保存' },
+          { id: 'gac-5-4', name: '現金管理與行政庶務', description: '保管東福高雄財務專用金，執行萊聯福委會庶務及SBIR專案庶務等行政支援事項' },
         ]
       },
     ]

@@ -1648,6 +1648,53 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
     ]
   },
+  '財務副理': {
+    category: '財務部',
+    level: '部門主管',
+    requiredLevel: 3,
+    competencies: [
+      {
+        id: 'fm-mgr-1',
+        category: '財務報表與帳務督導',
+        items: [
+          { id: 'fm-mgr-1-1', name: '財務報表編製督導', description: '督導月結、季結及年度財務報表（損益表、資產負債表、現金流量表）之正確編製，確保報表如期完成並符合會計準則' },
+          { id: 'fm-mgr-1-2', name: '帳務正確性複核', description: '複核各類帳務處理（應收、應付、費用、成本），確保帳務資料正確，識別異常並追蹤改善' },
+        ]
+      },
+      {
+        id: 'fm-mgr-2',
+        category: '預算管理與財務分析',
+        items: [
+          { id: 'fm-mgr-2-1', name: '預算編制與執行管控', description: '協助彙編公司年度預算，追蹤各部門預算執行狀況，分析差異原因並向主管提出改善建議' },
+          { id: 'fm-mgr-2-2', name: '財務分析報告', description: '定期製作財務分析報告，分析收入、成本、費用及獲利趨勢，提供管理層決策所需之財務資訊' },
+        ]
+      },
+      {
+        id: 'fm-mgr-3',
+        category: '稅務與法規合規',
+        items: [
+          { id: 'fm-mgr-3-1', name: '稅務申報督導', description: '督導營業稅、所得稅等各項稅務申報作業，確保申報時效與正確性，配合稽徵機關查核' },
+          { id: 'fm-mgr-3-2', name: '法規遵循與內控管理', description: '確認財務相關作業符合公司法、稅法及內部控制規範，協助擬定並維護財務作業SOP，配合內外部稽核' },
+        ]
+      },
+      {
+        id: 'fm-mgr-4',
+        category: '資金管理與銀行往來',
+        items: [
+          { id: 'fm-mgr-4-1', name: '資金調度與現金流管理', description: '監控公司資金流量，規劃短期資金調度，確保營運資金充裕，提出融資需求建議' },
+          { id: 'fm-mgr-4-2', name: '銀行授信與往來管理', description: '管理公司與銀行往來事務，維護授信額度，辦理融資借款及外匯相關作業' },
+        ]
+      },
+      {
+        id: 'fm-mgr-5',
+        category: '人員管理與跨部門協調',
+        items: [
+          { id: 'fm-mgr-5-1', name: '財務人員管理與培育', description: '管理財務部人員出勤與績效考核，培育財務人才，確保人員具備執行各項財務作業之能力' },
+          { id: 'fm-mgr-5-2', name: '跨部門協調', description: '協調各部門財務相關事宜（費用核銷、請款、預算使用等），推動跨部門財務資訊正確傳遞與配合' },
+        ]
+      },
+    ]
+  },
   '財務出納': {
     category: '財務部',
     level: '基層執行',

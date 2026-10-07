@@ -1687,10 +1687,26 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
       },
       {
         id: 'fm-mgr-5',
+        category: '成本核算作業',
+        items: [
+          { id: 'fm-mgr-5-1', name: '成本資料收集與登錄督導', description: '督導材料、人工、製造費用等成本資料之收集與登錄，確保資料正確完整並符合成本結轉流程' },
+          { id: 'fm-mgr-5-2', name: '單位成本核算與期末結算', description: '核算各產品單位成本，分攤材料、人工及製造費用，完成期末成本結算作業' },
+        ]
+      },
+      {
+        id: 'fm-mgr-6',
+        category: '成本分析與存貨管理',
+        items: [
+          { id: 'fm-mgr-6-1', name: '成本差異分析', description: '比較實際成本與標準成本，分析差異原因，編製成本差異分析報表，提出降低成本之改善建議' },
+          { id: 'fm-mgr-6-2', name: '存貨帳務與盤點督導', description: '督導存貨進出帳務處理，配合定期盤點作業，追蹤存貨庫齡，識別滯料風險，確保帳物相符' },
+        ]
+      },
+      {
+        id: 'fm-mgr-7',
         category: '人員管理與跨部門協調',
         items: [
-          { id: 'fm-mgr-5-1', name: '財務人員管理與培育', description: '管理財務部人員出勤與績效考核，培育財務人才，確保人員具備執行各項財務作業之能力' },
-          { id: 'fm-mgr-5-2', name: '跨部門協調', description: '協調各部門財務相關事宜（費用核銷、請款、預算使用等），推動跨部門財務資訊正確傳遞與配合' },
+          { id: 'fm-mgr-7-1', name: '財務人員管理與培育', description: '管理財務部人員出勤與績效考核，培育財務人才，確保人員具備執行各項財務作業之能力' },
+          { id: 'fm-mgr-7-2', name: '跨部門協調', description: '協調各部門財務相關事宜（費用核銷、請款、預算使用等），推動跨部門財務資訊正確傳遞與配合' },
         ]
       },
     ]

@@ -1,4 +1,4 @@
-// 詳細職能框架資料 — 共 39 個職位、8 個部門
+// 詳細職能框架資料 — 共 41 個職位、8 個部門
 // 來源：DETAILED_COMPETENCY_FRAMEWORK.md（公司職能基準文件），原內嵌於 DetailedCompetencyAssessment.tsx，
 // 抽取為共用資料檔，供 DetailedCompetencyAssessment.tsx、CompetencyAnalysis.tsx 等頁面共用。
 
@@ -1886,6 +1886,109 @@ export const DETAILED_COMPETENCY_FRAMEWORK: Record<string, PositionData> = {
         items: [
           { id: 'ma-3-1', name: '工作環境清理與5S執行', description: '依5S規範清理並維護工作區域，保持環境整潔有序，配合廢棄物分類回收作業' },
           { id: 'ma-3-2', name: '機具設備基本清潔保養', description: '依保養規範執行機具設備日常清潔，完成基本保養項目並回報異常狀況' },
+        ]
+      },
+    ]
+  },
+  '帳務專員': {
+    category: '財務部',
+    level: '基層執行',
+    requiredLevel: 2,
+    competencies: [
+      {
+        id: 'aps-1',
+        category: '應付憑單處理',
+        items: [
+          { id: 'aps-1-1', name: '廠商應付憑單核對', description: '依採購單與驗收單核對各廠商（711、713、740等）應付憑單，確認金額、品項及日期正確無誤' },
+          { id: 'aps-1-2', name: '應付憑單拋轉分錄與傳票', description: '將已核對之應付憑單拋轉至會計系統，產生分錄並轉為傳票，確保帳務正確入帳' },
+          { id: 'aps-1-3', name: '應收帳款結核單拋轉', description: '處理應收帳款結核單並拋轉分錄轉傳票，確保應收帳款帳務正確反映' },
+        ]
+      },
+      {
+        id: 'aps-2',
+        category: '折攤與零用金管理',
+        items: [
+          { id: 'aps-2-1', name: '折攤單開立', description: '依費用分攤規則開立折攤單，確保各期費用均勻分攤並正確入帳' },
+          { id: 'aps-2-2', name: '零用金應付憑單與提款單處理', description: '建立及核對712零用金應付憑單，處理零用金提款單之建立與改單，確保零用金帳務正確' },
+        ]
+      },
+      {
+        id: 'aps-3',
+        category: '稅務申報與核查',
+        items: [
+          { id: 'aps-3-1', name: '進項稅額整理', description: '整理並輸入當月進項稅額資料至EXCEL，確保資料完整正確，供後續營業稅申報使用' },
+          { id: 'aps-3-2', name: '401營業稅申報', description: '依規定期限彙整零稅率、進項及銷項資料，完成401營業稅申報作業' },
+          { id: 'aps-3-3', name: '應付憑單未處理查詢', description: '查詢已341進貨但尚未建立應付憑單之項目，及當月應付憑單未拋轉之異常，追蹤並完成補建補轉' },
+        ]
+      },
+      {
+        id: 'aps-4',
+        category: '費用估列作業',
+        items: [
+          { id: 'aps-4-1', name: '暫估費用入帳', description: '月底依各項費用發生狀況進行暫估，建立應付憑單或調整分錄，確保費用期間歸屬正確' },
+          { id: 'aps-4-2', name: '財務部費用憑單建立', description: '建立財務部相關費用之應付憑單及結帳單，確保費用憑單資料完整正確' },
+        ]
+      },
+      {
+        id: 'aps-5',
+        category: '歸檔與例行管理',
+        items: [
+          { id: 'aps-5-1', name: '傳票與結帳單歸檔', description: '定期整理並歸檔傳票、結帳單及原物料進貨單等文件，維持財務檔案完整有序' },
+          { id: 'aps-5-2', name: '付款草單管理', description: '依定期付款作業建立應付憑單付款草單，提供財務主管審核' },
+          { id: 'aps-5-3', name: '例行財務庶務', description: '執行財務部信日生輸流、購買統一發票等例行庶務，維持部門日常作業順暢' },
+        ]
+      },
+    ]
+  },
+  '帳務會計': {
+    category: '財務部',
+    level: '基層執行',
+    requiredLevel: 2,
+    competencies: [
+      {
+        id: 'gac-1',
+        category: '萊福進銷憑單審核與拋轉',
+        items: [
+          { id: 'gac-1-1', name: '萊福進貨單審核與拋轉', description: '審核萊福進貨單，確認品項、數量及金額正確，拋轉進貨傳票完成入帳' },
+          { id: 'gac-1-2', name: '萊福外銷銷貨結帳單審核與拋轉', description: '審核萊福外銷銷貨結帳單，確認出口資料正確，拋轉銷貨傳票完成入帳' },
+          { id: 'gac-1-3', name: '萊福內銷銷貨結帳單審核與拋轉', description: '審核萊福內銷銷貨結帳單，確認品項及客戶資料正確，拋轉銷貨傳票完成入帳' },
+        ]
+      },
+      {
+        id: 'gac-2',
+        category: '萊福應付費用憑單作業',
+        items: [
+          { id: 'gac-2-1', name: '萊福應付憑單審核與拋轉', description: '審核萊福應付憑單，確認廠商、金額及付款條件正確，拋轉付款傳票完成入帳' },
+          { id: 'gac-2-2', name: '萊福費用應付憑單審核與拋轉', description: '審核萊福費用類應付憑單，確認費用科目及金額正確，拋轉費用傳票完成入帳' },
+          { id: 'gac-2-3', name: '萊福其他收入拋轉', description: '審核萊福福報及其他各類收入憑證，拋轉對應傳票，確保收入帳務完整正確' },
+        ]
+      },
+      {
+        id: 'gac-3',
+        category: '月底結帳與成本結算',
+        items: [
+          { id: 'gac-3-1', name: '月底應估列費用入帳', description: '月底依薪資、勞健保及營收等估計數進行費用估列入帳，確保費用期間歸屬正確' },
+          { id: 'gac-3-2', name: '固定資產折舊提列', description: '月底依固定資產清單計算並提列折舊費用，完成折舊入帳及相關科目調整' },
+          { id: 'gac-3-3', name: '每月成本結算與報表產出', description: '執行每月成本結算作業，結算完成後產出資產負債表等財務報表及科目餘額表，供管理層參考' },
+        ]
+      },
+      {
+        id: 'gac-4',
+        category: '稅務申報',
+        items: [
+          { id: 'gac-4-1', name: '萊福月度營業稅申報', description: '每月彙整萊福銷售資料，完成營業稅申報作業，確保如期申報並符合法規' },
+          { id: 'gac-4-2', name: '奧興明細帳及發票明細管理', description: '產出奧興應收應付明細折舊費用報表及發票銷銷明細表，確保子公司帳務資料完整正確' },
+          { id: 'gac-4-3', name: '年度扣繳憑整及調節', description: '年度辦理萊福所得扣繳憑整申報及調節作業，確保數字與各項明細相符並如期申報' },
+        ]
+      },
+      {
+        id: 'gac-5',
+        category: '年度作業與行政支援',
+        items: [
+          { id: 'gac-5-1', name: '會計師查核配合', description: '配合會計師執行期中及期末查核，準備查核所需資料，進行相關平準作業，確保查核順利進行' },
+          { id: 'gac-5-2', name: '年度廠校及資產盤點', description: '參與年度工廠校正及整攤調查，配合固定資產盤點作業，確保帳實相符' },
+          { id: 'gac-5-3', name: '帳冊歸檔與系統維護', description: '整理並歸檔萊福傳票及帳冊，執行電腦主機資料備份，確保財務資料安全保存' },
+          { id: 'gac-5-4', name: '現金管理與行政庶務', description: '保管萊福高雄財務專用金，執行萊聯福委會庶務及SBIR專案庶務等行政支援事項' },
         ]
       },
     ]

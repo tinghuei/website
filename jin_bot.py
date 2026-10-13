@@ -4,6 +4,12 @@ from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import schedule
 
+def _tw_now():
+    """回傳台灣時間（UTC+8）的 naive datetime。
+    Render 伺服器系統時區是 UTC，若直接用 datetime.now() 會跟使用者實際時間差 8 小時，
+    導致提醒時間全部算錯——全部用這個取代 datetime.now()。"""
+    return datetime.utcnow() + timedelta(hours=8)
+
 try:
     from win11toast import toast
     WIN11TOAST = True
@@ -850,7 +856,7 @@ def do_notify_task(uid, task_title, body):
         tasks = load_tasks(uid)
         for t in tasks:
             if t.get("title") == task_title and t["status"] == "pending":
-                t["remind_at"] = (datetime.now() + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+                t["remind_at"] = (_tw_now() + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
                 save_tasks(uid, tasks)
                 break
 
@@ -911,7 +917,7 @@ def _call_groq(messages, model="openai/gpt-oss-120b", max_tokens=2000):
 
 def _build_time_refs():
     """預先計算所有常用時間點的分鐘數，讓 AI 直接查表，不需自己算"""
-    now = datetime.now()
+    now = _tw_now()
     WD = ["週一","週二","週三","週四","週五","週六","週日"]
     lines = [f"現在：{now.strftime('%Y-%m-%d %H:%M')}（{WD[now.weekday()]}）\n"]
     lines.append("範例（純數字分鐘/小時後，直接用該數字，不用查表）：3分鐘後 = 3分鐘後、10分鐘後 = 10分鐘後、2小時後 = 120分鐘後\n")
@@ -945,7 +951,7 @@ def _build_time_refs():
 
 # ── Groq API（文字）──────────────────────────────────────────
 def call_claude(uid, text):
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+    now_str = _tw_now().strftime("%Y-%m-%d %H:%M (%A)")
     prompt  = _task_prompt(uid).replace("{now}", now_str).replace("{time_refs}", _build_time_refs())
     messages = [
         {"role": "system", "content": prompt},
@@ -955,7 +961,7 @@ def call_claude(uid, text):
 
 # ── Groq API（純聊天）────────────────────────────────────────
 def call_chat(uid, text):
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+    now_str = _tw_now().strftime("%Y-%m-%d %H:%M (%A)")
     prompt  = _chat_prompt(uid).replace("{now}", now_str).replace("{schedule_context}", _build_schedule_context(uid))
     messages = [
         {"role": "system", "content": prompt},
@@ -1016,7 +1022,7 @@ def validate_invoice(fields, now=None):
     """依通用台灣統一發票規則判斷這張發票是否適合用來請款。
     回傳 {"checks":[{"level":"ok"/"warn"/"fail","text":...}], "verdict":..., "color":...}
     """
-    now = now or datetime.now()
+    now = now or _tw_now()
     checks = []
 
     inv_type = (fields.get("invoice_type") or "").strip()
@@ -1370,7 +1376,7 @@ def _parse_zh_datetime(expr, now):
     return datetime.combine(target_date, _time(hour, minute))
 
 def parse_time_expr(expr):
-    now = datetime.now()
+    now = _tw_now()
 
     local = _parse_zh_datetime(expr, now)
     if local is not None:
@@ -1472,7 +1478,7 @@ def _safe_json(raw):
 
 # ── 解析固定行程 ──────────────────────────────────────────────
 def call_parse_recurring(uid, text, max_tokens=6000):
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now_str = _tw_now().strftime("%Y-%m-%d %H:%M")
     prompt = _recurring_prompt(now_str, uid)
     messages = [
         {"role": "system", "content": prompt},
@@ -1499,14 +1505,14 @@ def call_parse_recurring(uid, text, max_tokens=6000):
 
 # ── 空閒關心 / 每日關心（動態成員）─────────────────────────────
 def call_checkin(uid):
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+    now_str = _tw_now().strftime("%Y-%m-%d %H:%M (%A)")
     prompt  = _checkin_prompt(uid).replace("{now}", now_str)
     messages = [{"role": "user", "content": prompt}]
     return _call_groq(messages, max_tokens=200).strip()
 
 def add_tasks(uid, new_tasks):
     tasks = load_tasks(uid)
-    now = datetime.now()
+    now = _tw_now()
     for t in new_tasks:
         remind_at = now + timedelta(minutes=t["remind_in_minutes"])
         t["remind_at"] = remind_at.strftime("%Y-%m-%d %H:%M:%S")
@@ -2056,7 +2062,7 @@ def _dispatch(user_id, reply_token, text):
             tasks = load_tasks(user_id)
             for t in tasks:
                 if keyword in t.get("title","") and t.get("status") == "pending":
-                    t["remind_at"] = (datetime.now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
+                    t["remind_at"] = (_tw_now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
                     save_tasks(user_id, tasks)
                     line_reply(reply_token,
                         f"好，{t['title']} 延後 {mins} 分鐘！\n但不要一直逃避喔！😤",
@@ -2102,7 +2108,7 @@ def _dispatch(user_id, reply_token, text):
             try:
                 mins = parse_time_expr(time_expr)
                 if mins <= 0: raise ValueError()
-                found["remind_at"] = (datetime.now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
+                found["remind_at"] = (_tw_now() + timedelta(minutes=mins)).strftime("%Y-%m-%d %H:%M:%S")
                 save_tasks(user_id, tasks)
                 line_reply(reply_token,
                     f"✅ 已更新！\n{found['title']}\n⏰ 新提醒：{found['remind_at']}",
@@ -2411,7 +2417,7 @@ def check_recurring():
 
 def _check_recurring_for_user(uid):
     import uuid as _uuid
-    now = datetime.now()
+    now = _tw_now()
     items = load_recurring(uid)
     tasks = load_tasks(uid)
     # 依「固定行程 id + 目標日期」去重，而不是「今天有沒有建過」——
@@ -2534,7 +2540,7 @@ def _check_reminders_for_user(uid):
     import random
     try:
         tasks = load_tasks(uid)
-        now = datetime.now()
+        now = _tw_now()
         updated = False
 
         for t in tasks:
@@ -2572,7 +2578,7 @@ _last_slots_date: str = ""
 
 def _pick_today_slots():
     global _today_slots, _last_slots_date
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = _tw_now().strftime("%Y-%m-%d")
     if _last_slots_date != today:
         _last_slots_date = today
         # 每天隨機選 1 或 2 個時段
@@ -2589,7 +2595,7 @@ def send_daily_checkin(slot_time, slot_name, greeting):
         if not uid:
             continue
         try:
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+            now_str = _tw_now().strftime("%Y-%m-%d %H:%M (%A)")
             prompt  = _daily_checkin_prompt(slot_name, uid).replace("{now}", now_str)
             messages = [{"role": "user", "content": prompt}]
             msg = _call_groq(messages, max_tokens=200).strip()
@@ -2603,9 +2609,9 @@ def check_and_checkin():
     """空閒時對每位使用者隨機關心（原本保留，頻率降低避免太吵）"""
     import random
     # 只在奇數小時觸發，降低頻率
-    if datetime.now().hour % 4 != 0:
+    if _tw_now().hour % 4 != 0:
         return
-    hour = datetime.now().hour
+    hour = _tw_now().hour
     if hour < 9 or hour >= 22:
         return
     for uid in load_users():

@@ -482,8 +482,9 @@ Current status: {m['status']}
 {{time_refs}}
 == END OF TIME REFERENCE TABLE ==
 
-IMPORTANT: Use ONLY the numbers from the TIME REFERENCE TABLE above.
-DO NOT calculate time yourself. Just look up the matching entry and copy its minutes value.
+IMPORTANT: For specific clock times, dates, or weekday expressions (e.g. 下午3點, 明天早上9點, 下週一), use ONLY the numbers from the TIME REFERENCE TABLE above — DO NOT calculate those yourself, just look up the matching entry and copy its minutes value.
+
+EXCEPTION: If the user gives a plain relative offset like "N分鐘後" / "N小時後" / "N小時N分鐘後" (a simple number of minutes or hours from now, e.g. 3分鐘後, 90分鐘後, 2小時後), just compute remind_in_minutes = N directly (minutes), or N*60 (hours) — these are NOT in the table and you should calculate them directly instead of refusing or rounding to a table value.
 
 IMPORTANT: First determine if TASK/REMINDER or just CHAT.
 - Task/reminder (has time/deadline/to-do) → JSON with tasks list
@@ -913,6 +914,7 @@ def _build_time_refs():
     now = datetime.now()
     WD = ["週一","週二","週三","週四","週五","週六","週日"]
     lines = [f"現在：{now.strftime('%Y-%m-%d %H:%M')}（{WD[now.weekday()]}）\n"]
+    lines.append("範例（純數字分鐘/小時後，直接用該數字，不用查表）：3分鐘後 = 3分鐘後、10分鐘後 = 10分鐘後、2小時後 = 120分鐘後\n")
 
     def mins(dt):
         return max(1, int((dt - now).total_seconds() / 60))

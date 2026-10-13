@@ -882,7 +882,7 @@ def download_line_image(message_id):
     return data  # bytes
 
 # ── Groq API 共用函數 ─────────────────────────────────────────
-def _call_groq_raw(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
+def _call_groq_raw(messages, model="openai/gpt-oss-120b", max_tokens=2000):
     data = json.dumps({
         "model": model,
         "messages": messages,
@@ -904,7 +904,7 @@ def _call_groq_raw(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
 
     return body["choices"][0]["message"]["content"]
 
-def _call_groq(messages, model="llama-3.3-70b-versatile", max_tokens=2000):
+def _call_groq(messages, model="openai/gpt-oss-120b", max_tokens=2000):
     raw = _call_groq_raw(messages, model=model, max_tokens=max_tokens)
     return _safe_json(raw)
 
@@ -1379,7 +1379,7 @@ def parse_time_expr(expr):
     now_str = now.strftime("%Y-%m-%d %H:%M")
     prompt = TIME_PARSE_PROMPT.format(now=now_str, expr=expr)
     messages = [{"role": "user", "content": prompt}]
-    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 20},
+    data = json.dumps({"model": "openai/gpt-oss-120b", "messages": messages, "max_tokens": 20},
                       ensure_ascii=False).encode("utf-8")
     ctx = ssl.create_default_context()
     conn = http.client.HTTPSConnection("api.groq.com", context=ctx)
@@ -1476,7 +1476,7 @@ def call_parse_recurring(uid, text, max_tokens=6000):
         {"role": "system", "content": prompt},
         {"role": "user", "content": text},
     ]
-    data = json.dumps({"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": max_tokens},
+    data = json.dumps({"model": "openai/gpt-oss-120b", "messages": messages, "max_tokens": max_tokens},
                       ensure_ascii=False).encode("utf-8")
     ctx = ssl.create_default_context()
     conn = http.client.HTTPSConnection("api.groq.com", context=ctx)

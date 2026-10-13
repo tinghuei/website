@@ -2364,7 +2364,10 @@ def process_recurring(user_id, text):
     except Exception as e:
         _rm = get_member(user_id)
         print(f"[process_recurring Error] {e}")
-        line_push(user_id, f"{_rm['emoji']} 剛才沒記清楚，可以再說一次固定行程嗎？", quick_reply=MAIN_MENU)
+        line_push(user_id,
+            f"{_rm['emoji']} 剛才沒記清楚，可以再說一次固定行程嗎？\n\n"
+            f"（除錯資訊：{str(e)[:300]}）",
+            quick_reply=MAIN_MENU)
 
 # ── 固定行程排程觸發 ──────────────────────────────────────────
 def check_recurring():

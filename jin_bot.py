@@ -1928,6 +1928,53 @@ def handle_message(user_id, reply_token, text):
             except Exception:
                 pass
 
+def _help_text(uid=None):
+    m = get_member(uid)
+    return (
+        f"📖 {m['name']} Bot 使用說明\n\n"
+        "💬 建立任務／提醒，直接用講的就好：\n"
+        "  例：下午3點開會、明天早上9點交報告、30分鐘後提醒我喝水、3分鐘後倒垃圾\n"
+        "📸 傳照片 → 辨識手寫清單\n"
+        "🧾 傳「發票辨識」→ 下一張照片改辨識發票請款\n\n"
+        "📋 查看任務\n"
+        "✅ 完成 任務名稱\n"
+        "⏰ 延後30 任務名稱（不寫數字預設30分鐘）\n"
+        "✏️ 編輯 任務名稱\n"
+        "  └ 改時間 任務 新時間（例：改時間 開會 下午4點20分）\n"
+        "  └ 改內容 任務 新說明\n"
+        "  └ 改標題 任務 新標題\n"
+        "🗑️ 刪除任務 名稱\n"
+        "🗑️ 刪除全部任務\n\n"
+        "📅 記住 每月25號...（固定行程，到期前會自動提醒）\n"
+        "📅 查看固定行程\n"
+        "🗑️ 刪除固定 名稱\n\n"
+        "🎤 切換成員 → 切換陪你的 BTS 成員\n"
+        "📧 連接outlook → 連接主管信箱，自動分類請款信通知\n\n"
+        "👆 下方選單按鈕（查看任務／固定行程／拍照／切換成員／說明）只會顯示在「手機版 LINE」，電腦版 LINE 目前不支援這個浮動選單，電腦上請直接打字輸入指令。\n\n"
+        f"{m['name']} 全程監督！{m['emoji']}"
+    )
+
+def send_welcome_message(user_id, reply_token=None):
+    """新加好友時發送歡迎訊息＋使用說明"""
+    m = get_member(user_id)
+    text = (
+        f"{m['emoji']} 哈囉！我是 {m['full_name']}！\n"
+        f"從現在開始由我陪你管理任務、固定行程，不完成會一直盯著你的！\n\n"
+        + _help_text(user_id)
+    )
+    try:
+        if reply_token:
+            line_reply(reply_token, text, quick_reply=MAIN_MENU)
+        else:
+            line_push(user_id, text, quick_reply=MAIN_MENU)
+    except Exception as e:
+        print(f"[send_welcome_message] {e}")
+    if IS_CLOUD:
+        try:
+            setup_rich_menu(user_id)
+        except Exception as e:
+            print(f"[send_welcome_message] rich menu error: {e}")
+
 def _dispatch(user_id, reply_token, text):
     """實際處理各種指令"""
     m = get_member(user_id)
@@ -2216,26 +2263,7 @@ def _dispatch(user_id, reply_token, text):
 
     # ── 使用說明 ──
     elif text in ["幫助", "help", "Help", "？", "?", "使用說明"]:
-        line_reply(reply_token,
-            f"📖 {m['name']} Bot 使用說明\n\n"
-            "💬 傳文字 → 建立任務和提醒\n"
-            "📸 傳照片 → 辨識手寫清單\n"
-            "🧾 傳「發票辨識」→ 下一張照片改辨識發票請款\n\n"
-            "📋 查看任務\n"
-            "✅ 完成 任務名稱\n"
-            "⏰ 延後30 任務名稱\n"
-            "✏️ 編輯 任務名稱\n"
-            "  └ 改時間 任務 新時間\n"
-            "  └ 改內容 任務 新說明\n"
-            "  └ 改標題 任務 新標題\n"
-            "🗑️ 刪除任務 名稱\n"
-            "🗑️ 刪除全部任務\n\n"
-            "📅 記住 每月25號...\n"
-            "📅 查看固定行程\n"
-            f"🗑️ 刪除固定 名稱\n\n"
-            "📧 連接outlook → 連接主管信箱，自動分類請款信通知\n\n"
-            f"{m['name']} 全程監督！{m['emoji']}",
-            quick_reply=MAIN_MENU)
+        line_reply(reply_token, _help_text(user_id), quick_reply=MAIN_MENU)
 
     # ── 其他：AI 分析 ──
     else:
@@ -2770,7 +2798,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
         try:
             data = json.loads(body.decode("utf-8"))
             for event in data.get("events", []):
-                if event.get("type") != "message":
+                etype = event.get("type")
+
+                if etype == "follow":
+                    user_id = event["source"]["userId"]
+                    reply_token = event["replyToken"]
+                    register_user(user_id)
+                    threading.Thread(target=send_welcome_message, args=(user_id, reply_token), daemon=True).start()
+                    continue
+
+                if etype != "message":
                     continue
 
                 user_id    = event["source"]["userId"]

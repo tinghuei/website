@@ -157,7 +157,7 @@ function Router() {
       </Route>
       <Route path={"/training/management-reports"}>
         {() => (
-          <TrainingLayout roles={['manager', 'admin']}>
+          <TrainingLayout roles={['manager', 'admin', 'vp']}>
             <ManagementReports />
           </TrainingLayout>
         )}
@@ -178,7 +178,7 @@ function Router() {
       </Route>
       <Route path={"/training/physical-training"}>
         {() => (
-          <TrainingLayout roles={['manager', 'admin', 'hr']}>
+          <TrainingLayout roles={['manager', 'admin', 'hr', 'vp']}>
             <PhysicalTraining />
           </TrainingLayout>
         )}
@@ -192,7 +192,7 @@ function Router() {
       </Route>
       <Route path={"/training/instructor-roster"}>
         {() => (
-          <TrainingLayout roles={['manager', 'admin', 'hr']}>
+          <TrainingLayout roles={['manager', 'admin', 'hr', 'vp']}>
             <InstructorRoster />
           </TrainingLayout>
         )}

@@ -74,9 +74,9 @@ const FEATURES: Feature[] = [
   { id: 'F-020', name: '系統管理', group: '管理功能' },
 ];
 
-const ROLES = ['employee', 'manager', 'hr', 'admin'] as const;
+const ROLES = ['employee', 'manager', 'hr', 'admin', 'vp'] as const;
 type Role = typeof ROLES[number];
-const ROLE_LABELS: Record<Role, string> = { employee: '員工', manager: '主管', hr: '人資', admin: '管理員' };
+const ROLE_LABELS: Record<Role, string> = { employee: '員工', manager: '主管', hr: '人資', admin: '管理員', vp: '副總以上' };
 
 type PermMatrix = Record<string, Record<Role, boolean>>;
 
@@ -637,7 +637,7 @@ export default function TrainingAdminPanel() {
                           <select
                             defaultValue={user.role}
                             onChange={(e) => {
-                              setUserRole(user.id, e.target.value as 'employee' | 'manager' | 'admin');
+                              setUserRole(user.id, e.target.value as 'employee' | 'manager' | 'admin' | 'hr' | 'vp');
                               setEditingUserRole(null);
                             }}
                             className="text-sm border border-blue-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -647,6 +647,7 @@ export default function TrainingAdminPanel() {
                             <option value="manager">部門主管</option>
                             <option value="hr">人資</option>
                             <option value="admin">系統管理員</option>
+                            <option value="vp">副總以上</option>
                           </select>
                           <button
                             onClick={() => setEditingUserRole(null)}
@@ -937,13 +938,14 @@ export default function TrainingAdminPanel() {
                     <label className="block text-xs font-medium text-gray-700 mb-1">初始角色</label>
                     <select
                       value={addUserForm.role}
-                      onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value as 'employee' | 'manager' | 'hr' | 'admin' }))}
+                      onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value as 'employee' | 'manager' | 'hr' | 'admin' | 'vp' }))}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
                       <option value="employee">員工</option>
                       <option value="manager">部門主管</option>
                       <option value="hr">人資</option>
                       <option value="admin">系統管理員</option>
+                      <option value="vp">副總以上</option>
                     </select>
                   </div>
                 </div>

@@ -76,7 +76,7 @@ const FEATURES: Feature[] = [
 
 const ROLES = ['employee', 'manager', 'hr', 'admin', 'vp'] as const;
 type Role = typeof ROLES[number];
-const ROLE_LABELS: Record<Role, string> = { employee: '員工', manager: '主管', hr: '人資', admin: '管理員', vp: '副總以上' };
+const ROLE_LABELS: Record<Role, string> = { employee: '員工', manager: '主管', hr: '人資', admin: '管理員', vp: '經營層' };
 
 type PermMatrix = Record<string, Record<Role, boolean>>;
 
@@ -647,7 +647,7 @@ export default function TrainingAdminPanel() {
                             <option value="manager">部門主管</option>
                             <option value="hr">人資</option>
                             <option value="admin">系統管理員</option>
-                            <option value="vp">副總以上</option>
+                            <option value="vp">經營層</option>
                           </select>
                           <button
                             onClick={() => setEditingUserRole(null)}
@@ -945,7 +945,7 @@ export default function TrainingAdminPanel() {
                       <option value="manager">部門主管</option>
                       <option value="hr">人資</option>
                       <option value="admin">系統管理員</option>
-                      <option value="vp">副總以上</option>
+                      <option value="vp">經營層</option>
                     </select>
                   </div>
                 </div>

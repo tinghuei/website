@@ -1198,8 +1198,8 @@ export default function CompetencyAnalysis() {
     [positionGapSummaries]
   );
 
-  // 部門主管只看自己的部屬（managerId 指向自己）；人資/管理員看全部
-  const isManagerOnly = currentUser?.role === 'manager';
+  // 部門主管與經營層只看自己的部屬（managerId 指向自己）；人資/管理員看全部
+  const isManagerOnly = currentUser?.role === 'manager' || currentUser?.role === 'vp';
   const mySubordinateIds = useMemo(() => {
     if (!isManagerOnly || !currentUser) return null;
     return new Set(users.filter((u) => u.managerId === currentUser.id).map((u) => u.id));
@@ -1348,8 +1348,8 @@ export default function CompetencyAnalysis() {
         </div>
       )}
 
-      {/* ── 主管職能評估（主管／人資／管理員）── */}
-      {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+      {/* ── 主管職能評估（主管／人資／管理員／經營層）── */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager' || currentUser?.role === 'vp') && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center">

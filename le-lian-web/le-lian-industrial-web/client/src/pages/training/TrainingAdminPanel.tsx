@@ -137,11 +137,12 @@ const INITIAL_ROUTINE: RoutineCourse[] = [
   { id: 'rc3', courseName: '設備保養SOP講習', instructor: '工程課王工程師', date: '2026-06-15', hours: 4, department: '工程課', participants: ['王小華', '劉俊達', '蔡建志'], outline: '設備保養週期說明、潤滑油更換規範、異常處理程序', status: 'draft', submittedBy: '王工程師', submittedAt: '2026-06-04' },
 ];
 
-const roleLabel: Record<string, string> = { admin: '系統管理員', manager: '部門主管', hr: '人資', employee: '員工' };
+const roleLabel: Record<string, string> = { admin: '系統管理員', manager: '部門主管', hr: '人資', employee: '員工', vp: '經營層' };
 const roleColor: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700',
   manager: 'bg-blue-100 text-blue-700',
   hr: 'bg-orange-100 text-orange-700',
+  vp: 'bg-red-100 text-red-700',
   employee: 'bg-green-100 text-green-700',
 };
 
@@ -588,7 +589,7 @@ export default function TrainingAdminPanel() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${
-                          user.role === 'admin' ? 'bg-purple-500' : user.role === 'manager' ? 'bg-blue-500' : 'bg-green-500'
+                          user.role === 'admin' ? 'bg-purple-500' : user.role === 'manager' ? 'bg-blue-500' : user.role === 'vp' ? 'bg-red-500' : 'bg-green-500'
                         }`}>
                           {user.avatar || user.name[0]}
                         </div>

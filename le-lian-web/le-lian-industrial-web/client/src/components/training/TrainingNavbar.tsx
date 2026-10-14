@@ -51,7 +51,7 @@ export default function TrainingNavbar({ onMenuClick }: TrainingNavbarProps) {
         >
           <Menu size={20} className="text-gray-600" />
         </button>
-        <Link href="/training/login">
+        <Link href="/">
           <div className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0">
             <img src="/website/choice-logo.svg" alt="CHOICE" className="h-8 sm:h-9 object-contain shrink-0" />
             <div className="min-w-0">

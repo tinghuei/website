@@ -617,7 +617,7 @@ export default function TrainingAdminPanel() {
                             autoFocus
                           >
                             <option value="">（無）</option>
-                            {users.filter(u => u.id !== user.id && (u.role === 'manager' || u.role === 'admin' || u.role === 'hr')).map(u => (
+                            {users.filter(u => u.id !== user.id && (u.role === 'manager' || u.role === 'admin' || u.role === 'hr' || u.role === 'vp')).map(u => (
                               <option key={u.id} value={u.id}>{u.name}（{roleLabel[u.role]}）</option>
                             ))}
                           </select>

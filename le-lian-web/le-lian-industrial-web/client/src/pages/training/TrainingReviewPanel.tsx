@@ -287,7 +287,7 @@ export default function TrainingReviewPanel() {
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {/* Manager approve */}
-                          {!enr.managerApproved && (currentUser?.role === 'manager' || currentUser?.role === 'admin') && (
+                          {!enr.managerApproved && (currentUser?.role === 'manager' || currentUser?.role === 'admin' || currentUser?.role === 'vp') && (
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                               <h5 className="font-semibold text-blue-800 text-sm mb-2 flex items-center gap-1.5">
                                 <CheckCircle size={15} /> 主管審核通過

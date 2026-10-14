@@ -42,7 +42,7 @@ const navItems = [
   { to: '/training/physical-training',  icon: ClipboardList,   labelKey: 'nav.physicalTraining',  roles: ['manager', 'admin', 'hr', 'vp'] },
   { to: '/training/instructor-roster',  icon: Users,           labelKey: 'nav.instructorRoster',  roles: ['manager', 'admin', 'hr', 'vp'] },
   { to: '/training/performance-tracking', icon: TrendingUp,    labelKey: 'nav.performanceTracking', roles: ['employee', 'manager', 'admin', 'hr', 'vp'] },
-  { to: '/training/review',             icon: ClipboardCheck,  labelKey: 'nav.review',            roles: ['manager', 'admin', 'hr'] },
+  { to: '/training/review',             icon: ClipboardCheck,  labelKey: 'nav.review',            roles: ['manager', 'admin', 'hr', 'vp'] },
   { to: '/training/admin',              icon: Settings,        labelKey: 'nav.admin',         roles: ['admin', 'hr'] },
 ];
 

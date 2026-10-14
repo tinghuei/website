@@ -164,7 +164,7 @@ function Router() {
       </Route>
       <Route path={"/training/fee-agreement"}>
         {() => (
-          <TrainingLayout roles={['manager', 'admin', 'hr']}>
+          <TrainingLayout roles={['manager', 'admin', 'hr', 'vp']}>
             <FeeAgreement />
           </TrainingLayout>
         )}

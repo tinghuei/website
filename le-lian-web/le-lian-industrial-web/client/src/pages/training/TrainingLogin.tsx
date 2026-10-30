@@ -60,11 +60,8 @@ export default function TrainingLogin() {
     setSubmitting(false);
     if (user) {
       navigate('/training/dashboard');
-    } else if (!existing) {
-      // 本地清單找不到且登入也失敗 → 新使用者，進入註冊流程
-      setStep('register');
     } else {
-      setError('登入失敗，請確認電子郵件與密碼是否正確。');
+      setError('登入失敗，請確認電子郵件與密碼是否正確。若為首次登入，請點下方連結設定帳號。');
     }
   }
 
@@ -189,7 +186,16 @@ export default function TrainingLogin() {
                 </div>
 
                 {error && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+                    <button
+                      type="button"
+                      onClick={() => { setError(''); setInfo(''); setStep('register'); }}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline w-full text-left px-1"
+                    >
+                      首次登入？點此設定帳號
+                    </button>
+                  </div>
                 )}
                 {info && (
                   <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{info}</p>

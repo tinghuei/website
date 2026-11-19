@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 績效考核評分表自動生成腳本
-115年度 上半年 績效考核 — 樂聯工業股份有限公司
+115年度 下半年 績效考核 — 樂聯工業股份有限公司
 
 執行方式：python3 generate_eval_sheets.py
 輸出：eval_output/ 資料夾，每人一個 Excel 評分表
@@ -19,7 +19,7 @@ from openpyxl.styles.differential import DifferentialStyle
 # ============================================================
 # 路徑設定
 # ============================================================
-TEMPLATE_FILE = '/home/user/website/115年終考核題目_修改題目對照.xlsm'
+TEMPLATE_FILE = '/home/user/website/115下半年考核題目.xlsm'
 OUTPUT_DIR    = '/home/user/website/eval_output'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
